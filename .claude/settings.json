@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"from auto_healer import AutoHealer, EXPLAIN_PROMPT; from main import app; print\\('Task 4 OK'\\)\")",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:8765/health)",
+      "PowerShell(Stop-Process -Id \\(Get-NetTCPConnection -LocalPort 8765 -ErrorAction SilentlyContinue\\).OwningProcess -Force -ErrorAction SilentlyContinue; Write-Output \"stopped\")",
+      "Bash(python demo.py)",
+      "Bash(python -c ' *)",
+      "Bash(curl -s -X POST http://localhost:8765/analyze -H 'Content-Type: application/json' -d '{\"file_path\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project/math_utils.py\",\"project_root\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project\",\"llm_provider\":\"none\",\"auto_heal\":false,\"ai_mutants\":false,\"detect_equivalents\":true}')",
+      "Bash(curl -sN \"http://localhost:8765/stream/c2a06912-e9c3-4452-91ed-29de8120693a\")",
+      "Bash(grep -v \"^.*//.*:\")",
+      "Bash(node -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :8765)",
+      "Bash(taskkill /PID 21444 /F)",
+      "PowerShell(Stop-Process -Id 21444 -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; $p = Get-NetTCPConnection -LocalPort 8765 -ErrorAction SilentlyContinue; if \\($p\\) { \"Port still in use by PID $\\($p.OwningProcess\\)\" } else { \"Port 8765 is free\" })",
+      "Bash(python main.py)",
+      "PowerShell(Start-Sleep -Seconds 3; $conn = Get-NetTCPConnection -LocalPort 8765 -ErrorAction SilentlyContinue; if \\($conn\\) { \"Backend up on port 8765 \\(PID $\\($conn.OwningProcess\\)\\)\" } else { \"Backend not yet listening...\" })",
+      "Bash(node -e \"const ext = require\\('./out/extension.js'\\); \")",
+      "Bash(node --check \"c:\\\\AchieverThoughtsProjects\\\\QAMill\\\\QAMill\\\\vscode-extension\\\\out\\\\_check2.js\")"
+    ]
+  }
+}
