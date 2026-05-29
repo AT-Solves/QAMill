@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QAMill Report — math_utils.py</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       background: #1e1e1e; color: #d4d4d4; font-size: 14px; line-height: 1.6; padding: 36px 48px; }
+h1  { font-size: 26px; color: #4ec9a0; margin-bottom: 4px; }
+h2  { font-size: 15px; font-weight: 700; color: #c9d1d9; margin: 28px 0 12px;
+      border-bottom: 1px solid #30363d; padding-bottom: 6px; text-transform: uppercase;
+      letter-spacing: .06em; }
+.meta { color: #8b949e; font-size: 12px; margin-bottom: 28px; }
+.score-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 28px; }
+.sc { background: #252526; border: 1px solid #30363d; border-radius: 8px; padding: 14px 20px; min-width: 110px; }
+.sc .v { font-size: 36px; font-weight: 700; }
+.sc .l { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: .07em; margin-top: 2px; }
+.v-ts  { color: #4ec9a0; }
+.v-raw { color: #ce9178; }
+.v-k   { color: #4ec9a0; }
+.v-s   { color: #f48771; }
+.v-eq  { color: #dcdcaa; }
+.op-row { margin-bottom: 10px; }
+.op-hd  { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+.bar-w  { background: #30363d; border-radius: 4px; height: 10px; overflow: hidden; }
+.bar-f  { height: 100%; background: #4ec9a0; border-radius: 4px; }
+table  { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+th  { text-align: left; padding: 7px 10px; background: #252526; color: #8b949e;
+      font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+td  { padding: 7px 10px; border-bottom: 1px solid #252526; vertical-align: top; }
+tr:hover td { background: #252526; }
+.b  { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.bk { background: #1e3a2f; color: #4ec9a0; }
+.bs { background: #3a1e1e; color: #f48771; }
+.be { background: #2a2a1e; color: #dcdcaa; }
+.footer { margin-top: 40px; font-size: 11px; color: #555; border-top: 1px solid #252526; padding-top: 12px; }
+</style>
+</head>
+<body>
+<h1>QAMill &mdash; Mutation Analysis Report</h1>
+<div class="meta">
+  File: <strong>math_utils.py</strong> &nbsp;&middot;&nbsp;
+  Generated: 2026-05-30 00:10 &nbsp;&middot;&nbsp;
+  Total mutants: 445
+</div>
+
+<h2>Score Summary</h2>
+<div class="score-row">
+  <div class="sc"><div class="l">True Score</div><div class="v v-ts">81.3%</div></div>
+  <div class="sc"><div class="l">Raw Score</div><div class="v v-raw">39.1%</div></div>
+  <div class="sc"><div class="l">Killed</div><div class="v v-k">174</div></div>
+  <div class="sc"><div class="l">Survived</div><div class="v v-s">40</div></div>
+  <div class="sc"><div class="l">Equivalent</div><div class="v v-eq">231</div></div>
+</div>
+
+<h2>Coverage by Operator</h2>
+<div class="op-row"><div class="op-hd"><span><strong>BVM</strong> &nbsp;110 mutants</span><span>50/110 killed &nbsp;(45%)</span></div><div class="bar-w"><div class="bar-f" style="width:45%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>SCM</strong> &nbsp;84 mutants</span><span>15/84 killed &nbsp;(18%)</span></div><div class="bar-w"><div class="bar-f" style="width:18%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>ROR</strong> &nbsp;78 mutants</span><span>44/78 killed &nbsp;(56%)</span></div><div class="bar-w"><div class="bar-f" style="width:56%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>AOR</strong> &nbsp;30 mutants</span><span>11/30 killed &nbsp;(37%)</span></div><div class="bar-w"><div class="bar-f" style="width:37%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>DFM</strong> &nbsp;26 mutants</span><span>15/26 killed &nbsp;(58%)</span></div><div class="bar-w"><div class="bar-f" style="width:58%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>RVR</strong> &nbsp;26 mutants</span><span>22/26 killed &nbsp;(85%)</span></div><div class="bar-w"><div class="bar-f" style="width:85%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>NIM</strong> &nbsp;22 mutants</span><span>5/22 killed &nbsp;(23%)</span></div><div class="bar-w"><div class="bar-f" style="width:23%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>SDL</strong> &nbsp;20 mutants</span><span>1/20 killed &nbsp;(5%)</span></div><div class="bar-w"><div class="bar-f" style="width:5%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>CMR</strong> &nbsp;10 mutants</span><span>1/10 killed &nbsp;(10%)</span></div><div class="bar-w"><div class="bar-f" style="width:10%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>LMO</strong> &nbsp;9 mutants</span><span>0/9 killed &nbsp;(0%)</span></div><div class="bar-w"><div class="bar-f" style="width:0%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>EHM</strong> &nbsp;8 mutants</span><span>1/8 killed &nbsp;(12%)</span></div><div class="bar-w"><div class="bar-f" style="width:12%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>LCR</strong> &nbsp;7 mutants</span><span>4/7 killed &nbsp;(57%)</span></div><div class="bar-w"><div class="bar-f" style="width:57%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>TCM</strong> &nbsp;6 mutants</span><span>2/6 killed &nbsp;(33%)</span></div><div class="bar-w"><div class="bar-f" style="width:33%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>AIM</strong> &nbsp;4 mutants</span><span>2/4 killed &nbsp;(50%)</span></div><div class="bar-w"><div class="bar-f" style="width:50%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>BCR</strong> &nbsp;3 mutants</span><span>1/3 killed &nbsp;(33%)</span></div><div class="bar-w"><div class="bar-f" style="width:33%"></div></div></div>
+<div class="op-row"><div class="op-hd"><span><strong>CEM</strong> &nbsp;2 mutants</span><span>0/2 killed &nbsp;(0%)</span></div><div class="bar-w"><div class="bar-f" style="width:0%"></div></div></div>
+
+
+<h2>Survived Mutants (40)</h2>
+<table>
+  <thead><tr><th>ID</th><th>Op</th><th>Function</th><th>Line</th><th>Description</th></tr></thead>
+  <tbody><tr><td>M0039</td><td>BCR</td><td>update_account_balance</td><td>25</td><td>True <-> False</td></tr>
+<tr><td>M0043</td><td>BCR</td><td>send_notification</td><td>30</td><td>True <-> False</td></tr>
+<tr><td>M0022</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>3 -> 4</td></tr>
+<tr><td>M0023</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>3 -> 0</td></tr>
+<tr><td>M0018</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>2 -> 1</td></tr>
+<tr><td>M0021</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>3 -> 2</td></tr>
+<tr><td>M0027</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>500.0 -> 499.0</td></tr>
+<tr><td>M0029</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>500.0 -> 0</td></tr>
+<tr><td>M0032</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>250.0 -> 0</td></tr>
+<tr><td>M0010</td><td>SCM</td><td>validate_user_id</td><td>13</td><td>"Stub: returns True if user_id is a positive integer." -> ""</td></tr>
+<tr><td>M0031</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>250.0 -> 251.0</td></tr>
+<tr><td>M0030</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>250.0 -> 249.0</td></tr>
+<tr><td>M0035</td><td>SCM</td><td>get_account_balance</td><td>18</td><td>"Stub: returns a fake balance for testing." -> ""</td></tr>
+<tr><td>M0040</td><td>RVR</td><td>update_account_balance</td><td>25</td><td>return value -> None</td></tr>
+<tr><td>M0011</td><td>SCM</td><td>validate_user_id</td><td>13</td><td>"Stub: returns True if user_id is a positive integer." -> "STUB: RETURNS TRUE IF USER_ID IS A POSITIVE INTEGER."</td></tr>
+<tr><td>M0044</td><td>RVR</td><td>send_notification</td><td>30</td><td>return value -> None</td></tr>
+<tr><td>M0025</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>1000.0 -> 1001.0</td></tr>
+<tr><td>M0034</td><td>BVM</td><td>get_account_balance</td><td>20</td><td>0.0 -> 1.0</td></tr>
+<tr><td>M0019</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>2 -> 3</td></tr>
+<tr><td>M0033</td><td>BVM</td><td>get_account_balance</td><td>20</td><td>0.0 -> -1.0</td></tr>
+<tr><td>M0085</td><td>ROR</td><td>clamp</td><td>62</td><td>< -> <=</td></tr>
+<tr><td>M0024</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>1000.0 -> 999.0</td></tr>
+<tr><td>M0098</td><td>ROR</td><td>factorial</td><td>72</td><td>== -> <</td></tr>
+<tr><td>M0110</td><td>BVM</td><td>factorial</td><td>72</td><td>0 -> -1</td></tr>
+<tr><td>M0111</td><td>BVM</td><td>factorial</td><td>72</td><td>0 -> 1</td></tr>
+<tr><td>M0123</td><td>SCM</td><td>factorial</td><td>71</td><td>"Factorial not defined for negative numbers" -> "FACTORIAL NOT DEFINED FOR NEGATIVE NUMBERS"</td></tr>
+<tr><td>M0122</td><td>SCM</td><td>factorial</td><td>71</td><td>"Factorial not defined for negative numbers" -> ""</td></tr>
+<tr><td>M0140</td><td>ROR</td><td>max_of_three</td><td>85</td><td>>= -> ></td></tr>
+<tr><td>M0036</td><td>SCM</td><td>get_account_balance</td><td>18</td><td>"Stub: returns a fake balance for testing." -> "STUB: RETURNS A FAKE BALANCE FOR TESTING."</td></tr>
+<tr><td>M0145</td><td>DFM</td><td>max_of_three</td><td>84</td><td>parameters a <-> b swapped</td></tr>
+<tr><td>M0028</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>500.0 -> 501.0</td></tr>
+<tr><td>M0147</td><td>DFM</td><td>max_of_three</td><td>84</td><td>parameters b <-> c swapped</td></tr>
+<tr><td>M0171</td><td>ROR</td><td>is_leap_year</td><td>99</td><td>!= -> ></td></tr>
+<tr><td>M0146</td><td>DFM</td><td>max_of_three</td><td>84</td><td>parameters a <-> c swapped</td></tr>
+<tr><td>M0255</td><td>BVM</td><td>process_payment</td><td>124</td><td>0 -> 1</td></tr>
+<tr><td>M0324</td><td>BVM</td><td>transfer_funds</td><td>165</td><td>0 -> 1</td></tr>
+<tr><td>M0371</td><td>BVM</td><td>find_first_positive</td><td>191</td><td>0 -> 1</td></tr>
+<tr><td>M0390</td><td>RVR</td><td>parse_config</td><td>210</td><td>return value -> None</td></tr>
+<tr><td>M0020</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>2 -> 0</td></tr>
+<tr><td>M0400</td><td>TCM</td><td>parse_config</td><td>211</td><td>str() cast removed</td></tr>
+</tbody>
+</table>
+
+<h2>All Mutants (445)</h2>
+<table>
+  <thead><tr><th>ID</th><th>Op</th><th>Function</th><th>Line</th><th>Description</th><th>Status</th></tr></thead>
+  <tbody><tr><td>M0041</td><td>SCM</td><td>update_account_balance</td><td>24</td><td>"Stub: simulates updating account balance." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0042</td><td>SCM</td><td>update_account_balance</td><td>24</td><td>"Stub: simulates updating account balance." -> "STUB: SIMULATES UPDATING ACCOUNT BALANCE."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0045</td><td>SCM</td><td>send_notification</td><td>29</td><td>"Stub: simulates sending a notification." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0046</td><td>SCM</td><td>send_notification</td><td>29</td><td>"Stub: simulates sending a notification." -> "STUB: SIMULATES SENDING A NOTIFICATION."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0050</td><td>DFM</td><td>add</td><td>35</td><td>parameters a <-> b swapped</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0058</td><td>DFM</td><td>multiply</td><td>43</td><td>parameters a <-> b swapped</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0059</td><td>AOR</td><td>divide</td><td>50</td><td>/ -> *</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0060</td><td>AOR</td><td>divide</td><td>50</td><td>/ -> -</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0064</td><td>RVR</td><td>divide</td><td>49</td><td>return value -> None</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0088</td><td>ROR</td><td>clamp</td><td>64</td><td>> -> >=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0089</td><td>ROR</td><td>clamp</td><td>64</td><td>> -> <</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0090</td><td>ROR</td><td>clamp</td><td>64</td><td>> -> ==</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0095</td><td>AOR</td><td>factorial</td><td>75</td><td>+ -> -</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0096</td><td>AOR</td><td>factorial</td><td>75</td><td>+ -> *</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0104</td><td>SDL</td><td>factorial</td><td>74</td><td>deleted: result = 1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0105</td><td>BVM</td><td>factorial</td><td>74</td><td>1 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0106</td><td>BVM</td><td>factorial</td><td>74</td><td>1 -> 2</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0107</td><td>BVM</td><td>factorial</td><td>74</td><td>1 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0115</td><td>BVM</td><td>factorial</td><td>75</td><td>1 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0116</td><td>BVM</td><td>factorial</td><td>75</td><td>1 -> 2</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0117</td><td>BVM</td><td>factorial</td><td>75</td><td>1 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0118</td><td>BVM</td><td>factorial</td><td>75</td><td>1 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0119</td><td>BVM</td><td>factorial</td><td>75</td><td>1 -> 2</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0120</td><td>BVM</td><td>factorial</td><td>75</td><td>1 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0124</td><td>LMO</td><td>factorial</td><td>75</td><td>for loop: skip first element</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0125</td><td>LMO</td><td>factorial</td><td>75</td><td>for loop: skip last element</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0126</td><td>LMO</td><td>factorial</td><td>75</td><td>for loop: only first element</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0127</td><td>ROR</td><td>is_valid_age</td><td>81</td><td><= -> <</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0128</td><td>ROR</td><td>is_valid_age</td><td>81</td><td><= -> >=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0129</td><td>ROR</td><td>is_valid_age</td><td>81</td><td><= -> ==</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0133</td><td>LCR</td><td>is_valid_age</td><td>81</td><td>and -> or</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0137</td><td>BVM</td><td>is_valid_age</td><td>81</td><td>150 -> 149</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0138</td><td>BVM</td><td>is_valid_age</td><td>81</td><td>150 -> 151</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0139</td><td>BVM</td><td>is_valid_age</td><td>81</td><td>150 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0148</td><td>AOR</td><td>percentage</td><td>95</td><td>* -> +</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0149</td><td>AOR</td><td>percentage</td><td>95</td><td>* -> -</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0150</td><td>AOR</td><td>percentage</td><td>95</td><td>/ -> *</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0160</td><td>BVM</td><td>percentage</td><td>95</td><td>100 -> 99</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0161</td><td>BVM</td><td>percentage</td><td>95</td><td>100 -> 101</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0162</td><td>BVM</td><td>percentage</td><td>95</td><td>100 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0190</td><td>ROR</td><td>create_account</td><td>108</td><td>< -> <=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0191</td><td>ROR</td><td>create_account</td><td>108</td><td>< -> ></td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0192</td><td>ROR</td><td>create_account</td><td>108</td><td>< -> ==</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0194</td><td>SDL</td><td>create_account</td><td>110</td><td>deleted: status = 'active'</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0195</td><td>SDL</td><td>create_account</td><td>111</td><td>deleted: account = {'user_id': user_id, 'balance': initial_balance, '</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0196</td><td>SDL</td><td>create_account</td><td>118</td><td>deleted: send_notification(user_id, 'Account created successfully')</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0197</td><td>NIM</td><td>create_account</td><td>118</td><td>user_id -> None in send_notification()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0198</td><td>NIM</td><td>create_account</td><td>106</td><td>user_id -> None in validate_user_id()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0199</td><td>BVM</td><td>create_account</td><td>108</td><td>0 -> -1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0200</td><td>BVM</td><td>create_account</td><td>108</td><td>0 -> 1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0201</td><td>EHM</td><td>create_account</td><td>107</td><td>raise ValueError('Invalid user ID') deleted</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0202</td><td>EHM</td><td>create_account</td><td>109</td><td>raise ValueError('Initial balance cannot be ne deleted</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0203</td><td>DFM</td><td>create_account</td><td>104</td><td>parameters user_id <-> initial_balance swapped</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0204</td><td>DFM</td><td>create_account</td><td>104</td><td>parameters user_id <-> account_type swapped</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0205</td><td>DFM</td><td>create_account</td><td>104</td><td>parameters initial_balance <-> account_type swapped</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0206</td><td>SCM</td><td>create_account</td><td>105</td><td>"Create a new account. Targets SDL, NIM, SCM, DFM, BVM." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0207</td><td>SCM</td><td>create_account</td><td>105</td><td>"Create a new account. Targets SDL, NIM, SCM, DFM, BVM." -> "CREATE A NEW ACCOUNT. TARGETS SDL, NIM, SCM, DFM, BVM."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0208</td><td>SCM</td><td>create_account</td><td>110</td><td>"active" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0209</td><td>SCM</td><td>create_account</td><td>110</td><td>"active" -> "ACTIVE"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0210</td><td>SCM</td><td>create_account</td><td>110</td><td>"active" -> "inactive"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0211</td><td>SCM</td><td>create_account</td><td>112</td><td>"user_id" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0212</td><td>SCM</td><td>create_account</td><td>112</td><td>"user_id" -> "USER_ID"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0213</td><td>SCM</td><td>create_account</td><td>113</td><td>"balance" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0214</td><td>SCM</td><td>create_account</td><td>113</td><td>"balance" -> "BALANCE"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0215</td><td>SCM</td><td>create_account</td><td>114</td><td>"type" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0216</td><td>SCM</td><td>create_account</td><td>114</td><td>"type" -> "TYPE"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0217</td><td>SCM</td><td>create_account</td><td>115</td><td>"status" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0218</td><td>SCM</td><td>create_account</td><td>115</td><td>"status" -> "STATUS"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0219</td><td>SCM</td><td>create_account</td><td>116</td><td>"transactions" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0220</td><td>SCM</td><td>create_account</td><td>116</td><td>"transactions" -> "TRANSACTIONS"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0221</td><td>SCM</td><td>create_account</td><td>118</td><td>"Account created successfully" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0222</td><td>SCM</td><td>create_account</td><td>118</td><td>"Account created successfully" -> "ACCOUNT CREATED SUCCESSFULLY"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0223</td><td>SCM</td><td>create_account</td><td>107</td><td>"Invalid user ID" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0224</td><td>SCM</td><td>create_account</td><td>107</td><td>"Invalid user ID" -> "INVALID USER ID"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0225</td><td>SCM</td><td>create_account</td><td>109</td><td>"Initial balance cannot be negative" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0226</td><td>SCM</td><td>create_account</td><td>109</td><td>"Initial balance cannot be negative" -> "INITIAL BALANCE CANNOT BE NEGATIVE"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0227</td><td>AOR</td><td>process_payment</td><td>133</td><td>+ -> -</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0228</td><td>AOR</td><td>process_payment</td><td>133</td><td>+ -> *</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0229</td><td>AOR</td><td>process_payment</td><td>131</td><td>- -> +</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0230</td><td>AOR</td><td>process_payment</td><td>131</td><td>- -> *</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0231</td><td>ROR</td><td>process_payment</td><td>126</td><td>== -> !=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0232</td><td>ROR</td><td>process_payment</td><td>126</td><td>== -> <</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0233</td><td>ROR</td><td>process_payment</td><td>126</td><td>== -> ></td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0234</td><td>ROR</td><td>process_payment</td><td>129</td><td>< -> <=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0235</td><td>ROR</td><td>process_payment</td><td>129</td><td>< -> ></td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0236</td><td>ROR</td><td>process_payment</td><td>129</td><td>< -> ==</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0242</td><td>SDL</td><td>process_payment</td><td>128</td><td>deleted: sender_balance = get_account_balance(sender_id)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0243</td><td>SDL</td><td>process_payment</td><td>131</td><td>deleted: new_sender_balance = sender_balance - amount</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0244</td><td>SDL</td><td>process_payment</td><td>132</td><td>deleted: receiver_balance = get_account_balance(receiver_id)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0245</td><td>SDL</td><td>process_payment</td><td>133</td><td>deleted: new_receiver_balance = receiver_balance + amount</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0246</td><td>SDL</td><td>process_payment</td><td>134</td><td>deleted: update_account_balance(sender_id, new_sender_balance)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0247</td><td>SDL</td><td>process_payment</td><td>135</td><td>deleted: update_account_balance(receiver_id, new_receiver_balance)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0248</td><td>NIM</td><td>process_payment</td><td>128</td><td>sender_id -> None in get_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0249</td><td>NIM</td><td>process_payment</td><td>132</td><td>receiver_id -> None in get_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0250</td><td>NIM</td><td>process_payment</td><td>134</td><td>sender_id -> None in update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0251</td><td>NIM</td><td>process_payment</td><td>134</td><td>new_sender_balance -> None in update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0252</td><td>NIM</td><td>process_payment</td><td>135</td><td>receiver_id -> None in update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0253</td><td>NIM</td><td>process_payment</td><td>135</td><td>new_receiver_balance -> None in update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0258</td><td>DFM</td><td>process_payment</td><td>122</td><td>parameters sender_id <-> receiver_id swapped</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0259</td><td>SCM</td><td>process_payment</td><td>123</td><td>"Process a payment between two accounts. Targets AOR, ROR, DFM, NIM, BVM." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0260</td><td>SCM</td><td>process_payment</td><td>123</td><td>"Process a payment between two accounts. Targets AOR, ROR, DFM, NIM, BVM." -> "PROCESS A PAYMENT BETWEEN TWO ACCOUNTS. TARGETS AOR, ROR, DFM, NIM, BVM."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0268</td><td>BVM</td><td>get_grade</td><td>143</td><td>80 -> 79</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0269</td><td>BVM</td><td>get_grade</td><td>143</td><td>80 -> 81</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0270</td><td>BVM</td><td>get_grade</td><td>143</td><td>80 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0271</td><td>BVM</td><td>get_grade</td><td>145</td><td>70 -> 69</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0272</td><td>BVM</td><td>get_grade</td><td>145</td><td>70 -> 71</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0273</td><td>BVM</td><td>get_grade</td><td>145</td><td>70 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0274</td><td>BVM</td><td>get_grade</td><td>147</td><td>60 -> 59</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0275</td><td>BVM</td><td>get_grade</td><td>147</td><td>60 -> 61</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0276</td><td>BVM</td><td>get_grade</td><td>147</td><td>60 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0277</td><td>SCM</td><td>get_grade</td><td>140</td><td>"Convert numeric score to letter grade. Targets ROR, BVM, SCM, BCR." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0278</td><td>SCM</td><td>get_grade</td><td>140</td><td>"Convert numeric score to letter grade. Targets ROR, BVM, SCM, BCR." -> "CONVERT NUMERIC SCORE TO LETTER GRADE. TARGETS ROR, BVM, SCM, BCR."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0279</td><td>SCM</td><td>get_grade</td><td>149</td><td>"F" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0282</td><td>SCM</td><td>get_grade</td><td>146</td><td>"C" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0283</td><td>SCM</td><td>get_grade</td><td>148</td><td>"D" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0284</td><td>AOR</td><td>safe_divide</td><td>157</td><td>/ -> *</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0285</td><td>AOR</td><td>safe_divide</td><td>157</td><td>/ -> -</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0286</td><td>ROR</td><td>safe_divide</td><td>154</td><td>== -> !=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0287</td><td>ROR</td><td>safe_divide</td><td>154</td><td>== -> <</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0288</td><td>ROR</td><td>safe_divide</td><td>154</td><td>== -> ></td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0290</td><td>BVM</td><td>safe_divide</td><td>154</td><td>0 -> -1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0291</td><td>BVM</td><td>safe_divide</td><td>154</td><td>0 -> 1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0292</td><td>EHM</td><td>safe_divide</td><td>159</td><td>except body -> pass (swallowed exception)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0293</td><td>EHM</td><td>safe_divide</td><td>155</td><td>raise ZeroDivisionError('Cannot divide by zero deleted</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0294</td><td>EHM</td><td>safe_divide</td><td>160</td><td>raise RuntimeError(f'Division failed: {e}') deleted</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0295</td><td>DFM</td><td>safe_divide</td><td>152</td><td>parameters numerator <-> denominator swapped</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0296</td><td>SCM</td><td>safe_divide</td><td>153</td><td>"Safe division that raises on zero. Targets EHM, ROR, AOR." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0297</td><td>SCM</td><td>safe_divide</td><td>153</td><td>"Safe division that raises on zero. Targets EHM, ROR, AOR." -> "SAFE DIVISION THAT RAISES ON ZERO. TARGETS EHM, ROR, AOR."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0298</td><td>SCM</td><td>safe_divide</td><td>155</td><td>"Cannot divide by zero" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0299</td><td>SCM</td><td>safe_divide</td><td>155</td><td>"Cannot divide by zero" -> "CANNOT DIVIDE BY ZERO"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0300</td><td>SCM</td><td>safe_divide</td><td>160</td><td>"Division failed: " -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0301</td><td>SCM</td><td>safe_divide</td><td>160</td><td>"Division failed: " -> "DIVISION FAILED: "</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0302</td><td>AOR</td><td>transfer_funds</td><td>173</td><td>+ -> -</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0303</td><td>AOR</td><td>transfer_funds</td><td>173</td><td>+ -> *</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0304</td><td>AOR</td><td>transfer_funds</td><td>170</td><td>- -> +</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0305</td><td>AOR</td><td>transfer_funds</td><td>170</td><td>- -> *</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0306</td><td>ROR</td><td>transfer_funds</td><td>168</td><td>< -> <=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0307</td><td>ROR</td><td>transfer_funds</td><td>168</td><td>< -> ></td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0308</td><td>ROR</td><td>transfer_funds</td><td>168</td><td>< -> ==</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0313</td><td>SDL</td><td>transfer_funds</td><td>167</td><td>deleted: balance = get_account_balance(from_account)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0314</td><td>SDL</td><td>transfer_funds</td><td>170</td><td>deleted: new_balance = balance - amount</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0315</td><td>SDL</td><td>transfer_funds</td><td>171</td><td>deleted: update_account_balance(from_account, new_balance)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0316</td><td>SDL</td><td>transfer_funds</td><td>172</td><td>deleted: dest_balance = get_account_balance(to_account)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0317</td><td>SDL</td><td>transfer_funds</td><td>173</td><td>deleted: update_account_balance(to_account, dest_balance + amount)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0318</td><td>NIM</td><td>transfer_funds</td><td>167</td><td>from_account -> None in get_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0319</td><td>NIM</td><td>transfer_funds</td><td>171</td><td>from_account -> None in update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0320</td><td>NIM</td><td>transfer_funds</td><td>171</td><td>new_balance -> None in update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0321</td><td>NIM</td><td>transfer_funds</td><td>172</td><td>to_account -> None in get_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0322</td><td>NIM</td><td>transfer_funds</td><td>173</td><td>to_account -> None in update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0325</td><td>DFM</td><td>transfer_funds</td><td>163</td><td>parameters from_account <-> to_account swapped</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0328</td><td>SCM</td><td>transfer_funds</td><td>164</td><td>"Transfer funds between accounts. Targets DFM, AOR, ROR, SDL." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0329</td><td>SCM</td><td>transfer_funds</td><td>164</td><td>"Transfer funds between accounts. Targets DFM, AOR, ROR, SDL." -> "TRANSFER FUNDS BETWEEN ACCOUNTS. TARGETS DFM, AOR, ROR, SDL."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0330</td><td>SCM</td><td>transfer_funds</td><td>174</td><td>"success" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0331</td><td>SCM</td><td>transfer_funds</td><td>174</td><td>"success" -> "SUCCESS"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0332</td><td>SCM</td><td>transfer_funds</td><td>174</td><td>"success" -> "failure"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0339</td><td>ROR</td><td>get_user_status</td><td>181</td><td>> -> >=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0340</td><td>ROR</td><td>get_user_status</td><td>181</td><td>> -> <</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0341</td><td>ROR</td><td>get_user_status</td><td>181</td><td>> -> ==</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0342</td><td>LCR</td><td>get_user_status</td><td>181</td><td>and -> or</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0345</td><td>BVM</td><td>get_user_status</td><td>183</td><td>0 -> -1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0346</td><td>BVM</td><td>get_user_status</td><td>183</td><td>0 -> 1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0347</td><td>BVM</td><td>get_user_status</td><td>181</td><td>0 -> -1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0348</td><td>BVM</td><td>get_user_status</td><td>181</td><td>0 -> 1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0350</td><td>SCM</td><td>get_user_status</td><td>178</td><td>"Return user status string. Targets SCM, BCR, LCR, ROR." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0351</td><td>SCM</td><td>get_user_status</td><td>178</td><td>"Return user status string. Targets SCM, BCR, LCR, ROR." -> "RETURN USER STATUS STRING. TARGETS SCM, BCR, LCR, ROR."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0352</td><td>SCM</td><td>get_user_status</td><td>185</td><td>"inactive" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0353</td><td>SCM</td><td>get_user_status</td><td>185</td><td>"inactive" -> "INACTIVE"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0354</td><td>SCM</td><td>get_user_status</td><td>185</td><td>"inactive" -> "active"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0360</td><td>SCM</td><td>get_user_status</td><td>184</td><td>"active" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0361</td><td>SCM</td><td>get_user_status</td><td>184</td><td>"active" -> "ACTIVE"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0362</td><td>SCM</td><td>get_user_status</td><td>184</td><td>"active" -> "inactive"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0372</td><td>SCM</td><td>find_first_positive</td><td>189</td><td>"Find first positive number in list. Targets LMO, ROR, RVR." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0373</td><td>SCM</td><td>find_first_positive</td><td>189</td><td>"Find first positive number in list. Targets LMO, ROR, RVR." -> "FIND FIRST POSITIVE NUMBER IN LIST. TARGETS LMO, ROR, RVR."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0374</td><td>LMO</td><td>find_first_positive</td><td>190</td><td>for loop: skip first element</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0375</td><td>LMO</td><td>find_first_positive</td><td>190</td><td>for loop: skip last element</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0376</td><td>LMO</td><td>find_first_positive</td><td>190</td><td>for loop: only first element</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0377</td><td>AOR</td><td>running_total</td><td>201</td><td>+ -> -</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0378</td><td>AOR</td><td>running_total</td><td>201</td><td>+ -> *</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0380</td><td>SDL</td><td>running_total</td><td>198</td><td>deleted: totals = []</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0381</td><td>SDL</td><td>running_total</td><td>199</td><td>deleted: current = 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0382</td><td>NIM</td><td>running_total</td><td>202</td><td>current -> None in append()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0383</td><td>BVM</td><td>running_total</td><td>199</td><td>0 -> -1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0384</td><td>BVM</td><td>running_total</td><td>199</td><td>0 -> 1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0385</td><td>SCM</td><td>running_total</td><td>197</td><td>"Return running totals. Targets LMO, SDL, AOR." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0386</td><td>SCM</td><td>running_total</td><td>197</td><td>"Return running totals. Targets LMO, SDL, AOR." -> "RETURN RUNNING TOTALS. TARGETS LMO, SDL, AOR."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0387</td><td>LMO</td><td>running_total</td><td>200</td><td>for loop: skip first element</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0388</td><td>LMO</td><td>running_total</td><td>200</td><td>for loop: skip last element</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0389</td><td>LMO</td><td>running_total</td><td>200</td><td>for loop: only first element</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0391</td><td>SDL</td><td>parse_config</td><td>208</td><td>deleted: value = os.environ.get(config_key, default_value)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0392</td><td>NIM</td><td>parse_config</td><td>208</td><td>config_key -> None in get()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0393</td><td>NIM</td><td>parse_config</td><td>208</td><td>default_value -> None in get()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0396</td><td>SCM</td><td>parse_config</td><td>207</td><td>"Read configuration from environment. Targets CEM, SCM." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0397</td><td>SCM</td><td>parse_config</td><td>207</td><td>"Read configuration from environment. Targets CEM, SCM." -> "READ CONFIGURATION FROM ENVIRONMENT. TARGETS CEM, SCM."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0398</td><td>AIM</td><td>parse_config</td><td>208</td><td>.get() -> .post()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0399</td><td>AIM</td><td>parse_config</td><td>208</td><td>.get() -> .put()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0403</td><td>CEM</td><td>parse_config</td><td>208</td><td>env var config_key removed — always uses default</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0404</td><td>CEM</td><td>parse_config</td><td>208</td><td>env var config_key always returns empty string</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0405</td><td>ROR</td><td>get_connection_string</td><td>218</td><td><= -> <</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0406</td><td>ROR</td><td>get_connection_string</td><td>218</td><td><= -> >=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0407</td><td>ROR</td><td>get_connection_string</td><td>218</td><td><= -> ==</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0408</td><td>ROR</td><td>get_connection_string</td><td>218</td><td>> -> >=</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0409</td><td>ROR</td><td>get_connection_string</td><td>218</td><td>> -> <</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0410</td><td>ROR</td><td>get_connection_string</td><td>218</td><td>> -> ==</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0411</td><td>LCR</td><td>get_connection_string</td><td>218</td><td>or -> and</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0413</td><td>SDL</td><td>get_connection_string</td><td>220</td><td>deleted: port_str = str(port)</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0414</td><td>NIM</td><td>get_connection_string</td><td>220</td><td>port -> None in str()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0415</td><td>BVM</td><td>get_connection_string</td><td>218</td><td>0 -> -1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0416</td><td>BVM</td><td>get_connection_string</td><td>218</td><td>0 -> 1</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0417</td><td>BVM</td><td>get_connection_string</td><td>218</td><td>65535 -> 65534</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0418</td><td>BVM</td><td>get_connection_string</td><td>218</td><td>65535 -> 65536</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0419</td><td>BVM</td><td>get_connection_string</td><td>218</td><td>65535 -> 0</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0420</td><td>EHM</td><td>get_connection_string</td><td>217</td><td>raise ValueError('Host cannot be empty') deleted</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0421</td><td>EHM</td><td>get_connection_string</td><td>219</td><td>raise ValueError('Invalid port number') deleted</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0425</td><td>SCM</td><td>get_connection_string</td><td>215</td><td>"Build a database connection string. Targets DFM, SCM, TCM, BVM." -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0426</td><td>SCM</td><td>get_connection_string</td><td>215</td><td>"Build a database connection string. Targets DFM, SCM, TCM, BVM." -> "BUILD A DATABASE CONNECTION STRING. TARGETS DFM, SCM, TCM, BVM."</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0429</td><td>SCM</td><td>get_connection_string</td><td>217</td><td>"Host cannot be empty" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0430</td><td>SCM</td><td>get_connection_string</td><td>217</td><td>"Host cannot be empty" -> "HOST CANNOT BE EMPTY"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0431</td><td>SCM</td><td>get_connection_string</td><td>219</td><td>"Invalid port number" -> ""</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0432</td><td>SCM</td><td>get_connection_string</td><td>219</td><td>"Invalid port number" -> "INVALID PORT NUMBER"</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0433</td><td>TCM</td><td>get_connection_string</td><td>220</td><td>str() cast removed</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0434</td><td>TCM</td><td>get_connection_string</td><td>220</td><td>str() -> int()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0435</td><td>TCM</td><td>get_connection_string</td><td>220</td><td>str() -> repr()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>CMR0001</td><td>CMR</td><td>create_account</td><td>104</td><td>swap args in call to send_notification()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>CMR0002</td><td>CMR</td><td>create_account</td><td>104</td><td>pass None as first arg to send_notification()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>CMR0003</td><td>CMR</td><td>create_account</td><td>104</td><td>pass None as first arg to validate_user_id()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>CMR0004</td><td>CMR</td><td>process_payment</td><td>122</td><td>pass None as first arg to get_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>CMR0005</td><td>CMR</td><td>process_payment</td><td>122</td><td>swap args in call to update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>CMR0006</td><td>CMR</td><td>process_payment</td><td>122</td><td>pass None as first arg to update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>CMR0007</td><td>CMR</td><td>transfer_funds</td><td>163</td><td>pass None as first arg to get_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>CMR0008</td><td>CMR</td><td>transfer_funds</td><td>163</td><td>swap args in call to update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>CMR0009</td><td>CMR</td><td>transfer_funds</td><td>163</td><td>pass None as first arg to update_account_balance()</td><td><span class="b be">EQUIVALENT</span></td></tr>
+<tr><td>M0039</td><td>BCR</td><td>update_account_balance</td><td>25</td><td>True <-> False</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0043</td><td>BCR</td><td>send_notification</td><td>30</td><td>True <-> False</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0047</td><td>AOR</td><td>add</td><td>36</td><td>+ -> -</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0048</td><td>AOR</td><td>add</td><td>36</td><td>+ -> *</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0051</td><td>AOR</td><td>subtract</td><td>40</td><td>- -> +</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0054</td><td>DFM</td><td>subtract</td><td>39</td><td>parameters a <-> b swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0055</td><td>AOR</td><td>multiply</td><td>44</td><td>* -> +</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0052</td><td>AOR</td><td>subtract</td><td>40</td><td>- -> *</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0056</td><td>AOR</td><td>multiply</td><td>44</td><td>* -> -</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0068</td><td>AOR</td><td>is_even</td><td>54</td><td>% -> *</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0069</td><td>AOR</td><td>is_even</td><td>54</td><td>% -> -</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0070</td><td>ROR</td><td>is_even</td><td>54</td><td>== -> !=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0075</td><td>BVM</td><td>is_even</td><td>54</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0072</td><td>ROR</td><td>is_even</td><td>54</td><td>== -> ></td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0074</td><td>BVM</td><td>is_even</td><td>54</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0071</td><td>ROR</td><td>is_even</td><td>54</td><td>== -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0077</td><td>BVM</td><td>is_even</td><td>54</td><td>2 -> 3</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0079</td><td>ROR</td><td>is_positive</td><td>58</td><td>> -> >=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0076</td><td>BVM</td><td>is_even</td><td>54</td><td>2 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0078</td><td>BVM</td><td>is_even</td><td>54</td><td>2 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0080</td><td>ROR</td><td>is_positive</td><td>58</td><td>> -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0084</td><td>BVM</td><td>is_positive</td><td>58</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0081</td><td>ROR</td><td>is_positive</td><td>58</td><td>> -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0083</td><td>BVM</td><td>is_positive</td><td>58</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0136</td><td>BVM</td><td>is_valid_age</td><td>81</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0132</td><td>ROR</td><td>is_valid_age</td><td>81</td><td>>= -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0131</td><td>ROR</td><td>is_valid_age</td><td>81</td><td>>= -> <=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0130</td><td>ROR</td><td>is_valid_age</td><td>81</td><td>>= -> ></td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0422</td><td>DFM</td><td>get_connection_string</td><td>214</td><td>parameters host <-> port swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0423</td><td>DFM</td><td>get_connection_string</td><td>214</td><td>parameters host <-> database swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0427</td><td>SCM</td><td>get_connection_string</td><td>221</td><td>":" -> ""</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0424</td><td>DFM</td><td>get_connection_string</td><td>214</td><td>parameters port <-> database swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0428</td><td>SCM</td><td>get_connection_string</td><td>221</td><td>"/" -> ""</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0005</td><td>RVR</td><td>validate_user_id</td><td>14</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0017</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>1 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0022</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>3 -> 4</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0023</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>3 -> 0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0003</td><td>ROR</td><td>validate_user_id</td><td>14</td><td>> -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0004</td><td>LCR</td><td>validate_user_id</td><td>14</td><td>and -> or</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0013</td><td>SDL</td><td>get_account_balance</td><td>19</td><td>deleted: balances = {1: 1000.0, 2: 500.0, 3: 250.0}</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0018</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>2 -> 1</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0021</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>3 -> 2</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0027</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>500.0 -> 499.0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0002</td><td>ROR</td><td>validate_user_id</td><td>14</td><td>> -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0029</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>500.0 -> 0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0032</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>250.0 -> 0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0010</td><td>SCM</td><td>validate_user_id</td><td>13</td><td>"Stub: returns True if user_id is a positive integer." -> ""</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0031</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>250.0 -> 251.0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0030</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>250.0 -> 249.0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0007</td><td>NIM</td><td>validate_user_id</td><td>14</td><td>int -> None in isinstance()</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0009</td><td>BVM</td><td>validate_user_id</td><td>14</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0035</td><td>SCM</td><td>get_account_balance</td><td>18</td><td>"Stub: returns a fake balance for testing." -> ""</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0037</td><td>AIM</td><td>get_account_balance</td><td>20</td><td>.get() -> .post()</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0040</td><td>RVR</td><td>update_account_balance</td><td>25</td><td>return value -> None</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0011</td><td>SCM</td><td>validate_user_id</td><td>13</td><td>"Stub: returns True if user_id is a positive integer." -> "STUB: RETURNS TRUE IF USER_ID IS A POSITIVE INTEGER."</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0053</td><td>RVR</td><td>subtract</td><td>40</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0044</td><td>RVR</td><td>send_notification</td><td>30</td><td>return value -> None</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0057</td><td>RVR</td><td>multiply</td><td>44</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0025</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>1000.0 -> 1001.0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0012</td><td>RVR</td><td>get_account_balance</td><td>20</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0006</td><td>NIM</td><td>validate_user_id</td><td>14</td><td>user_id -> None in isinstance()</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0034</td><td>BVM</td><td>get_account_balance</td><td>20</td><td>0.0 -> 1.0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0019</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>2 -> 3</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0001</td><td>ROR</td><td>validate_user_id</td><td>14</td><td>> -> >=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0033</td><td>BVM</td><td>get_account_balance</td><td>20</td><td>0.0 -> -1.0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0062</td><td>ROR</td><td>divide</td><td>48</td><td>== -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0063</td><td>ROR</td><td>divide</td><td>48</td><td>== -> ></td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0038</td><td>AIM</td><td>get_account_balance</td><td>20</td><td>.get() -> .put()</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0066</td><td>BVM</td><td>divide</td><td>48</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0067</td><td>DFM</td><td>divide</td><td>47</td><td>parameters a <-> b swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0015</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>1 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0073</td><td>RVR</td><td>is_even</td><td>54</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0082</td><td>RVR</td><td>is_positive</td><td>58</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0086</td><td>ROR</td><td>clamp</td><td>62</td><td>< -> ></td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0085</td><td>ROR</td><td>clamp</td><td>62</td><td>< -> <=</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0024</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>1000.0 -> 999.0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0092</td><td>DFM</td><td>clamp</td><td>61</td><td>parameters value <-> minimum swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0094</td><td>DFM</td><td>clamp</td><td>61</td><td>parameters minimum <-> maximum swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0093</td><td>DFM</td><td>clamp</td><td>61</td><td>parameters value <-> maximum swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0098</td><td>ROR</td><td>factorial</td><td>72</td><td>== -> <</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0099</td><td>ROR</td><td>factorial</td><td>72</td><td>== -> ></td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0101</td><td>ROR</td><td>factorial</td><td>70</td><td>< -> ></td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0100</td><td>ROR</td><td>factorial</td><td>70</td><td>< -> <=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0102</td><td>ROR</td><td>factorial</td><td>70</td><td>< -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0008</td><td>BVM</td><td>validate_user_id</td><td>14</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0108</td><td>BVM</td><td>factorial</td><td>70</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0110</td><td>BVM</td><td>factorial</td><td>72</td><td>0 -> -1</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0111</td><td>BVM</td><td>factorial</td><td>72</td><td>0 -> 1</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0109</td><td>BVM</td><td>factorial</td><td>70</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0112</td><td>BVM</td><td>factorial</td><td>73</td><td>1 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0114</td><td>BVM</td><td>factorial</td><td>73</td><td>1 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0113</td><td>BVM</td><td>factorial</td><td>73</td><td>1 -> 2</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0121</td><td>EHM</td><td>factorial</td><td>71</td><td>raise ValueError('Factorial not defined for ne deleted</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0123</td><td>SCM</td><td>factorial</td><td>71</td><td>"Factorial not defined for negative numbers" -> "FACTORIAL NOT DEFINED FOR NEGATIVE NUMBERS"</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0122</td><td>SCM</td><td>factorial</td><td>71</td><td>"Factorial not defined for negative numbers" -> ""</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0135</td><td>BVM</td><td>is_valid_age</td><td>81</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0141</td><td>ROR</td><td>max_of_three</td><td>85</td><td>>= -> <=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0142</td><td>ROR</td><td>max_of_three</td><td>85</td><td>>= -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0140</td><td>ROR</td><td>max_of_three</td><td>85</td><td>>= -> ></td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0144</td><td>RVR</td><td>max_of_three</td><td>86</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0143</td><td>LCR</td><td>max_of_three</td><td>85</td><td>and -> or</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0036</td><td>SCM</td><td>get_account_balance</td><td>18</td><td>"Stub: returns a fake balance for testing." -> "STUB: RETURNS A FAKE BALANCE FOR TESTING."</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0014</td><td>NIM</td><td>get_account_balance</td><td>20</td><td>account_id -> None in get()</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0026</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>1000.0 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0145</td><td>DFM</td><td>max_of_three</td><td>84</td><td>parameters a <-> b swapped</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0049</td><td>RVR</td><td>add</td><td>36</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0097</td><td>ROR</td><td>factorial</td><td>72</td><td>== -> !=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0087</td><td>ROR</td><td>clamp</td><td>62</td><td>< -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0028</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>500.0 -> 501.0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0134</td><td>RVR</td><td>is_valid_age</td><td>81</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0152</td><td>ROR</td><td>percentage</td><td>93</td><td>== -> !=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0016</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>1 -> 2</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0103</td><td>RVR</td><td>factorial</td><td>73</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0166</td><td>ROR</td><td>is_leap_year</td><td>99</td><td>== -> !=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0167</td><td>ROR</td><td>is_leap_year</td><td>99</td><td>== -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0155</td><td>RVR</td><td>percentage</td><td>94</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0154</td><td>ROR</td><td>percentage</td><td>93</td><td>== -> ></td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0151</td><td>AOR</td><td>percentage</td><td>95</td><td>/ -> -</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0147</td><td>DFM</td><td>max_of_three</td><td>84</td><td>parameters b <-> c swapped</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0169</td><td>ROR</td><td>is_leap_year</td><td>99</td><td>!= -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0157</td><td>BVM</td><td>percentage</td><td>93</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0153</td><td>ROR</td><td>percentage</td><td>93</td><td>== -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0173</td><td>LCR</td><td>is_leap_year</td><td>99</td><td>or -> and</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0156</td><td>BVM</td><td>percentage</td><td>93</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0168</td><td>ROR</td><td>is_leap_year</td><td>99</td><td>== -> ></td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0172</td><td>LCR</td><td>is_leap_year</td><td>99</td><td>and -> or</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0174</td><td>RVR</td><td>is_leap_year</td><td>99</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0171</td><td>ROR</td><td>is_leap_year</td><td>99</td><td>!= -> ></td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0146</td><td>DFM</td><td>max_of_three</td><td>84</td><td>parameters a <-> c swapped</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0170</td><td>ROR</td><td>is_leap_year</td><td>99</td><td>!= -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0176</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0177</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0180</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0184</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>4 -> 3</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0186</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>4 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0188</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>100 -> 101</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0185</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>4 -> 5</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0193</td><td>RVR</td><td>create_account</td><td>119</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0175</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0237</td><td>ROR</td><td>process_payment</td><td>124</td><td><= -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0187</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>100 -> 99</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0238</td><td>ROR</td><td>process_payment</td><td>124</td><td><= -> >=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0182</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>400 -> 401</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0189</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>100 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0178</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>0 -> 1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0240</td><td>BCR</td><td>process_payment</td><td>125</td><td>True <-> False</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0183</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>400 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0181</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>400 -> 399</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0239</td><td>ROR</td><td>process_payment</td><td>124</td><td><= -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0262</td><td>ROR</td><td>get_grade</td><td>141</td><td>>= -> <=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0255</td><td>BVM</td><td>process_payment</td><td>124</td><td>0 -> 1</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0257</td><td>DFM</td><td>process_payment</td><td>122</td><td>parameters amount <-> receiver_id swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0179</td><td>BVM</td><td>is_leap_year</td><td>99</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0263</td><td>ROR</td><td>get_grade</td><td>141</td><td>>= -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0264</td><td>RVR</td><td>get_grade</td><td>142</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0256</td><td>DFM</td><td>process_payment</td><td>122</td><td>parameters amount <-> sender_id swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0241</td><td>RVR</td><td>process_payment</td><td>125</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0280</td><td>SCM</td><td>get_grade</td><td>142</td><td>"A" -> ""</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0267</td><td>BVM</td><td>get_grade</td><td>141</td><td>90 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0289</td><td>RVR</td><td>safe_divide</td><td>158</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0310</td><td>ROR</td><td>transfer_funds</td><td>165</td><td><= -> >=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0281</td><td>SCM</td><td>get_grade</td><td>144</td><td>"B" -> ""</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0265</td><td>BVM</td><td>get_grade</td><td>141</td><td>90 -> 89</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0261</td><td>ROR</td><td>get_grade</td><td>141</td><td>>= -> ></td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0266</td><td>BVM</td><td>get_grade</td><td>141</td><td>90 -> 91</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0311</td><td>ROR</td><td>transfer_funds</td><td>165</td><td><= -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0309</td><td>ROR</td><td>transfer_funds</td><td>165</td><td><= -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0254</td><td>BVM</td><td>process_payment</td><td>124</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0324</td><td>BVM</td><td>transfer_funds</td><td>165</td><td>0 -> 1</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0091</td><td>RVR</td><td>clamp</td><td>63</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0061</td><td>ROR</td><td>divide</td><td>48</td><td>== -> !=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0333</td><td>SCM</td><td>transfer_funds</td><td>166</td><td>"failure" -> ""</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0334</td><td>SCM</td><td>transfer_funds</td><td>166</td><td>"failure" -> "FAILURE"</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0336</td><td>SCM</td><td>transfer_funds</td><td>169</td><td>"failure" -> ""</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0355</td><td>SCM</td><td>get_user_status</td><td>180</td><td>"invalid" -> ""</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0356</td><td>SCM</td><td>get_user_status</td><td>180</td><td>"invalid" -> "INVALID"</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0358</td><td>SCM</td><td>get_user_status</td><td>182</td><td>"admin" -> "ADMIN"</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0337</td><td>SCM</td><td>transfer_funds</td><td>169</td><td>"failure" -> "FAILURE"</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0349</td><td>DFM</td><td>get_user_status</td><td>177</td><td>parameters user_id <-> is_admin swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0338</td><td>SCM</td><td>transfer_funds</td><td>169</td><td>"failure" -> "success"</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0323</td><td>BVM</td><td>transfer_funds</td><td>165</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0357</td><td>SCM</td><td>get_user_status</td><td>182</td><td>"admin" -> ""</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0327</td><td>DFM</td><td>transfer_funds</td><td>163</td><td>parameters to_account <-> amount swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0365</td><td>ROR</td><td>find_first_positive</td><td>191</td><td>> -> ==</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0367</td><td>BVM</td><td>find_first_positive</td><td>193</td><td>1 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0364</td><td>ROR</td><td>find_first_positive</td><td>191</td><td>> -> <</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0370</td><td>BVM</td><td>find_first_positive</td><td>191</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0371</td><td>BVM</td><td>find_first_positive</td><td>191</td><td>0 -> 1</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0359</td><td>SCM</td><td>get_user_status</td><td>182</td><td>"admin" -> "guest"</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0366</td><td>RVR</td><td>find_first_positive</td><td>192</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0368</td><td>BVM</td><td>find_first_positive</td><td>193</td><td>1 -> 2</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0363</td><td>ROR</td><td>find_first_positive</td><td>191</td><td>> -> >=</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0312</td><td>RVR</td><td>transfer_funds</td><td>166</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0369</td><td>BVM</td><td>find_first_positive</td><td>193</td><td>1 -> 0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0164</td><td>AOR</td><td>is_leap_year</td><td>99</td><td>% -> *</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0390</td><td>RVR</td><td>parse_config</td><td>210</td><td>return value -> None</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0163</td><td>DFM</td><td>percentage</td><td>92</td><td>parameters part <-> total swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0412</td><td>RVR</td><td>get_connection_string</td><td>221</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0020</td><td>BVM</td><td>get_account_balance</td><td>19</td><td>2 -> 0</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0065</td><td>BVM</td><td>divide</td><td>48</td><td>0 -> -1</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0344</td><td>NIM</td><td>get_user_status</td><td>179</td><td>user_id -> None in validate_user_id()</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0326</td><td>DFM</td><td>transfer_funds</td><td>163</td><td>parameters from_account <-> amount swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0400</td><td>TCM</td><td>parse_config</td><td>211</td><td>str() cast removed</td><td><span class="b bs">SURVIVED</span></td></tr>
+<tr><td>M0395</td><td>DFM</td><td>parse_config</td><td>206</td><td>parameters config_key <-> default_value swapped</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>CMR0010</td><td>CMR</td><td>get_user_status</td><td>177</td><td>pass None as first arg to validate_user_id()</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0158</td><td>BVM</td><td>percentage</td><td>94</td><td>0.0 -> -1.0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0379</td><td>RVR</td><td>running_total</td><td>203</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0159</td><td>BVM</td><td>percentage</td><td>94</td><td>0.0 -> 1.0</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0335</td><td>SCM</td><td>transfer_funds</td><td>166</td><td>"failure" -> "success"</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0402</td><td>TCM</td><td>parse_config</td><td>211</td><td>str() -> repr()</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0401</td><td>TCM</td><td>parse_config</td><td>211</td><td>str() -> int()</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0343</td><td>RVR</td><td>get_user_status</td><td>180</td><td>return value -> None</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0165</td><td>AOR</td><td>is_leap_year</td><td>99</td><td>% -> -</td><td><span class="b bk">KILLED</span></td></tr>
+<tr><td>M0394</td><td>NIM</td><td>parse_config</td><td>211</td><td>value -> None in str()</td><td><span class="b bk">KILLED</span></td></tr>
+</tbody>
+</table>
+
+<div class="footer">Generated by QAMill &mdash; AI Mutation Testing &nbsp;&middot;&nbsp; 2026-05-30 00:10</div>
+</body>
+</html>

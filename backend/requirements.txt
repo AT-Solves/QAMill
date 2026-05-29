@@ -6,3 +6,6 @@ pytest==8.2.0
 pytest-json-report==1.5.0
 z3-solver==4.13.0.0
 astor==0.8.1
+anthropic>=0.25.0
+rich>=13.7.0
+click>=8.1.7

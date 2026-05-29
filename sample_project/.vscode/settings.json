@@ -1,4 +1,5 @@
 {
     "amil.llmProvider": "inhouse",
-    "amil.autoHeal": true
+    "amil.autoHeal": true,
+    "amil.email.to": "yaminidevasena.achiever@gmail.com"
 }

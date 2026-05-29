@@ -1,13 +1,18 @@
 """
 test_math_utils.py
 Strong mutation-killing test suite for math_utils.py.
-Every test is designed to kill specific AST mutations (AOR/ROR/LCR/BCR/RVR).
+Covers all 22 functions. Tests target specific mutation operators:
+AOR, ROR, LCR, BCR, RVR, SDL, NIM, BVM, EHM, DFM, SCM, LMO, TCM, CEM.
 """
+import os
 import pytest
 from math_utils import (
     add, subtract, multiply, divide,
     is_even, is_positive, clamp, factorial,
     is_valid_age, max_of_three, percentage, is_leap_year,
+    create_account, process_payment, get_grade, safe_divide,
+    transfer_funds, get_user_status, find_first_positive,
+    running_total, parse_config, get_connection_string,
 )
 
 
@@ -387,3 +392,383 @@ def test_is_leap_year_returns_bool():
     result = is_leap_year(2024)
     assert result is not None
     assert isinstance(result, bool)
+
+
+# ═══════════════════════════════════════════════════════════════
+# create_account(user_id, initial_balance, account_type)
+# kills SDL, NIM, SCM, BVM, EHM
+# ═══════════════════════════════════════════════════════════════
+
+def test_create_account_basic():
+    """Kills RVR — result must not be None."""
+    result = create_account(1, 100.0, "savings")
+    assert result is not None
+    assert isinstance(result, dict)
+
+def test_create_account_has_correct_user_id():
+    """Kills DFM (user_id/initial_balance swap)."""
+    result = create_account(42, 500.0, "checking")
+    assert result["user_id"] == 42
+
+def test_create_account_has_correct_balance():
+    """Kills SDL (assignment deleted)."""
+    result = create_account(1, 250.0, "savings")
+    assert result["balance"] == 250.0
+
+def test_create_account_status_active():
+    """Kills SCM ('active' -> '')."""
+    result = create_account(1, 100.0, "savings")
+    assert result["status"] == "active"
+
+def test_create_account_invalid_user_raises():
+    """Kills EHM (raise deleted)."""
+    with pytest.raises(ValueError):
+        create_account(-1, 100.0, "savings")
+
+def test_create_account_negative_balance_raises():
+    """Kills ROR (< -> <=) and EHM."""
+    with pytest.raises(ValueError):
+        create_account(1, -50.0, "savings")
+
+def test_create_account_zero_balance_ok():
+    """Kills BVM (0 -> -1) — zero balance is valid."""
+    result = create_account(1, 0.0, "savings")
+    assert result["balance"] == 0.0
+
+def test_create_account_has_empty_transactions():
+    """Kills SDL — transactions list must exist."""
+    result = create_account(1, 100.0, "savings")
+    assert "transactions" in result
+    assert result["transactions"] == []
+
+
+# ═══════════════════════════════════════════════════════════════
+# process_payment(amount, sender_id, receiver_id)
+# kills AOR, ROR, DFM, BVM
+# ═══════════════════════════════════════════════════════════════
+
+def test_process_payment_successful():
+    """Kills RVR — must return True."""
+    result = process_payment(100.0, 1, 2)
+    assert result is True
+
+def test_process_payment_zero_amount_fails():
+    """Kills ROR(<= to <) — zero amount must fail."""
+    result = process_payment(0, 1, 2)
+    assert result is False
+
+def test_process_payment_negative_amount_fails():
+    """Kills ROR — negative amount must fail."""
+    result = process_payment(-50.0, 1, 2)
+    assert result is False
+
+def test_process_payment_same_account_fails():
+    """Kills ROR(== to !=) — same sender/receiver must fail."""
+    result = process_payment(50.0, 1, 1)
+    assert result is False
+
+def test_process_payment_insufficient_funds():
+    """Kills ROR(< to <=) — more than balance must fail."""
+    result = process_payment(99999.0, 1, 2)
+    assert result is False
+
+def test_process_payment_returns_bool():
+    """Kills RVR — must return bool."""
+    result = process_payment(10.0, 1, 2)
+    assert isinstance(result, bool)
+
+
+# ═══════════════════════════════════════════════════════════════
+# get_grade(score)
+# kills ROR(>= to >), BVM, SCM, BCR
+# ═══════════════════════════════════════════════════════════════
+
+def test_get_grade_a():
+    """Kills ROR(>= to >) — 90 must return A."""
+    assert get_grade(90) == "A"
+
+def test_get_grade_a_high():
+    """Kills SCM ('A' -> '') — 100 must return A."""
+    assert get_grade(100) == "A"
+
+def test_get_grade_b():
+    """Kills BVM (90 -> 91) — 80 must return B."""
+    assert get_grade(80) == "B"
+
+def test_get_grade_b_boundary():
+    """Kills ROR(>= to >) — exactly 80 must be B."""
+    assert get_grade(80) == "B"
+
+def test_get_grade_c():
+    """Kills BVM (80 -> 79)."""
+    assert get_grade(70) == "C"
+
+def test_get_grade_d():
+    """Kills SCM."""
+    assert get_grade(60) == "D"
+
+def test_get_grade_f():
+    """Kills SCM ('F' -> '')."""
+    assert get_grade(59) == "F"
+
+def test_get_grade_below_a():
+    """Kills BVM (90 -> 89) — 89 must be B."""
+    assert get_grade(89) == "B"
+
+def test_get_grade_returns_string():
+    """Kills RVR."""
+    result = get_grade(75)
+    assert result is not None
+    assert isinstance(result, str)
+
+
+# ═══════════════════════════════════════════════════════════════
+# safe_divide(numerator, denominator)
+# kills EHM, ROR, AOR
+# ═══════════════════════════════════════════════════════════════
+
+def test_safe_divide_basic():
+    """Kills AOR(/ to *) — 10/2=5, not 10*2=20."""
+    assert safe_divide(10, 2) == 5.0
+
+def test_safe_divide_zero_raises():
+    """Kills EHM (raise deleted) and ROR(== to !=)."""
+    with pytest.raises(ZeroDivisionError):
+        safe_divide(5, 0)
+
+def test_safe_divide_negative():
+    """Kills AOR."""
+    assert safe_divide(-10, 2) == -5.0
+
+def test_safe_divide_float():
+    """Kills RVR."""
+    result = safe_divide(7, 2)
+    assert result == 3.5
+    assert result is not None
+
+def test_safe_divide_one():
+    """Kills BVM."""
+    assert safe_divide(5, 1) == 5.0
+
+
+# ═══════════════════════════════════════════════════════════════
+# transfer_funds(from_account, to_account, amount)
+# kills DFM, AOR, ROR, SCM, SDL
+# ═══════════════════════════════════════════════════════════════
+
+def test_transfer_funds_success():
+    """Kills SCM ('success' -> 'failure')."""
+    result = transfer_funds(1, 2, 100.0)
+    assert result == "success"
+
+def test_transfer_funds_zero_amount():
+    """Kills ROR(<= to <) — zero amount must fail."""
+    result = transfer_funds(1, 2, 0)
+    assert result == "failure"
+
+def test_transfer_funds_negative_amount():
+    """Kills ROR — negative amount must fail."""
+    result = transfer_funds(1, 2, -10)
+    assert result == "failure"
+
+def test_transfer_funds_insufficient():
+    """Kills ROR(< to <=)."""
+    result = transfer_funds(1, 2, 99999.0)
+    assert result == "failure"
+
+def test_transfer_funds_returns_string():
+    """Kills RVR."""
+    result = transfer_funds(1, 2, 10.0)
+    assert isinstance(result, str)
+
+
+# ═══════════════════════════════════════════════════════════════
+# get_user_status(user_id, is_admin)
+# kills SCM, BCR, LCR, ROR
+# ═══════════════════════════════════════════════════════════════
+
+def test_get_user_status_admin():
+    """Kills SCM ('admin' -> 'guest')."""
+    assert get_user_status(1, True) == "admin"
+
+def test_get_user_status_active():
+    """Kills SCM ('active' -> 'inactive')."""
+    assert get_user_status(1, False) == "active"
+
+def test_get_user_status_invalid_user():
+    """Kills ROR (> to >=) — user_id=0 is invalid."""
+    assert get_user_status(0, False) == "invalid"
+
+def test_get_user_status_invalid_id_negative():
+    """Kills LCR (and to or) — negative id always invalid."""
+    assert get_user_status(-1, True) == "invalid"
+
+def test_get_user_status_returns_string():
+    """Kills RVR."""
+    result = get_user_status(1, False)
+    assert result is not None
+    assert isinstance(result, str)
+
+def test_get_user_status_non_admin_not_admin():
+    """Kills BCR (is_admin True/False)."""
+    result = get_user_status(1, False)
+    assert result != "admin"
+
+
+# ═══════════════════════════════════════════════════════════════
+# find_first_positive(numbers)
+# kills LMO, ROR, RVR
+# ═══════════════════════════════════════════════════════════════
+
+def test_find_first_positive_finds_first():
+    """Kills LMO (skip first) — first element is positive."""
+    assert find_first_positive([5, 10, 15]) == 5
+
+def test_find_first_positive_mixed():
+    """Kills LMO (skip first) — first positive after negatives."""
+    assert find_first_positive([-1, -2, 3, 4]) == 3
+
+def test_find_first_positive_none_found():
+    """Kills RVR — must return -1 not None."""
+    assert find_first_positive([-1, -2, -3]) == -1
+
+def test_find_first_positive_only_first():
+    """Kills LMO (only first) — verifies later elements scanned."""
+    assert find_first_positive([-1, 2, 3]) == 2
+
+def test_find_first_positive_zero_not_positive():
+    """Kills ROR(> to >=) — 0 is not positive."""
+    assert find_first_positive([0, 5]) == 5
+
+def test_find_first_positive_empty_list():
+    """Kills LMO — empty list returns -1."""
+    assert find_first_positive([]) == -1
+
+def test_find_first_positive_single_positive():
+    """Kills ROR — single positive element."""
+    assert find_first_positive([7]) == 7
+
+
+# ═══════════════════════════════════════════════════════════════
+# running_total(values)
+# kills LMO, SDL, AOR
+# ═══════════════════════════════════════════════════════════════
+
+def test_running_total_basic():
+    """Kills AOR (+ to -) — basic running sum."""
+    assert running_total([1, 2, 3]) == [1, 3, 6]
+
+def test_running_total_single():
+    """Kills LMO (skip first) — single element."""
+    assert running_total([5]) == [5]
+
+def test_running_total_empty():
+    """Kills LMO — empty list returns empty list."""
+    assert running_total([]) == []
+
+def test_running_total_length():
+    """Kills SDL (append deleted) — output same length as input."""
+    result = running_total([1, 2, 3, 4])
+    assert len(result) == 4
+
+def test_running_total_first_element_unchanged():
+    """Kills AOR and SDL."""
+    result = running_total([10, 20, 30])
+    assert result[0] == 10
+
+def test_running_total_last_element_is_sum():
+    """Kills LMO (skip last) — last element = total sum."""
+    result = running_total([1, 2, 3, 4])
+    assert result[-1] == 10
+
+def test_running_total_negatives():
+    """Kills AOR (+ to *) — works with negative values."""
+    assert running_total([-1, -2, -3]) == [-1, -3, -6]
+
+
+# ═══════════════════════════════════════════════════════════════
+# parse_config(config_key, default_value)
+# kills CEM, SCM
+# ═══════════════════════════════════════════════════════════════
+
+def test_parse_config_returns_default_when_not_set():
+    """Kills CEM — when env var missing, returns default."""
+    key = "QAMILL_TEST_KEY_NONEXISTENT_XYZ"
+    os.environ.pop(key, None)
+    result = parse_config(key, "mydefault")
+    assert result == "mydefault"
+
+def test_parse_config_returns_env_value_when_set():
+    """Kills CEM (empty string mutation) — env var must be used."""
+    key = "QAMILL_TEST_KEY_ABC"
+    os.environ[key] = "envvalue"
+    try:
+        result = parse_config(key, "default")
+        assert result == "envvalue"
+    finally:
+        del os.environ[key]
+
+def test_parse_config_returns_string():
+    """Kills TCM (str() removed) — result must be string."""
+    key = "QAMILL_TEST_KEY_STR"
+    os.environ.pop(key, None)
+    result = parse_config(key, "hello")
+    assert isinstance(result, str)
+
+def test_parse_config_nonempty_default():
+    """Kills SCM (default -> empty string)."""
+    key = "QAMILL_TEST_NOKEY"
+    os.environ.pop(key, None)
+    result = parse_config(key, "fallback")
+    assert result != ""
+
+
+# ═══════════════════════════════════════════════════════════════
+# get_connection_string(host, port, database)
+# kills DFM, SCM, TCM, BVM, EHM
+# ═══════════════════════════════════════════════════════════════
+
+def test_get_connection_string_basic():
+    """Kills RVR and SCM."""
+    result = get_connection_string("localhost", 5432, "mydb")
+    assert result == "localhost:5432/mydb"
+
+def test_get_connection_string_contains_host():
+    """Kills DFM (host/database swap)."""
+    result = get_connection_string("db.example.com", 3306, "users")
+    assert "db.example.com" in result
+
+def test_get_connection_string_contains_port():
+    """Kills TCM (str(port) removed)."""
+    result = get_connection_string("host", 8080, "db")
+    assert "8080" in result
+
+def test_get_connection_string_contains_database():
+    """Kills DFM (port/database swap)."""
+    result = get_connection_string("host", 5432, "production")
+    assert "production" in result
+
+def test_get_connection_string_empty_host_raises():
+    """Kills EHM (raise deleted) and ROR."""
+    with pytest.raises(ValueError):
+        get_connection_string("", 5432, "db")
+
+def test_get_connection_string_zero_port_raises():
+    """Kills BVM (0 to 1) and EHM."""
+    with pytest.raises(ValueError):
+        get_connection_string("host", 0, "db")
+
+def test_get_connection_string_max_port():
+    """Kills BVM (65535 to 65536) — max valid port."""
+    result = get_connection_string("host", 65535, "db")
+    assert "65535" in result
+
+def test_get_connection_string_invalid_port_high():
+    """Kills ROR(> to >=)."""
+    with pytest.raises(ValueError):
+        get_connection_string("host", 65536, "db")
+
+def test_get_connection_string_returns_string():
+    """Kills RVR."""
+    result = get_connection_string("host", 5432, "db")
+    assert isinstance(result, str)

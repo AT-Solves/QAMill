@@ -60,7 +60,21 @@
         "amil.ollamaModel":     { "type": "string", "default": "llama3", "description": "Ollama model name" },
         "amil.autoHeal":        { "type": "boolean", "default": true, "description": "Auto-generate tests for survived mutants" },
         "amil.detectEquivalents": { "type": "boolean", "default": true, "description": "Filter equivalent mutants" },
-        "amil.backendPort":     { "type": "number", "default": 8765, "description": "QAMill backend port" }
+        "amil.backendPort":     { "type": "number", "default": 8765, "description": "QAMill backend port" },
+        "amil.email.provider":     { "type": "string", "default": "gmail",
+          "enum": ["gmail", "outlook", "custom"],
+          "enumDescriptions": ["Gmail — smtp.gmail.com:587 (App Password required)", "Outlook / Office 365 — smtp-mail.outlook.com:587", "Custom SMTP server — enter host and port manually"],
+          "description": "SMTP provider for sending QAMill email reports" },
+        "amil.email.sender":      { "type": "string", "default": "", "description": "Your email address (used as sender / SMTP login)" },
+        "amil.email.appPassword": { "type": "string", "default": "", "description": "App Password for Gmail/Outlook — NOT your regular password" },
+        "amil.email.recipient":   { "type": "string", "default": "", "description": "Recipient email address for QAMill reports" },
+        "amil.email.to":          { "type": "string", "default": "", "description": "(Legacy) Recipient email — use amil.email.recipient instead" },
+        "amil.email.autoSend":    { "type": "boolean", "default": false, "description": "Automatically email report when analysis completes" },
+        "amil.email.smtpHost":    { "type": "string", "default": "", "description": "Custom SMTP server hostname (only used when provider is 'custom')" },
+        "amil.email.smtpPort":    { "type": "number", "default": 587, "description": "Custom SMTP port — 587 for STARTTLS, 465 for SSL" },
+        "amil.email.smtpUser":    { "type": "string", "default": "", "description": "(Legacy) SMTP username — use amil.email.sender instead" },
+        "amil.email.smtpPassword":{ "type": "string", "default": "", "description": "(Legacy) SMTP password — use amil.email.appPassword instead" },
+        "amil.email.smtpTls":     { "type": "boolean", "default": true, "description": "Use STARTTLS (true, port 587) or SSL (false, port 465)" }
       }
     }
   },

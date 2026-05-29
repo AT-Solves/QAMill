@@ -278,6 +278,26 @@ function openDashboard(context, port) {
                 jobDeliveryTimer = undefined;
             }
             statusBarItem.text = `$(beaker) QAMill ${msg.true_score}%`;
+            // Auto-email if configured
+            const cfg2 = vscode.workspace.getConfiguration("amil");
+            const autoSend = cfg2.get("email.autoSend", false);
+            const ec = readEmailConfig();
+            if (autoSend && ec.recipient && ec.sender && ec.appPassword && ec.smtp_host && msg.job_id) {
+                dashboardPanel?.webview.postMessage({ type: "email_sending" });
+                postJson(`http://localhost:${port}/email`, {
+                    job_id: msg.job_id, to_address: ec.recipient,
+                    sender_email: ec.sender,
+                    smtp_host: ec.smtp_host, smtp_port: ec.smtp_port,
+                    smtp_user: ec.sender, smtp_password: ec.appPassword,
+                    use_tls: ec.use_tls,
+                }).then(r => {
+                    dashboardPanel?.webview.postMessage({ type: "email_sent", to: r.to });
+                    vscode.window.showInformationMessage(`QAMill report auto-sent to ${r.to}`);
+                }).catch(err => {
+                    const errMsg = String(err).replace(/^Error: HTTP \d+: /, "");
+                    dashboardPanel?.webview.postMessage({ type: "email_error", error: errMsg });
+                });
+            }
         }
         if (msg.type === "run_analysis") {
             // ── Resolve target file ──────────────────────────────────────────────
@@ -347,6 +367,65 @@ function openDashboard(context, port) {
             }
             updateLlmStatusBar();
         }
+        if (msg.type === "save_report") {
+            const saveUri = await vscode.window.showSaveDialog({
+                defaultUri: vscode.Uri.file(`qamill-report-${msg.job_id.slice(0, 8)}.html`),
+                filters: { "HTML Report": ["html"] },
+                title: "Save QAMill Report",
+            });
+            if (saveUri) {
+                try {
+                    const html = await getText(`http://localhost:${port}/export/${msg.job_id}`);
+                    fs.writeFileSync(saveUri.fsPath, html, "utf8");
+                    vscode.window.showInformationMessage(`QAMill report saved to ${saveUri.fsPath}`, "Open in Browser").then(a => { if (a === "Open in Browser") {
+                        vscode.env.openExternal(saveUri);
+                    } });
+                }
+                catch (err) {
+                    vscode.window.showErrorMessage(`QAMill: Failed to save report — ${err}`);
+                }
+            }
+            return;
+        }
+        if (msg.type === "email_report") {
+            // Settings come from the webview form (msg.*) or fall back to saved config.
+            const ec = readEmailConfig();
+            const sender = (msg.sender || ec.sender).trim();
+            const appPassword = msg.appPassword || ec.appPassword;
+            const recipient = (msg.recipient || ec.recipient).trim();
+            const smtpHost = msg.smtp_host || ec.smtp_host;
+            const smtpPort = msg.smtp_port ?? ec.smtp_port;
+            const useTls = msg.use_tls ?? ec.use_tls;
+            if (!sender || !appPassword || !recipient || !smtpHost) {
+                // Open the settings modal so the user can fill in what's missing.
+                dashboardPanel?.webview.postMessage({ type: "open_email_modal" });
+                return;
+            }
+            dashboardPanel?.webview.postMessage({ type: "email_sending" });
+            try {
+                const result = await postJson(`http://localhost:${port}/email`, {
+                    job_id: msg.job_id,
+                    to_address: recipient,
+                    sender_email: sender,
+                    smtp_host: smtpHost,
+                    smtp_port: smtpPort,
+                    smtp_user: sender,
+                    smtp_password: appPassword,
+                    use_tls: useTls,
+                });
+                dashboardPanel?.webview.postMessage({ type: "email_sent", to: result.to });
+                dashboardPanel?.webview.postMessage({ type: "email_modal_result", success: true,
+                    message: `Report sent to ${result.to}` });
+                vscode.window.showInformationMessage(`QAMill report sent to ${result.to}`);
+            }
+            catch (err) {
+                const errMsg = String(err).replace(/^Error: HTTP \d+: /, "");
+                dashboardPanel?.webview.postMessage({ type: "email_error", error: errMsg });
+                dashboardPanel?.webview.postMessage({ type: "email_modal_result", success: false, message: errMsg });
+                vscode.window.showErrorMessage(`QAMill: Email failed — ${errMsg}`);
+            }
+            return;
+        }
         if (msg.type === "ai_query") {
             const config = vscode.workspace.getConfiguration("amil");
             const llmProvider = config.get("llmProvider", "inhouse");
@@ -366,6 +445,57 @@ function openDashboard(context, port) {
                     answer: `QAMill assistant unavailable — make sure a LLM provider is configured. (${err})`,
                 });
             }
+        }
+        // ── Email settings ────────────────────────────────────────────────────────
+        if (msg.type === "email_settings_save") {
+            const cfg = vscode.workspace.getConfiguration("amil");
+            const t = vscode.ConfigurationTarget.Workspace;
+            if (msg.provider) {
+                await cfg.update("email.provider", msg.provider, t);
+            }
+            if (msg.sender) {
+                await cfg.update("email.sender", msg.sender, t);
+            }
+            if (msg.appPassword) {
+                await cfg.update("email.appPassword", msg.appPassword, t);
+            }
+            if (msg.recipient) {
+                await cfg.update("email.recipient", msg.recipient, t);
+            }
+            if (msg.smtp_host) {
+                await cfg.update("email.smtpHost", msg.smtp_host, t);
+            }
+            if (msg.smtp_port) {
+                await cfg.update("email.smtpPort", msg.smtp_port, t);
+            }
+            return;
+        }
+        if (msg.type === "email_send_test") {
+            try {
+                const result = await postJson(`http://localhost:${port}/email/test`, {
+                    to_address: msg.recipient,
+                    sender_email: msg.sender,
+                    smtp_host: msg.smtp_host,
+                    smtp_port: msg.smtp_port,
+                    smtp_user: msg.sender,
+                    smtp_password: msg.appPassword,
+                    use_tls: msg.use_tls ?? true,
+                });
+                dashboardPanel?.webview.postMessage({
+                    type: "email_test_result", success: true, message: result.message,
+                });
+            }
+            catch (err) {
+                const errMsg = String(err).replace(/^Error: HTTP \d+: /, "");
+                dashboardPanel?.webview.postMessage({
+                    type: "email_test_result", success: false, message: errMsg,
+                });
+            }
+            return;
+        }
+        if (msg.type === "open_external") {
+            vscode.env.openExternal(vscode.Uri.parse(msg.url));
+            return;
         }
     });
     dashboardPanel.onDidDispose(() => {
@@ -390,13 +520,39 @@ async function selectLLM() {
     }
 }
 // ── Helpers ───────────────────────────────────────────────────────────────────
+/** SMTP host/port for a given provider name. */
+const SMTP_PRESETS = {
+    gmail: { host: "smtp.gmail.com", port: 587, tls: true },
+    outlook: { host: "smtp-mail.outlook.com", port: 587, tls: true },
+};
+/** Read the email settings from VS Code config, merging new + legacy keys. */
+function readEmailConfig() {
+    const cfg = vscode.workspace.getConfiguration("amil");
+    const provider = cfg.get("email.provider", "gmail");
+    const sender = cfg.get("email.sender", cfg.get("email.smtpUser", ""));
+    const appPassword = cfg.get("email.appPassword", cfg.get("email.smtpPassword", ""));
+    const recipient = cfg.get("email.recipient", cfg.get("email.to", ""));
+    const smtpHost = cfg.get("email.smtpHost", "");
+    const smtpPort = cfg.get("email.smtpPort", 587);
+    const useTls = cfg.get("email.smtpTls", true);
+    const preset = SMTP_PRESETS[provider];
+    return {
+        provider,
+        sender: sender.trim(),
+        appPassword,
+        recipient: recipient.trim(),
+        smtp_host: preset ? preset.host : smtpHost.trim(),
+        smtp_port: preset ? preset.port : smtpPort,
+        use_tls: preset ? preset.tls : useTls,
+    };
+}
 function buildSyncPayload() {
     const cfg = vscode.workspace.getConfiguration("amil");
     const provider = cfg.get("llmProvider", "inhouse");
     const autoHeal = cfg.get("autoHeal", true);
     const aiMutants = cfg.get("aiMutants", false);
     const mode = autoHeal && aiMutants ? "both" : autoHeal ? "auto_heal" : aiMutants ? "ai_mutants" : "none";
-    return { type: "sync_settings", provider, mode };
+    return { type: "sync_settings", provider, mode, email: readEmailConfig() };
 }
 function updateLlmStatusBar() {
     const provider = vscode.workspace.getConfiguration("amil").get("llmProvider", "inhouse");
@@ -439,6 +595,16 @@ function postJson(url, body) {
             let raw = "";
             res.on("data", (c) => raw += c);
             res.on("end", () => {
+                // Reject on HTTP errors so callers get a proper Error, not a partial response
+                if ((res.statusCode ?? 0) >= 400) {
+                    let detail = raw;
+                    try {
+                        detail = JSON.parse(raw).detail ?? raw;
+                    }
+                    catch { /* use raw */ }
+                    reject(new Error(`HTTP ${res.statusCode}: ${detail}`));
+                    return;
+                }
                 try {
                     resolve(JSON.parse(raw));
                 }
@@ -450,6 +616,21 @@ function postJson(url, body) {
         req.on("error", reject);
         req.write(data);
         req.end();
+    });
+}
+function getText(url) {
+    return new Promise((resolve, reject) => {
+        const req = http.get(url, (res) => {
+            if ((res.statusCode ?? 0) >= 400) {
+                reject(new Error(`HTTP ${res.statusCode}`));
+                return;
+            }
+            let raw = "";
+            res.on("data", (c) => raw += c);
+            res.on("end", () => resolve(raw));
+        });
+        req.on("error", reject);
+        req.setTimeout(30000, () => { req.destroy(); reject(new Error("Request timed out")); });
     });
 }
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -583,6 +764,17 @@ function getDashboardHtml(port) {
                    white-space:pre-wrap;max-height:300px;overflow-y:auto;
                    border:1px solid var(--vscode-widget-border)}
 
+  /* ── Report action buttons ── */
+  .report-actions{display:none;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .report-actions.show{display:flex}
+  .rpt-btn{display:flex;align-items:center;gap:5px;border:none;border-radius:5px;
+           padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .2s}
+  .rpt-btn:hover{opacity:.82}
+  .rpt-btn:disabled{opacity:.4;cursor:not-allowed}
+  .rpt-save{background:#0e639c;color:#fff}
+  .rpt-email{background:#6f42c1;color:#fff}
+  .email-status{font-size:11px;opacity:.7;flex:1}
+
   /* ── AI Chat panel ── */
   .chat-panel{background:var(--vscode-sideBar-background);
               border:1px solid var(--vscode-widget-border);
@@ -635,6 +827,84 @@ function getDashboardHtml(port) {
   .tl-ok   {color:#3fb950}
   .tl-warn {color:#d29922}
   .tl-error{color:#f85149}
+
+  /* ── Survived priority panel ── */
+  .surv-panel{background:var(--vscode-sideBar-background);
+              border:2px solid #f48771;border-radius:6px;
+              margin-bottom:14px;overflow:hidden;display:none}
+  .surv-panel-hdr{display:flex;align-items:center;justify-content:space-between;
+                  padding:8px 12px;background:rgba(244,135,113,.08);
+                  border-bottom:1px solid rgba(244,135,113,.3)}
+  .surv-panel-title{font-size:12px;font-weight:700;color:#f48771}
+  .surv-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0}
+  .sp-high  {background:#3a1e1e;color:#f48771}
+  .sp-medium{background:#3a2e1e;color:#d7ba7d}
+  .sp-low   {background:#1e2a3a;color:#569cd6}
+  .surv-cards{padding:6px 8px;max-height:240px;overflow-y:auto}
+  .surv-card{display:flex;flex-direction:column;gap:3px;padding:7px 10px;
+             border-radius:5px;margin-bottom:5px;
+             background:var(--vscode-editor-background);
+             border:1px solid var(--vscode-widget-border)}
+  .surv-card.high  {border-left:3px solid #f48771}
+  .surv-card.medium{border-left:3px solid #d7ba7d}
+  .surv-card.low   {border-left:3px solid #569cd6}
+  .surv-card-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .surv-card-id{font-family:monospace;font-size:10px;opacity:.5}
+  .surv-card-fn{font-weight:600;color:var(--vscode-textLink-foreground,#4ec9a0);font-size:12px}
+  .surv-card-desc{font-size:11px;opacity:.7;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .surv-card-hint{font-size:11px;color:#d7ba7d;line-height:1.5;padding-top:1px}
+  .ask-ai-btn{background:none;border:1px solid var(--vscode-focusBorder,#007fd4);
+              color:var(--vscode-textLink-foreground,#4ec9a0);border-radius:3px;
+              padding:2px 8px;font-size:10px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  .ask-ai-btn:hover{background:var(--vscode-textLink-foreground,#4ec9a0);color:#1e1e1e}
+  /* ── Killer test info (shown in feed for killed mutants) ── */
+  .killer-info{font-size:10px;color:#4ec9a0;font-family:monospace;
+               overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* ── Hint text (shown in feed for survived mutants) ── */
+  .surv-hint{font-size:10px;color:#d7ba7d;font-style:italic;
+             overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ── Email settings modal ── */
+  .email-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;
+                 display:none;align-items:center;justify-content:center;padding:12px}
+  .email-modal{background:var(--vscode-editor-background);
+               border:1px solid var(--vscode-widget-border);border-radius:8px;
+               width:min(420px,100%);max-height:92vh;overflow-y:auto;
+               box-shadow:0 12px 40px rgba(0,0,0,.6)}
+  .email-modal-hdr{display:flex;align-items:center;justify-content:space-between;
+                   padding:12px 16px;border-bottom:1px solid var(--vscode-widget-border);
+                   font-size:13px;font-weight:700}
+  .email-close-btn{background:none;border:none;color:var(--vscode-editor-foreground);
+                   cursor:pointer;font-size:18px;opacity:.55;line-height:1;padding:0 2px}
+  .email-close-btn:hover{opacity:1}
+  .email-body{padding:14px 16px 18px}
+  .email-label{display:block;font-size:11px;font-weight:600;opacity:.65;
+               text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px}
+  .email-label:first-child{margin-top:0}
+  .email-field{width:100%;background:var(--vscode-input-background);
+               color:var(--vscode-input-foreground);
+               border:1px solid var(--vscode-input-border,#555);
+               border-radius:4px;padding:6px 9px;font-size:12px;outline:none;
+               box-sizing:border-box}
+  .email-field:focus{border-color:var(--vscode-focusBorder,#007fd4)}
+  .email-note{background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.4);
+              border-radius:4px;padding:8px 10px;font-size:11px;
+              color:#d29922;line-height:1.6;margin-bottom:2px}
+  .email-note a{color:#4ec9a0;text-decoration:none;cursor:pointer}
+  .email-note a:hover{text-decoration:underline}
+  .email-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap}
+  .email-btn{border:none;border-radius:5px;padding:7px 16px;font-size:12px;
+             font-weight:600;cursor:pointer;transition:opacity .18s;white-space:nowrap}
+  .email-btn:disabled{opacity:.38;cursor:not-allowed}
+  .email-btn:hover:not(:disabled){opacity:.82}
+  .email-btn-primary  {background:#0e639c;color:#fff}
+  .email-btn-secondary{background:var(--vscode-button-secondaryBackground,#3a3d41);
+                       color:var(--vscode-button-secondaryForeground,#ccc)}
+  .email-modal-status{font-size:11px;padding:7px 9px;border-radius:4px;
+                      margin-top:10px;display:none;line-height:1.5}
+  .ems-ok   {background:#1e3a2f;color:#4ec9a0;border:1px solid #2e5a3f;display:block!important}
+  .ems-error{background:#3a1e1e;color:#f48771;border:1px solid #5a2e2e;display:block!important}
+  .ems-info  {background:rgba(86,156,214,.12);color:#569cd6;border:1px solid rgba(86,156,214,.3);display:block!important}
 </style>
 </head>
 <body>
@@ -686,9 +956,65 @@ function getDashboardHtml(port) {
 <div class="progress-label" id="progress-label">Waiting for analysis...</div>
 <div class="bar-wrap"><div class="bar-fill" id="bar"></div></div>
 
+<!-- ── Survived priority panel (populated after all mutants run) ── -->
+<div class="surv-panel" id="surv-panel">
+  <div class="surv-panel-hdr">
+    <span class="surv-panel-title">&#9888; Survived Mutants — Priority Order</span>
+    <span class="surv-badge sp-high" id="surv-count">0</span>
+  </div>
+  <div class="surv-cards" id="surv-cards"></div>
+</div>
+
 <!-- ── Mutation results feed ── -->
 <div class="feed" id="feed">
   <div id="waiting">Right-click a file &#8594; Run QAMill Mutation Analysis</div>
+</div>
+
+<!-- ── Email settings modal ── -->
+<div class="email-overlay" id="email-overlay">
+  <div class="email-modal" id="email-modal-card">
+    <div class="email-modal-hdr">
+      <span>&#128231; Email Report Settings</span>
+      <button class="email-close-btn" id="email-close-btn">&#215;</button>
+    </div>
+    <div class="email-body" id="email-body">
+      <div class="email-note" id="email-provider-note">
+        <strong>Gmail:</strong> You must use an <strong>App Password</strong>, not your regular
+        Gmail password &mdash; regular passwords are blocked by Google for SMTP access.
+        <a id="email-help-link">Create App Password &#8594;</a>
+      </div>
+      <label class="email-label">SMTP Provider</label>
+      <select id="email-provider" class="email-field">
+        <option value="gmail">Gmail</option>
+        <option value="outlook">Outlook / Office 365</option>
+        <option value="custom">Custom SMTP</option>
+      </select>
+      <label class="email-label">Your Email Address (Sender)</label>
+      <input type="email" id="email-sender" class="email-field" placeholder="you@gmail.com" autocomplete="email">
+      <label class="email-label">App Password &mdash; NOT your regular password</label>
+      <input type="password" id="email-apppassword" class="email-field" placeholder="xxxx xxxx xxxx xxxx" autocomplete="new-password">
+      <label class="email-label">Send Report To (Recipient)</label>
+      <input type="email" id="email-recipient" class="email-field" placeholder="recipient@example.com">
+      <div id="email-custom-fields" style="display:none">
+        <label class="email-label">SMTP Host</label>
+        <input type="text" id="email-smtp-host" class="email-field" placeholder="smtp.example.com">
+        <label class="email-label">SMTP Port</label>
+        <input type="number" id="email-smtp-port" class="email-field" value="587">
+      </div>
+      <div class="email-modal-status" id="email-modal-status"></div>
+      <div class="email-actions">
+        <button class="email-btn email-btn-secondary" id="email-test-btn">&#9889; Test Connection</button>
+        <button class="email-btn email-btn-primary"   id="email-send-btn">&#128231; Send Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Report actions (shown after analysis completes) ── -->
+<div class="report-actions" id="report-actions">
+  <button class="rpt-btn rpt-save"  id="rpt-save-btn">&#128190; Save Report</button>
+  <button class="rpt-btn rpt-email" id="rpt-email-btn">&#128231; Email Report</button>
+  <span class="email-status" id="email-status"></span>
 </div>
 
 <!-- ── Suggested Tests panel (hidden until tests exist) ── -->
@@ -752,14 +1078,17 @@ function getDashboardHtml(port) {
 
 <script>
 const vscode = acquireVsCodeApi();
-let es = null;           // active fetch reader (or null)
+let es = null;              // active fetch ReadableStreamDefaultReader (or null)
 let streamActive = false;
 let currentStreamUrl = null;
+let eventsReceived = 0;     // count of non-ping events processed — used for reconnect resume
+let currentJobId = null;    // job_id of the active or most-recently-completed analysis
 let mutantResults = [];
 let lastSummary = null;
 let startInfo = {};
 let suggestedTests = [];
 let scoreBeforeHeal = null;
+let emailSettings = {};     // synced from VS Code config via sync_settings
 
 // ── Message listener ────────────────────────────────────────────────────────
 window.addEventListener('message', e => {
@@ -768,6 +1097,8 @@ window.addEventListener('message', e => {
     // Ignore duplicate deliveries for the same job
     if (msg.stream_url === currentStreamUrl) return;
     currentStreamUrl = msg.stream_url;
+    eventsReceived = 0;  // reset for fresh job
+    currentJobId = (msg.stream_url || '').split('/').pop().split('?')[0] || null;
     vscode.postMessage({ type: 'job_received' }); // stop retry timer + polling response
     appendLog('job_started received ✓ — starting analysis', 'ok');
     try {
@@ -805,6 +1136,33 @@ window.addEventListener('message', e => {
     addStatus('Error: ' + msg.message);
     appendLog('Error: ' + msg.message, 'error');
   }
+  if (msg.type === 'email_sending') {
+    const el = document.getElementById('email-status');
+    const btn = document.getElementById('rpt-email-btn');
+    if (el) el.textContent = 'Sending...';
+    if (btn) btn.disabled = true;
+  }
+  if (msg.type === 'email_sent') {
+    const el = document.getElementById('email-status');
+    const btn = document.getElementById('rpt-email-btn');
+    if (el) el.textContent = '\\u2713 Sent to ' + msg.to;
+    if (btn) { btn.disabled = false; btn.textContent = '\\u2713 Resend'; }
+    appendLog('Report emailed to ' + msg.to, 'ok');
+  }
+  if (msg.type === 'email_error') {
+    const el = document.getElementById('email-status');
+    const btn = document.getElementById('rpt-email-btn');
+    if (el) el.textContent = 'Failed: ' + msg.error;
+    if (btn) btn.disabled = false;
+    appendLog('Email error: ' + msg.error, 'error');
+    // Also surface in the modal if it is open
+    const overlay = document.getElementById('email-overlay');
+    if (overlay && overlay.style.display !== 'none') {
+      const sendBtn = document.getElementById('email-send-btn');
+      if (sendBtn) sendBtn.disabled = false;
+      setEmailModalStatus(msg.error, 'error');
+    }
+  }
   if (msg.type === 'set_file') {
     const lbl = document.getElementById('run-file');
     if (lbl) lbl.textContent = msg.file || '';
@@ -815,6 +1173,28 @@ window.addEventListener('message', e => {
     if (llmSel  && msg.provider) llmSel.value  = msg.provider;
     if (modeSel && msg.mode)     modeSel.value = msg.mode;
     updateBadge(msg.provider || 'inhouse');
+    if (msg.email) { emailSettings = msg.email; }
+  }
+  if (msg.type === 'open_email_modal') {
+    openEmailModal();
+    return;
+  }
+  if (msg.type === 'email_test_result') {
+    const btn = document.getElementById('email-test-btn');
+    if (btn) btn.disabled = false;
+    setEmailModalStatus(msg.message, msg.success ? 'ok' : 'error');
+    return;
+  }
+  if (msg.type === 'email_modal_result') {
+    const sendBtn = document.getElementById('email-send-btn');
+    if (sendBtn) sendBtn.disabled = false;
+    if (msg.success) {
+      setEmailModalStatus(msg.message, 'ok');
+      setTimeout(closeEmailModal, 2800);
+    } else {
+      setEmailModalStatus(msg.message, 'error');
+    }
+    return;
   }
   if (msg.type === 'ai_response') {
     const area = document.getElementById('chat-response');
@@ -862,7 +1242,7 @@ function buildContext() {
     survived.slice(0, 10).forEach(m => {
       ctx += '    - ' + m.mutant_id + ' in ' + m.function + '() line ' + m.line +
              ': ' + m.description +
-             (m.difficulty ? ' [difficulty: ' + m.difficulty + ']' : '') + '\\n';
+             (m.priority ? ' [priority: ' + m.priority + ']' : '') + '\\n';
     });
     if (survived.length > 10) ctx += '    ...and ' + (survived.length - 10) + ' more.\\n';
   }
@@ -901,49 +1281,104 @@ function appendLog(text, level) {
   body.scrollTop = body.scrollHeight;
 }
 
-// ── Stream handling (fetch-based — EventSource is unreliable in VS Code webviews) ──
+// ── Stream handling — fetch-based with automatic reconnect ──────────────────
 async function connectStream(url) {
   if (streamActive && es) { try { es.cancel(); } catch(e) {} }
   streamActive = true; es = null;
-  appendLog('Connecting → ' + url, 'info');
-  try {
-    const resp = await fetch(url);
-    if (!resp.ok) {
-      const msg = 'HTTP ' + resp.status + ' from stream endpoint';
-      addStatus('Stream error: ' + msg);
-      appendLog('Stream error: ' + msg, 'error');
-      streamActive = false; return;
+
+  const MAX_ATTEMPTS = 20;
+  let attempt = 0;
+  let retryDelay = 2000; // ms, doubles up to 30s cap
+
+  while (streamActive && attempt <= MAX_ATTEMPTS) {
+    // ── Reconnect wait (skipped on first attempt) ──
+    if (attempt > 0) {
+      const secs = Math.round(retryDelay / 1000);
+      const msg = 'Network error — reconnecting in ' + secs + 's (attempt ' + attempt + '/' + MAX_ATTEMPTS + ')';
+      addStatus(msg);
+      appendLog(msg, 'warn');
+      await new Promise(r => setTimeout(r, retryDelay));
+      retryDelay = Math.min(Math.round(retryDelay * 1.6), 30000);
     }
-    appendLog('Stream connected ✓', 'ok');
-    const reader = resp.body.getReader();
-    es = reader;
-    const dec = new TextDecoder();
-    let buf = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const lines = buf.split('\\n');
-      buf = lines.pop() || '';
-      for (const line of lines) {
-        const trim = line.trim();
-        if (trim.startsWith('data:')) {
-          try { handleEvent(JSON.parse(trim.slice(5).trim())); } catch(e) {}
+
+    // ── Build URL with resume offset ──
+    const resumeUrl = eventsReceived > 0 ? url + '?from_event=' + eventsReceived : url;
+    const isReconnect = attempt > 0;
+    appendLog((isReconnect ? 'Reconnecting → ' : 'Connecting → ') + resumeUrl, 'info');
+
+    try {
+      const resp = await fetch(resumeUrl);
+
+      if (!resp.ok) {
+        if (resp.status === 404) {
+          appendLog('Job not found on server (404) — analysis may have expired or completed', 'warn');
+          break; // don't retry a 404
+        }
+        throw new Error('HTTP ' + resp.status);
+      }
+
+      // ── Successful connection ──
+      if (isReconnect) {
+        addStatus('Stream reconnected — resuming from event ' + eventsReceived);
+        appendLog('Reconnected ✓ resuming from event ' + eventsReceived, 'ok');
+        const bar = document.getElementById('bar');
+        if (bar) bar.classList.add('running'); // re-pulse the bar
+      } else {
+        appendLog('Stream connected ✓', 'ok');
+      }
+      attempt = 0;      // reset attempt count on success
+      retryDelay = 2000;
+
+      const reader = resp.body.getReader();
+      es = reader;
+      const dec = new TextDecoder();
+      let buf = '';
+      let serverClosed = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) { serverClosed = true; break; }
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\\n');
+        buf = lines.pop() || '';
+        for (const line of lines) {
+          const trim = line.trim();
+          if (trim.startsWith('data:')) {
+            try { handleEvent(JSON.parse(trim.slice(5).trim())); } catch(e) {}
+          }
         }
       }
+
+      // ── Stream ended cleanly ──
+      if (!streamActive) return;    // handleEvent('complete') already closed things
+      if (serverClosed) {
+        appendLog('Stream closed by server — retrying', 'warn');
+        attempt++;
+        continue;
+      }
+
+    } catch (err) {
+      const msg = String(err);
+      addStatus('Stream error: ' + msg);
+      appendLog('Stream error: ' + msg, 'error');
+      attempt++;
+      es = null;
     }
-    appendLog('Stream closed', 'info');
-  } catch (err) {
-    const msg = String(err);
-    addStatus('Stream error: ' + msg);
-    appendLog('Stream exception: ' + msg, 'error');
+  }
+
+  if (attempt > MAX_ATTEMPTS) {
+    appendLog('Max reconnection attempts reached. Analysis continues on backend — restart the dashboard to reconnect.', 'warn');
+    addStatus('Stream disconnected after ' + MAX_ATTEMPTS + ' retries');
+    const bar = document.getElementById('bar');
+    if (bar) bar.classList.remove('running');
   }
   streamActive = false; es = null;
 }
 
 function handleEvent(e) {
   if (e.type === 'ping') return;
-  if (e.type === 'status' || e.type === 'healing') {
+  eventsReceived++;
+  if (e.type === 'status') {
     addStatus(e.message);
     appendLog(e.message, 'info');
     return;
@@ -956,10 +1391,12 @@ function handleEvent(e) {
     appendLog('Found ' + e.total + ' mutants  (' + e.ast_mutant_count + ' AST' + aiPart + ')', 'ok');
     return;
   }
+  if (e.type === 'survived_priority') {
+    renderSurvivedPanel(e.mutants || []);
+    return;
+  }
   if (e.type === 'mutant_result') {
     mutantResults.push(e);
-    if (e.status === 'survived' && scoreBeforeHeal === null) scoreBeforeHeal = e.true_score;
-    if (e.suggested_test) addSuggestedTest(e);
     updateScores(e);
     updateBar(e.index, e.total);
     addMutantRow(e);
@@ -975,8 +1412,11 @@ function handleEvent(e) {
     addStatus('✔ Done · True score: ' + e.true_score + '% · Raw: ' + e.raw_score + '%');
     appendLog('Done ✓  killed=' + e.killed + '  survived=' + e.survived + '  equiv=' + e.equivalent + '  score=' + e.true_score + '%', 'ok');
     showSummary(e);
-    vscode.postMessage({ type: 'analysis_complete', true_score: e.true_score });
+    const actBar = document.getElementById('report-actions');
+    if (actBar) actBar.classList.add('show');
+    vscode.postMessage({ type: 'analysis_complete', true_score: e.true_score, job_id: currentJobId });
     currentStreamUrl = null;
+    streamActive = false; // signals reconnect loop to stop
     if (es) { try { es.cancel(); } catch(err) {} es = null; }
     return;
   }
@@ -1008,31 +1448,47 @@ function addMutantRow(e) {
   const feed = document.getElementById('feed');
   const div = document.createElement('div');
   div.className = 'event';
+  div.style.flexDirection = 'column';
+  div.style.alignItems    = 'stretch';
+  div.style.gap           = '2px';
 
   const badgeClass = {killed:'b-killed', survived:'b-survived', equivalent:'b-equivalent', error:'b-error'}[e.status] || 'b-info';
-  const icon = {killed:'✓', survived:'✗', equivalent:'≡', error:'!'}[e.status] || '·';
-
-  const isCross = e.operator && e.operator.startsWith('CMR');
-  const isAI    = e.operator === 'AI';
+  const icon       = {killed:'✓', survived:'✗', equivalent:'≡', error:'!'}[e.status] || '·';
+  const isCross    = e.operator && e.operator.startsWith('CMR');
+  const isAI       = e.operator === 'AI';
 
   let tags = '';
-  if (e.difficulty) {
-    const dc = {low:'b-diff-low', medium:'b-diff-medium', high:'b-diff-high'}[e.difficulty] || 'b-info';
-    tags += '<span class="mini-tag ' + dc + '">' + e.difficulty[0].toUpperCase() + '</span>';
+  if (e.priority) {
+    const pc = {low:'b-diff-low', medium:'b-diff-medium', high:'b-diff-high'}[e.priority] || 'b-info';
+    tags += '<span class="mini-tag ' + pc + '" title="Priority: ' + e.priority + '">' + e.priority[0].toUpperCase() + '</span>';
   }
   if (isCross) tags += '<span class="mini-tag b-cross" title="Cross-method">X</span>';
   if (isAI)    tags += '<span class="mini-tag b-ai-mutant" title="AI mutant">AI</span>';
 
+  // Secondary info line: killer test name for killed, hint for survived
+  let infoHtml = '';
+  if (e.status === 'killed' && e.killer_test_name) {
+    const loc = e.killer_test_file ? ' @ ' + esc(e.killer_test_file) : '';
+    infoHtml = '<div style="padding-left:84px"><span class="killer-info" title="Test that caught this mutant">' +
+      '&#10003; ' + esc(e.killer_test_name) + loc + '</span></div>';
+  } else if (e.status === 'survived' && e.hint) {
+    infoHtml = '<div style="padding-left:84px"><span class="surv-hint" title="' + esc(e.hint) + '">' +
+      esc(e.hint) + '</span></div>';
+  }
+
   div.innerHTML =
-    '<span class="badge ' + badgeClass + '">' + icon + ' ' + e.status.toUpperCase() + '</span>' +
-    '<span class="mut-line" title="' + esc(e.description) + (e.difficulty_reason ? ' — ' + esc(e.difficulty_reason) : '') + '">' +
-      '<span class="mut-id">' + esc(e.mutant_id) + '</span>' +
-      '<span class="mut-sep"> · </span>' +
-      '<span class="mut-fn">' + esc(e.function) + ':' + e.line + '</span>' +
-      '<span class="mut-sep"> · </span>' +
-      esc(e.description) +
-    '</span>' +
-    tags;
+    '<div style="display:flex;align-items:center;gap:6px">' +
+      '<span class="badge ' + badgeClass + '">' + icon + ' ' + e.status.toUpperCase() + '</span>' +
+      '<span class="mut-line" title="' + esc(e.description) + '">' +
+        '<span class="mut-id">' + esc(e.mutant_id) + '</span>' +
+        '<span class="mut-sep"> · </span>' +
+        '<span class="mut-fn">' + esc(e.function) + ':' + e.line + '</span>' +
+        '<span class="mut-sep"> · </span>' +
+        esc(e.description) +
+      '</span>' +
+      tags +
+    '</div>' +
+    infoHtml;
 
   if (isCross && e.status !== 'equivalent') {
     const el = document.getElementById('cross-count');
@@ -1069,7 +1525,7 @@ function showSummary(e) {
     .filter(m => m.status === 'survived')
     .sort((a, b) => {
       const rank = {high:0, medium:1, low:2};
-      return (rank[a.difficulty] ?? 1) - (rank[b.difficulty] ?? 1);
+      return (rank[a.priority] ?? 1) - (rank[b.priority] ?? 1);
     })
     .slice(0, 3);
   const topEl = document.getElementById('summary-top');
@@ -1080,23 +1536,64 @@ function showSummary(e) {
       '<div class="top-mutant">' +
       esc(m.mutant_id) + ' &middot; ' + esc(m.function) + ':' + m.line +
       ' &middot; ' + esc(m.description) +
-      (m.difficulty ? ' <span style="opacity:.6">[' + m.difficulty + ']</span>' : '') +
+      (m.priority ? ' <span style="opacity:.6">[' + m.priority + ']</span>' : '') +
       '</div>'
     ).join('');
   }
 }
 
-function addSuggestedTest(e) {
-  suggestedTests.push({ id: e.mutant_id, fn: e.function, code: e.suggested_test });
-  const panel = document.getElementById('suggested-panel');
-  const count = document.getElementById('suggested-count');
+function renderSurvivedPanel(mutants) {
+  const panel = document.getElementById('surv-panel');
+  const cards = document.getElementById('surv-cards');
+  const count = document.getElementById('surv-count');
+  if (!panel || !cards) return;
+  if (mutants.length === 0) { panel.style.display = 'none'; return; }
+
+  cards.innerHTML = '';
+  if (count) count.textContent = String(mutants.length);
   panel.style.display = 'block';
-  count.textContent = String(suggestedTests.length);
-  const block = document.getElementById('all-tests-block');
-  block.textContent = suggestedTests.map(t =>
-    '# --- ' + t.id + ' · ' + t.fn + ' ---\\n' + t.code
-  ).join('\\n\\n');
+
+  const prioLabel = {high:'HIGH', medium:'MED', low:'LOW'};
+  const prioClass = {high:'sp-high', medium:'sp-medium', low:'sp-low'};
+
+  mutants.forEach(function(m) {
+    const card = document.createElement('div');
+    card.className = 'surv-card ' + (m.priority || 'medium');
+    const pl = prioLabel[m.priority] || 'MED';
+    const pc = prioClass[m.priority] || 'sp-medium';
+
+    card.innerHTML =
+      '<div class="surv-card-row">' +
+        '<span class="surv-badge ' + pc + '">' + pl + '</span>' +
+        '<span class="surv-card-id">' + esc(m.mutant_id) + '</span>' +
+        '<span class="surv-card-fn">' + esc(m.function) + ':' + m.line + '</span>' +
+        '<span class="surv-card-desc" title="' + esc(m.description) + '">' + esc(m.description) + '</span>' +
+        '<button class="ask-ai-btn"' +
+          ' data-id="'   + esc(m.mutant_id)    + '"' +
+          ' data-fn="'   + esc(m.function)      + '"' +
+          ' data-line="' + m.line               + '"' +
+          ' data-op="'   + esc(m.operator)      + '"' +
+          ' data-desc="' + esc(m.description)   + '">Ask AI &#8594;</button>' +
+      '</div>' +
+      (m.hint ? '<div class="surv-card-hint">' + esc(m.hint) + '</div>' : '');
+
+    const btn = card.querySelector('.ask-ai-btn');
+    if (btn) {
+      btn.addEventListener('click', function() {
+        const prompt =
+          'How do I write a test to kill mutant ' + btn.getAttribute('data-id') +
+          ' in function ' + btn.getAttribute('data-fn') + '() at line ' + btn.getAttribute('data-line') +
+          '? The mutation is: ' + btn.getAttribute('data-desc') +
+          ' (operator: ' + btn.getAttribute('data-op') + ')';
+        const inp = document.getElementById('chat-input');
+        if (inp) { inp.value = prompt; inp.focus(); }
+        sendChat();
+      });
+    }
+    cards.appendChild(card);
+  });
 }
+
 
 function toggleSuggested() {
   const body = document.getElementById('suggested-body');
@@ -1114,12 +1611,24 @@ function copyAllTests() {
 
 function clearFeed() {
   var g = function(id) { return document.getElementById(id); };
+  var ra = g('report-actions');
+  if (ra) { ra.classList.remove('show'); }
+  var es2 = g('email-status'); if (es2) es2.textContent = '';
+  var eb = g('rpt-email-btn'); if (eb) { eb.disabled = false; eb.innerHTML = '&#128231; Email Report'; }
   var feed = g('feed');
   if (feed) feed.innerHTML = '';
   var bar = g('bar');
   if (bar) bar.style.width = '0';
   var ss = g('summary-section');
   if (ss) ss.style.display = 'none';
+  // Survived priority panel
+  var survPanel = g('surv-panel');
+  if (survPanel) survPanel.style.display = 'none';
+  var survCards = g('surv-cards');
+  if (survCards) survCards.innerHTML = '';
+  var survCount = g('surv-count');
+  if (survCount) survCount.textContent = '0';
+  // Suggested tests panel (legacy, kept for compatibility)
   var sp = g('suggested-panel');
   if (sp) sp.style.display = 'none';
   var atb = g('all-tests-block');
@@ -1138,9 +1647,150 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ── Email settings modal ──────────────────────────────────────────────────────
+const EMAIL_PRESETS = {
+  gmail:   {host:'smtp.gmail.com',         port:587, tls:true},
+  outlook: {host:'smtp-mail.outlook.com',  port:587, tls:true},
+  custom:  {host:'',                        port:587, tls:true},
+};
+
+function openEmailModal() {
+  const overlay = document.getElementById('email-overlay');
+  if (!overlay) return;
+  const s = emailSettings;
+  const prov = s.provider || 'gmail';
+  var el;
+  el = document.getElementById('email-provider');   if (el) el.value = prov;
+  el = document.getElementById('email-sender');      if (el) el.value = s.sender      || '';
+  el = document.getElementById('email-apppassword'); if (el) el.value = s.appPassword || '';
+  el = document.getElementById('email-recipient');   if (el) el.value = s.recipient   || '';
+  el = document.getElementById('email-smtp-host');   if (el) el.value = s.smtp_host   || '';
+  el = document.getElementById('email-smtp-port');   if (el) el.value = String(s.smtp_port || 587);
+  updateEmailProviderUI();
+  clearEmailModalStatus();
+  overlay.style.display = 'flex';
+  el = document.getElementById('email-sender');
+  if (el && !el.value) el.focus();
+}
+
+function closeEmailModal() {
+  var overlay = document.getElementById('email-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function updateEmailProviderUI() {
+  var sel = document.getElementById('email-provider');
+  if (!sel) return;
+  var prov = sel.value;
+  var cf = document.getElementById('email-custom-fields');
+  if (cf) cf.style.display = prov === 'custom' ? 'block' : 'none';
+  var note = document.getElementById('email-provider-note');
+  if (!note) return;
+  if (prov === 'gmail') {
+    note.style.display = 'block';
+    note.innerHTML =
+      '<strong>Gmail:</strong> You must use an <strong>App Password</strong>, not your regular ' +
+      'Gmail password &mdash; regular passwords are blocked by Google for SMTP access. ' +
+      '<a id="email-help-link" style="color:#4ec9a0;text-decoration:none;cursor:pointer">' +
+      'Create App Password &#8594;</a>';
+    var lnk = document.getElementById('email-help-link');
+    if (lnk) lnk.onclick = function(e) {
+      e.preventDefault();
+      vscode.postMessage({type:'open_external',url:'https://myaccount.google.com/apppasswords'});
+    };
+  } else if (prov === 'outlook') {
+    note.style.display = 'block';
+    note.innerHTML =
+      '<strong>Outlook / Office 365:</strong> Use an <strong>App Password</strong> if ' +
+      '2-Factor Authentication is enabled on your Microsoft account. ' +
+      '<a id="email-help-link" style="color:#4ec9a0;text-decoration:none;cursor:pointer">' +
+      'Microsoft App Passwords &#8594;</a>';
+    var lnk2 = document.getElementById('email-help-link');
+    if (lnk2) lnk2.onclick = function(e) {
+      e.preventDefault();
+      vscode.postMessage({type:'open_external',url:'https://account.microsoft.com/security'});
+    };
+  } else {
+    note.style.display = 'none';
+  }
+}
+
+function getEmailFormSettings() {
+  var prov = (document.getElementById('email-provider') || {}).value || 'gmail';
+  var preset = EMAIL_PRESETS[prov] || EMAIL_PRESETS.custom;
+  var isCustom = prov === 'custom';
+  function val(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+  return {
+    provider:    prov,
+    sender:      val('email-sender').trim(),
+    appPassword: val('email-apppassword'),
+    recipient:   val('email-recipient').trim(),
+    smtp_host:   isCustom ? val('email-smtp-host').trim() : preset.host,
+    smtp_port:   isCustom ? parseInt(val('email-smtp-port') || '587') : preset.port,
+    use_tls:     preset.tls !== false,
+  };
+}
+
+function sendTestEmail() {
+  var settings = getEmailFormSettings();
+  if (!settings.sender || !settings.appPassword || !settings.recipient) {
+    setEmailModalStatus('Fill in Sender, App Password, and Recipient first.', 'error');
+    return;
+  }
+  var btn = document.getElementById('email-test-btn');
+  if (btn) btn.disabled = true;
+  setEmailModalStatus('Sending test email...', 'info');
+  vscode.postMessage(Object.assign({type:'email_send_test'}, settings));
+}
+
+function sendEmailReport() {
+  if (!currentJobId) {
+    setEmailModalStatus('No completed analysis — run an analysis first.', 'error');
+    return;
+  }
+  var settings = getEmailFormSettings();
+  if (!settings.sender || !settings.appPassword || !settings.recipient) {
+    setEmailModalStatus('Fill in Sender, App Password, and Recipient before sending.', 'error');
+    return;
+  }
+  emailSettings = settings;
+  vscode.postMessage(Object.assign({type:'email_settings_save'}, settings));
+  var btn = document.getElementById('email-send-btn');
+  if (btn) btn.disabled = true;
+  setEmailModalStatus('Sending report...', 'info');
+  vscode.postMessage(Object.assign({type:'email_report', job_id: currentJobId}, settings));
+}
+
+function setEmailModalStatus(text, level) {
+  var el = document.getElementById('email-modal-status');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'email-modal-status ems-' + (level || 'info');
+}
+
+function clearEmailModalStatus() {
+  var el = document.getElementById('email-modal-status');
+  if (el) { el.textContent = ''; el.className = 'email-modal-status'; el.style.display = 'none'; }
+}
+
 // ── Wire all event listeners ──────────────────────────────────────────────────
 document.getElementById('llm-select-mini').addEventListener('change', autoApplySettings);
 document.getElementById('mode-select').addEventListener('change', autoApplySettings);
+document.getElementById('rpt-save-btn').addEventListener('click', function() {
+  if (!currentJobId) return;
+  vscode.postMessage({ type: 'save_report', job_id: currentJobId });
+});
+document.getElementById('rpt-email-btn').addEventListener('click', function() {
+  openEmailModal();
+});
+// Email modal controls
+document.getElementById('email-close-btn').addEventListener('click', closeEmailModal);
+document.getElementById('email-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeEmailModal();
+});
+document.getElementById('email-provider').addEventListener('change', updateEmailProviderUI);
+document.getElementById('email-test-btn').addEventListener('click', sendTestEmail);
+document.getElementById('email-send-btn').addEventListener('click', sendEmailReport);
 document.getElementById('term-clear-btn').addEventListener('click', function() {
   const b = document.getElementById('term-body'); if (b) b.innerHTML = '';
 });

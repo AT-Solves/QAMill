@@ -19,7 +19,27 @@
       "Bash(python main.py)",
       "PowerShell(Start-Sleep -Seconds 3; $conn = Get-NetTCPConnection -LocalPort 8765 -ErrorAction SilentlyContinue; if \\($conn\\) { \"Backend up on port 8765 \\(PID $\\($conn.OwningProcess\\)\\)\" } else { \"Backend not yet listening...\" })",
       "Bash(node -e \"const ext = require\\('./out/extension.js'\\); \")",
-      "Bash(node --check \"c:\\\\AchieverThoughtsProjects\\\\QAMill\\\\QAMill\\\\vscode-extension\\\\out\\\\_check2.js\")"
+      "Bash(node --check \"c:\\\\AchieverThoughtsProjects\\\\QAMill\\\\QAMill\\\\vscode-extension\\\\out\\\\_check2.js\")",
+      "Bash(python -c \"from mutation_engine import MutationEngine; m = MutationEngine\\(\\); print\\([type\\(x\\).__name__ for x in m.mutators]\\)\")",
+      "Bash(python -c \"from mutation_engine import MutationEngine; m = MutationEngine\\(\\); muts = m.generate_mutants\\('../sample_project/math_utils.py'\\); print\\(f'Total: {len\\(muts\\)}'\\); from collections import Counter; c = Counter\\(mu.operator for mu in muts\\); [print\\(f'  {k}: {v}'\\) for k,v in sorted\\(c.items\\(\\)\\)]\")",
+      "Bash(python -c \"import math_utils; print\\('imports ok'\\)\")",
+      "Bash(python -m pytest tests/ -q)",
+      "Bash(python -c \"import main; print\\('main.py OK'\\)\")",
+      "Bash(python -c \"import main; print\\('backend OK'\\)\")",
+      "Bash(curl -s \"http://localhost:8765/export/f21fb5b4-649d-46a8-aac3-19e4ae6990e6\" -o /tmp/test_report.html)",
+      "Bash(echo \"Exit: $?\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s -X POST http://localhost:8765/email -H 'Content-Type: application/json' -d '{\"job_id\":\"f21fb5b4-649d-46a8-aac3-19e4ae6990e6\",\"to_address\":\"test@example.com\",\"smtp_host\":\"smtp.gmail.com\",\"smtp_port\":587,\"smtp_user\":\"\",\"smtp_password\":\"\",\"use_tls\":true}')",
+      "Bash(pip install *)",
+      "Bash(python -c \"import fastapi, uvicorn, astor, pydantic; print\\('deps ok'\\)\")",
+      "Bash(python -m pytest tests/ -q --tb=short)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s http://localhost:8765/operators)",
+      "Bash(curl -s http://localhost:8765/providers)",
+      "Bash(curl -s -X POST http://localhost:8765/analyze -H 'Content-Type: application/json' -d '{\"file_path\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project/math_utils.py\",\"project_root\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project\",\"llm_provider\":\"none\",\"detect_equivalents\":true,\"auto_heal\":false,\"ai_mutants\":false}')",
+      "Bash(taskkill /PID 1248 /F)",
+      "Bash(curl -s -X POST http://localhost:8765/analyze -H 'Content-Type: application/json' -d '{\"file_path\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project/math_utils.py\",\"project_root\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project\",\"llm_provider\":\"none\",\"detect_equivalents\":false,\"auto_heal\":false,\"ai_mutants\":false}')",
+      "Bash(curl -s -I -X OPTIONS http://localhost:8765/analyze -H 'Origin: http://localhost:3000' -H 'Access-Control-Request-Method: POST')"
     ]
   }
 }
