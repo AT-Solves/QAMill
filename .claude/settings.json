@@ -39,7 +39,12 @@
       "Bash(curl -s -X POST http://localhost:8765/analyze -H 'Content-Type: application/json' -d '{\"file_path\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project/math_utils.py\",\"project_root\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project\",\"llm_provider\":\"none\",\"detect_equivalents\":true,\"auto_heal\":false,\"ai_mutants\":false}')",
       "Bash(taskkill /PID 1248 /F)",
       "Bash(curl -s -X POST http://localhost:8765/analyze -H 'Content-Type: application/json' -d '{\"file_path\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project/math_utils.py\",\"project_root\":\"C:/AchieverThoughtsProjects/QAMill/QAMill/sample_project\",\"llm_provider\":\"none\",\"detect_equivalents\":false,\"auto_heal\":false,\"ai_mutants\":false}')",
-      "Bash(curl -s -I -X OPTIONS http://localhost:8765/analyze -H 'Origin: http://localhost:3000' -H 'Access-Control-Request-Method: POST')"
+      "Bash(curl -s -I -X OPTIONS http://localhost:8765/analyze -H 'Origin: http://localhost:3000' -H 'Access-Control-Request-Method: POST')",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\AchieverThoughtsProjects\\\\QAMill\\\\QAMill\" -Recurse -Force | Where-Object {$_.FullName -notmatch '\\\\.git'} | Select-Object -First 200 FullName | ForEach-Object {$_.FullName})",
+      "Bash(python report_generator.py \"../sample_project/Reports/qamill-elite-report.html\")",
+      "Bash(ls \"C:\\\\Users\\\\achie\\\\.claude\\\\projects\\\\c--AchieverThoughtsProjects-QAMill-QAMill\\\\memory\\\\\" 2>/dev/null || echo \"empty\")",
+      "Read(//c/Users/achie/.claude/projects/c--AchieverThoughtsProjects-QAMill-QAMill/memory\" 2>/dev/**)",
+      "Read(//c/Users/achie/.claude/projects/c--AchieverThoughtsProjects-QAMill-QAMill/**)"
     ]
   }
 }

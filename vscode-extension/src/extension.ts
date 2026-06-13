@@ -311,6 +311,22 @@ function openDashboard(context: vscode.ExtensionContext, port: number) {
       if (jobDeliveryTimer) { clearTimeout(jobDeliveryTimer); jobDeliveryTimer = undefined; }
       statusBarItem.text = `$(beaker) QAMill ${msg.true_score}%`;
 
+      // Show notification with Open Report / Email Report buttons
+      const reportPath: string | undefined = msg.report_path;
+      const notifMsg = `QAMill analysis complete — True score: ${msg.true_score}%`;
+      if (reportPath && !reportPath.startsWith("error:")) {
+        vscode.window.showInformationMessage(notifMsg, "Open Report", "Email Report")
+          .then(action => {
+            if (action === "Open Report") {
+              vscode.env.openExternal(vscode.Uri.file(reportPath));
+            } else if (action === "Email Report") {
+              dashboardPanel?.webview.postMessage({ type: "open_email_modal" });
+            }
+          });
+      } else {
+        vscode.window.showInformationMessage(notifMsg);
+      }
+
       // Auto-email if configured
       const cfg2 = vscode.workspace.getConfiguration("amil");
       const autoSend = cfg2.get<boolean>("email.autoSend", false);
@@ -1449,7 +1465,7 @@ function handleEvent(e) {
     showSummary(e);
     const actBar = document.getElementById('report-actions');
     if (actBar) actBar.classList.add('show');
-    vscode.postMessage({ type: 'analysis_complete', true_score: e.true_score, job_id: currentJobId });
+    vscode.postMessage({ type: 'analysis_complete', true_score: e.true_score, job_id: currentJobId, report_path: e.report_path || '' });
     currentStreamUrl = null;
     streamActive = false; // signals reconnect loop to stop
     if (es) { try { es.cancel(); } catch(err) {} es = null; }

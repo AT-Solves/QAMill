@@ -7,9 +7,12 @@ VS Code extension and browser dashboard both connect to this.
 import asyncio
 import json
 import smtplib
+import time
 import uuid
 from collections import Counter
 from datetime import datetime
+from email.mime.base import MIMEBase
+from email import encoders
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -26,6 +29,7 @@ from test_runner import TestRunner, mutation_hint, mutation_priority, MAX_WORKER
 from llm_adapter import create_adapter, NoLLMAdapter
 from cross_method_mutator import CrossMethodMutator
 from ai_mutant_generator import AIMutantGenerator
+from report_generator import build_html_report
 
 app = FastAPI(title="AMIL Mutation Testing Server", version="1.0.0")
 
@@ -192,6 +196,7 @@ async def _run_analysis(job_id: str, req: AnalyzeRequest):
         # ── Parallel mutant processing ─────────────────────────────────────────
         # asyncio cooperative scheduling makes plain int counters safe here:
         # no await between a counter read and its write.
+        analysis_start = time.monotonic()
         processed = 0
         killed = survived = equivalent = errors = 0
 
@@ -287,6 +292,40 @@ async def _run_analysis(job_id: str, req: AnalyzeRequest):
             })
 
         # ── Final summary ──────────────────────────────────────────────────────
+        execution_time = round(time.monotonic() - analysis_start, 2)
+        true_score_val = _score(killed, survived)
+        raw_score_val  = _raw_score(killed, survived, equivalent)
+
+        # Auto-save HTML report
+        report_path = ""
+        try:
+            report_data = {
+                "file_name":       Path(req.file_path).name,
+                "timestamp":       datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "execution_time":  execution_time,
+                "true_score":      true_score_val,
+                "raw_score":       raw_score_val,
+                "killed":          killed,
+                "survived":        survived,
+                "equivalent":      equivalent,
+                "total":           total,
+                "llm_provider":    llm.name,
+                "mutants": [
+                    e for e in _job_events.get(job_id, [])
+                    if e.get("type") == "mutant_result"
+                ],
+            }
+            reports_dir = Path(req.project_root) / "qamill-reports"
+            reports_dir.mkdir(exist_ok=True)
+            ts_tag = datetime.now().strftime("%Y%m%d-%H%M%S")
+            stem   = Path(req.file_path).stem
+            report_file = reports_dir / f"qamill-{stem}-{ts_tag}.html"
+            html_content = build_html_report(report_data)
+            report_file.write_text(html_content, encoding="utf-8")
+            report_path = str(report_file)
+        except Exception as rep_err:
+            report_path = f"error: {rep_err}"
+
         summary = {
             "type": "complete",
             "total": total,
@@ -294,9 +333,11 @@ async def _run_analysis(job_id: str, req: AnalyzeRequest):
             "survived": survived,
             "equivalent": equivalent,
             "errors": errors,
-            "true_score": _score(killed, survived),
-            "raw_score":  _raw_score(killed, survived, equivalent),
+            "true_score": true_score_val,
+            "raw_score":  raw_score_val,
             "llm_provider": llm.name,
+            "execution_time_seconds": execution_time,
+            "report_path": report_path,
         }
         _job_summaries[job_id] = summary
         await _broadcast(job_id, summary)
@@ -505,144 +546,27 @@ async def health():
 # ── Report generation ──────────────────────────────────────────────────────
 
 def _build_html_report(job_id: str) -> str:
-    """Build a self-contained dark-themed HTML report from stored job events."""
+    """Build elite self-contained HTML report from stored job events."""
     events   = _job_events.get(job_id, [])
     summary  = _job_summaries.get(job_id, {})
     mutants  = [e for e in events if e.get("type") == "mutant_result"]
     start_ev = next((e for e in events if e.get("type") == "start"), {})
     comp_ev  = next((e for e in events if e.get("type") == "complete"), summary)
 
-    file_name  = start_ev.get("file", "unknown")
-    true_score = comp_ev.get("true_score", 0)
-    raw_score  = comp_ev.get("raw_score", 0)
-    killed     = comp_ev.get("killed", 0)
-    survived   = comp_ev.get("survived", 0)
-    equivalent = comp_ev.get("equivalent", 0)
-    total      = comp_ev.get("total", len(mutants))
-    now        = datetime.now().strftime("%Y-%m-%d %H:%M")
-    score_col  = "#4ec9a0" if true_score >= 80 else "#d29922" if true_score >= 60 else "#f48771"
-
-    op_total  = Counter(m["operator"] for m in mutants)
-    op_killed = Counter(m["operator"] for m in mutants if m["status"] == "killed")
-    survived_list = [m for m in mutants if m["status"] == "survived"]
-
-    # ── CSS ──────────────────────────────────────────────────────────────────
-    css = """
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-       background: #1e1e1e; color: #d4d4d4; font-size: 14px; line-height: 1.6; padding: 36px 48px; }
-h1  { font-size: 26px; color: #4ec9a0; margin-bottom: 4px; }
-h2  { font-size: 15px; font-weight: 700; color: #c9d1d9; margin: 28px 0 12px;
-      border-bottom: 1px solid #30363d; padding-bottom: 6px; text-transform: uppercase;
-      letter-spacing: .06em; }
-.meta { color: #8b949e; font-size: 12px; margin-bottom: 28px; }
-.score-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 28px; }
-.sc { background: #252526; border: 1px solid #30363d; border-radius: 8px; padding: 14px 20px; min-width: 110px; }
-.sc .v { font-size: 36px; font-weight: 700; }
-.sc .l { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: .07em; margin-top: 2px; }
-.v-ts  { color: """ + score_col + """; }
-.v-raw { color: #ce9178; }
-.v-k   { color: #4ec9a0; }
-.v-s   { color: #f48771; }
-.v-eq  { color: #dcdcaa; }
-.op-row { margin-bottom: 10px; }
-.op-hd  { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
-.bar-w  { background: #30363d; border-radius: 4px; height: 10px; overflow: hidden; }
-.bar-f  { height: 100%; background: #4ec9a0; border-radius: 4px; }
-table  { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
-th  { text-align: left; padding: 7px 10px; background: #252526; color: #8b949e;
-      font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
-td  { padding: 7px 10px; border-bottom: 1px solid #252526; vertical-align: top; }
-tr:hover td { background: #252526; }
-.b  { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-.bk { background: #1e3a2f; color: #4ec9a0; }
-.bs { background: #3a1e1e; color: #f48771; }
-.be { background: #2a2a1e; color: #dcdcaa; }
-.footer { margin-top: 40px; font-size: 11px; color: #555; border-top: 1px solid #252526; padding-top: 12px; }
-"""
-
-    # ── Operator breakdown rows ───────────────────────────────────────────────
-    op_rows = ""
-    for op, cnt in sorted(op_total.items(), key=lambda x: -x[1]):
-        k   = op_killed.get(op, 0)
-        pct = round(k / cnt * 100) if cnt else 0
-        op_rows += (
-            f'<div class="op-row">'
-            f'<div class="op-hd"><span><strong>{op}</strong> &nbsp;{cnt} mutants</span>'
-            f'<span>{k}/{cnt} killed &nbsp;({pct}%)</span></div>'
-            f'<div class="bar-w"><div class="bar-f" style="width:{pct}%"></div></div>'
-            f'</div>\n'
-        )
-
-    # ── Survived table ────────────────────────────────────────────────────────
-    surv_rows = ""
-    for m in survived_list:
-        diff = m.get("difficulty", "")
-        tag  = f' <span style="color:#d29922;font-size:10px">[{diff.upper()}]</span>' if diff else ""
-        surv_rows += (
-            f'<tr><td>{m["mutant_id"]}</td><td>{m["operator"]}</td>'
-            f'<td>{m["function"]}</td><td>{m["line"]}</td>'
-            f'<td>{m["description"]}{tag}</td></tr>\n'
-        )
-
-    # ── Full results table ────────────────────────────────────────────────────
-    all_rows = ""
-    for m in mutants:
-        st  = m["status"]
-        bc  = {"killed": "bk", "survived": "bs", "equivalent": "be"}.get(st, "")
-        all_rows += (
-            f'<tr><td>{m["mutant_id"]}</td><td>{m["operator"]}</td>'
-            f'<td>{m["function"]}</td><td>{m["line"]}</td>'
-            f'<td>{m["description"]}</td>'
-            f'<td><span class="b {bc}">{st.upper()}</span></td></tr>\n'
-        )
-
-    surv_section = ""
-    if survived_list:
-        surv_section = f"""
-<h2>Survived Mutants ({len(survived_list)})</h2>
-<table>
-  <thead><tr><th>ID</th><th>Op</th><th>Function</th><th>Line</th><th>Description</th></tr></thead>
-  <tbody>{surv_rows}</tbody>
-</table>"""
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>QAMill Report — {file_name}</title>
-<style>{css}</style>
-</head>
-<body>
-<h1>QAMill &mdash; Mutation Analysis Report</h1>
-<div class="meta">
-  File: <strong>{file_name}</strong> &nbsp;&middot;&nbsp;
-  Generated: {now} &nbsp;&middot;&nbsp;
-  Total mutants: {total}
-</div>
-
-<h2>Score Summary</h2>
-<div class="score-row">
-  <div class="sc"><div class="l">True Score</div><div class="v v-ts">{true_score}%</div></div>
-  <div class="sc"><div class="l">Raw Score</div><div class="v v-raw">{raw_score}%</div></div>
-  <div class="sc"><div class="l">Killed</div><div class="v v-k">{killed}</div></div>
-  <div class="sc"><div class="l">Survived</div><div class="v v-s">{survived}</div></div>
-  <div class="sc"><div class="l">Equivalent</div><div class="v v-eq">{equivalent}</div></div>
-</div>
-
-<h2>Coverage by Operator</h2>
-{op_rows}
-{surv_section}
-
-<h2>All Mutants ({total})</h2>
-<table>
-  <thead><tr><th>ID</th><th>Op</th><th>Function</th><th>Line</th><th>Description</th><th>Status</th></tr></thead>
-  <tbody>{all_rows}</tbody>
-</table>
-
-<div class="footer">Generated by QAMill &mdash; AI Mutation Testing &nbsp;&middot;&nbsp; {now}</div>
-</body>
-</html>"""
+    data = {
+        "file_name":      start_ev.get("file", "unknown"),
+        "timestamp":      datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "execution_time": comp_ev.get("execution_time_seconds", 0),
+        "true_score":     comp_ev.get("true_score", 0),
+        "raw_score":      comp_ev.get("raw_score", 0),
+        "killed":         comp_ev.get("killed", 0),
+        "survived":       comp_ev.get("survived", 0),
+        "equivalent":     comp_ev.get("equivalent", 0),
+        "total":          comp_ev.get("total", len(mutants)),
+        "llm_provider":   comp_ev.get("llm_provider", "none"),
+        "mutants":        mutants,
+    }
+    return build_html_report(data)
 
 
 @app.get("/export/{job_id}")
@@ -652,9 +576,14 @@ async def export_report(job_id: str):
         raise HTTPException(404, f"Job {job_id} not found")
     from fastapi.responses import HTMLResponse
     html = _build_html_report(job_id)
+    file_name = next(
+        (e.get("file", "report") for e in _job_events[job_id] if e.get("type") == "start"),
+        "report"
+    )
+    stem = Path(file_name).stem
     return HTMLResponse(
         content=html,
-        headers={"Content-Disposition": f'attachment; filename="qamill-{job_id[:8]}.html"'},
+        headers={"Content-Disposition": f'attachment; filename="qamill-{stem}-{job_id[:8]}.html"'},
     )
 
 
@@ -801,6 +730,69 @@ async def email_report(req: EmailRequest):
     )
 
     return {"status": "sent", "to": req.to_address, "subject": msg["Subject"]}
+
+
+# ── /email-report endpoint (Task 4) ──────────────────────────────────────
+
+class EmailReportRequest(BaseModel):
+    recipient:      str
+    subject:        str
+    message:        str
+    sender_email:   str
+    app_password:   str
+    smtp_provider:  str = "gmail"   # "gmail" | "outlook" | "custom"
+    smtp_host:      str = ""        # for custom provider
+    smtp_port:      int = 587
+    report_html:    str = ""        # full HTML report as string
+
+
+@app.post("/email-report")
+async def email_report_direct(req: EmailReportRequest):
+    """Send HTML report via SMTP. Called from the report's Email modal."""
+    provider_settings = {
+        "gmail":   ("smtp.gmail.com",          587, True),
+        "outlook": ("smtp-mail.outlook.com",   587, True),
+    }
+    if req.smtp_provider in provider_settings:
+        host, port, use_tls = provider_settings[req.smtp_provider]
+    else:
+        host     = req.smtp_host or "localhost"
+        port     = req.smtp_port or 587
+        use_tls  = True
+
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = req.subject
+    msg["From"]    = req.sender_email
+    msg["To"]      = req.recipient
+
+    # Plain text body
+    msg.attach(MIMEText(req.message, "plain"))
+
+    # HTML summary body
+    summary_html = f"""<html><body style="font-family:sans-serif;padding:24px">
+<h2 style="color:#3fb950">QAMill Mutation Report</h2>
+<pre style="background:#f6f8fa;padding:16px;border-radius:6px">{req.message}</pre>
+<p style="color:#666;margin-top:16px">See the attached HTML file for the full interactive report.</p>
+</body></html>"""
+    msg.attach(MIMEText(summary_html, "html"))
+
+    # Attach full HTML report
+    if req.report_html:
+        ts   = datetime.now().strftime("%Y%m%d-%H%M%S")
+        att  = MIMEBase("application", "octet-stream")
+        att.set_payload(req.report_html.encode("utf-8"))
+        encoders.encode_base64(att)
+        att.add_header("Content-Disposition",
+                        f'attachment; filename="qamill-report-{ts}.html"')
+        msg.attach(att)
+
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(
+        None, _smtp_send,
+        host, port, req.sender_email, req.app_password,
+        req.sender_email, req.recipient, msg, use_tls,
+    )
+    return {"success": True, "message": f"Report sent to {req.recipient}"}
 
 
 # ── Entry point ────────────────────────────────────────────────────────────
