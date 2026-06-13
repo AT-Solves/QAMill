@@ -47,6 +47,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("amil.runAnalysis", (uri?: vscode.Uri) => runAnalysis(context, uri)),
     vscode.commands.registerCommand("amil.stopAnalysis", stopAnalysis),
     vscode.commands.registerCommand("amil.selectLLM", selectLLM),
+    vscode.commands.registerCommand("amil.setIdentity", setIdentity),
   );
 }
 
@@ -540,6 +541,11 @@ function openDashboard(context: vscode.ExtensionContext, port: number) {
       vscode.env.openExternal(vscode.Uri.parse(msg.url));
       return;
     }
+
+    if (msg.type === "set_identity_prompt") {
+      await vscode.commands.executeCommand("amil.setIdentity");
+      return;
+    }
   });
 
   dashboardPanel.onDidDispose(() => {
@@ -569,6 +575,58 @@ async function selectLLM() {
     dashboardPanel?.webview.postMessage(buildSyncPayload());
     vscode.window.showInformationMessage(`QAMill: LLM set to ${choice.label}`);
   }
+}
+
+// ── Identity (sender email) ───────────────────────────────────────────────────
+
+async function setIdentity() {
+  const emailType = await vscode.window.showQuickPick(
+    [
+      { label: "💼 Work Email",     description: "e.g. you@company.com",  value: "work"     },
+      { label: "🏠 Personal Email", description: "e.g. you@gmail.com",    value: "personal" },
+    ],
+    { placeHolder: "Select your email account type for sending reports" }
+  );
+  if (!emailType) { return; }
+
+  const email = await vscode.window.showInputBox({
+    prompt:      `Enter your ${emailType.label} address`,
+    placeHolder: emailType.value === "work" ? "you@company.com" : "you@gmail.com",
+    value:       vscode.workspace.getConfiguration("amil").get<string>("userEmail", ""),
+    validateInput: (v) => (v && v.includes("@") ? null : "Enter a valid email address"),
+  });
+  if (!email) { return; }
+
+  const savePass = await vscode.window.showQuickPick(
+    [
+      { label: "Yes — save App Password too", value: "yes" },
+      { label: "No — I will enter it each time", value: "no" },
+    ],
+    { placeHolder: "Save your App Password for automatic pre-fill?" }
+  );
+
+  let appPassword = "";
+  if (savePass?.value === "yes") {
+    appPassword = await vscode.window.showInputBox({
+      prompt:      "Enter your App Password (stored in VS Code settings — not your regular password)",
+      placeHolder: "xxxx xxxx xxxx xxxx",
+      password:    true,
+    }) ?? "";
+  }
+
+  const cfg = vscode.workspace.getConfiguration("amil");
+  const t   = vscode.ConfigurationTarget.Workspace;
+  await cfg.update("userEmail",     email,              t);
+  await cfg.update("emailType",     emailType.value,    t);
+  await cfg.update("email.sender",  email,              t);
+  if (appPassword) {
+    await cfg.update("email.appPassword", appPassword,  t);
+  }
+
+  dashboardPanel?.webview.postMessage(buildSyncPayload());
+  vscode.window.showInformationMessage(
+    `QAMill: Identity set to ${email} (${emailType.label}). It will be pre-filled when emailing reports.`
+  );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -606,8 +664,11 @@ function buildSyncPayload() {
   const provider  = cfg.get<string>("llmProvider", "inhouse");
   const autoHeal  = cfg.get<boolean>("autoHeal", true);
   const aiMutants = cfg.get<boolean>("aiMutants", false);
-  const mode = autoHeal && aiMutants ? "both" : autoHeal ? "auto_heal" : aiMutants ? "ai_mutants" : "none";
-  return { type: "sync_settings", provider, mode, email: readEmailConfig() };
+  const mode        = autoHeal && aiMutants ? "both" : autoHeal ? "auto_heal" : aiMutants ? "ai_mutants" : "none";
+  const userEmail   = cfg.get<string>("userEmail", "");
+  const emailType   = cfg.get<string>("emailType", "work");
+  return { type: "sync_settings", provider, mode, email: readEmailConfig(),
+           identity: { email: userEmail, type: emailType } };
 }
 
 function updateLlmStatusBar() {
@@ -702,9 +763,23 @@ function getDashboardHtml(port: number): string {
   h2{font-size:15px;font-weight:600;opacity:.9}
 
   /* ── Provider badge ── */
-  .title-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .title-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
   .provider-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
                   letter-spacing:.06em;text-transform:uppercase}
+  /* ── Identity badge ── */
+  .dash-identity{display:flex;align-items:center;gap:5px;margin-left:auto;flex-shrink:0}
+  .dash-id-dot{width:7px;height:7px;border-radius:50%;background:#8b949e;flex-shrink:0}
+  .dash-id-dot.work{background:#58a6ff}
+  .dash-id-dot.personal{background:#3fb950}
+  .dash-id-email{font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;
+                 white-space:nowrap;opacity:.75}
+  .dash-id-email.work{color:#58a6ff}
+  .dash-id-email.personal{color:#3fb950}
+  .dash-id-btn{background:none;border:1px dashed var(--vscode-widget-border);
+               color:var(--vscode-descriptionForeground);border-radius:4px;
+               padding:2px 8px;font-size:10px;cursor:pointer;white-space:nowrap}
+  .dash-id-btn:hover{border-color:var(--vscode-focusBorder,#007fd4);
+                     color:var(--vscode-textLink-foreground,#4ec9a0)}
   .pb-none   {background:#2a2a2a;color:#888}
   .pb-claude {background:#3a2510;color:#e07b39}
   .pb-gpt    {background:#1a3a1e;color:#4ec9a0}
@@ -960,11 +1035,16 @@ function getDashboardHtml(port: number): string {
 </head>
 <body>
 
-<!-- ── Title row with provider badge ── -->
+<!-- ── Title row with provider badge + identity ── -->
 <div class="title-row">
   <h2>QAMill &mdash; Mutation Analysis</h2>
   <span class="file-label" id="run-file"></span>
   <span class="provider-badge pb-inhouse" id="provider-badge">OLLAMA</span>
+  <div class="dash-identity">
+    <span class="dash-id-dot" id="dash-id-dot"></span>
+    <span class="dash-id-email" id="dash-id-email" title="Sender email for reports"></span>
+    <button class="dash-id-btn" id="dash-id-btn" onclick="vscode.postMessage({type:'set_identity_prompt'})">Log in</button>
+  </div>
 </div>
 
 <!-- ── Score cards ── -->
@@ -1225,6 +1305,8 @@ window.addEventListener('message', e => {
     if (modeSel && msg.mode)     modeSel.value = msg.mode;
     updateBadge(msg.provider || 'inhouse');
     if (msg.email) { emailSettings = msg.email; }
+    // Apply identity to dashboard header
+    if (msg.identity) { applyIdentity(msg.identity); }
   }
   if (msg.type === 'open_email_modal') {
     openEmailModal();
@@ -1253,6 +1335,31 @@ window.addEventListener('message', e => {
     document.getElementById('send-btn').disabled = false;
   }
 });
+
+// ── Identity display ─────────────────────────────────────────────────────────
+function applyIdentity(identity) {
+  var dot  = document.getElementById('dash-id-dot');
+  var lbl  = document.getElementById('dash-id-email');
+  var btn  = document.getElementById('dash-id-btn');
+  if (!dot || !lbl || !btn) return;
+  if (identity && identity.email) {
+    var type = identity.type || 'work';
+    dot.className = 'dash-id-dot ' + type;
+    lbl.textContent = identity.email;
+    lbl.className   = 'dash-id-email ' + type;
+    lbl.title       = identity.email + ' (' + (type === 'personal' ? 'Personal' : 'Work') + ')';
+    btn.textContent = 'Change';
+  } else {
+    dot.className   = 'dash-id-dot';
+    lbl.textContent = '';
+    btn.textContent = 'Log in';
+  }
+  // Pre-fill sender in email modal if it's open
+  var senderField = document.getElementById('email-sender');
+  if (senderField && identity && identity.email && !senderField.value) {
+    senderField.value = identity.email;
+  }
+}
 
 // ── Settings (auto-apply on change) ─────────────────────────────────────────
 function updateBadge(p) {

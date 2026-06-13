@@ -311,6 +311,32 @@ details .details-body{padding:20px}
   transition:opacity .2s}
 #back-to-top.visible{display:flex}
 
+/* ── Identity / Login ── */
+.identity-wrap{display:flex;align-items:center;gap:6px}
+.identity-badge{font-size:11px;border-radius:20px;padding:3px 10px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;display:none}
+.identity-badge.work{background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.4);color:var(--blue)}
+.identity-badge.personal{background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.35);color:var(--teal)}
+.identity-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:none}
+.identity-dot.work{background:var(--blue)}
+.identity-dot.personal{background:var(--teal)}
+.btn-login{font-size:11px;padding:4px 12px;border-style:dashed}
+.type-toggle{display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
+.type-btn{flex:1;padding:9px 0;font-size:13px;cursor:pointer;
+  background:var(--surface2);color:var(--text2);border:none;
+  font-family:var(--font);font-weight:500;transition:all .15s}
+.type-btn:hover{color:var(--text)}
+.type-btn.active.work{background:var(--blue);color:#fff}
+.type-btn.active.personal{background:var(--teal);color:#0d1117}
+.sender-as-bar{font-size:12px;color:var(--text2);background:var(--surface2);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:9px 12px;margin-bottom:14px;display:none;align-items:center;gap:8px}
+.sender-as-bar.visible{display:flex}
+.sender-as-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sender-as-change{margin-left:auto;font-size:11px;cursor:pointer;color:var(--blue)}
+.sender-as-change:hover{text-decoration:underline}
+.login-error{font-size:12px;color:var(--red);margin-top:8px;display:none}
+
 /* ── Print ── */
 @media print {
   .qm-header .btn,.btn-theme,#back-to-top,.modal-overlay,
@@ -331,9 +357,14 @@ details .details-body{padding:20px}
   <div class="qm-logo">QA<span>Mill</span></div>
   <div class="qm-file" title="math_utils.py">math_utils.py</div>
   <div class="qm-header-right">
-    <span class="qm-ts">2026-05-30 01:06</span>
+    <div class="identity-wrap">
+      <span class="identity-dot" id="identity-dot"></span>
+      <span class="identity-badge" id="identity-badge"></span>
+      <button class="btn btn-login" id="login-btn" onclick="openLoginModal()">Log in</button>
+    </div>
+    <span class="qm-ts">2026-06-13 12:32</span>
     <button class="btn btn-theme" id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">☀</button>
-    <button class="btn btn-pdf" onclick="downloadPdf()">⬇ Download PDF</button>
+    <button class="btn btn-pdf" onclick="downloadPdf()">⬇ PDF</button>
     <button class="btn btn-email" onclick="openEmailModal()">✉ Email Report</button>
   </div>
 </header>
@@ -905,7 +936,7 @@ details .details-body{padding:20px}
 <footer class="qm-footer">
   <strong>QAMill</strong> — AI-Powered Mutation Testing
   <div class="footer-meta">
-    <span>Generated: 2026-05-30 01:06</span>
+    <span>Generated: 2026-06-13 12:32</span>
     <span>Execution time: 127.3s</span>
     <span>Speed: 3.5 mutants/second</span>
     <span>Team: BGSW/EVE M/PJ-CVV</span>
@@ -920,6 +951,20 @@ details .details-body{padding:20px}
       <button class="modal-close" onclick="closeEmailModal()">✕</button>
     </div>
     <div class="modal-body">
+      <!-- Sender identity bar — shown when logged in -->
+      <div class="sender-as-bar" id="sender-as-bar">
+        <span class="sender-as-dot"></span>
+        <span class="sender-as-text">Sending as: —</span>
+        <span class="sender-as-change" onclick="closeEmailModal();openLoginModal()">Change identity</span>
+      </div>
+      <!-- Not logged in nudge — shown when no identity set -->
+      <div id="no-identity-nudge" style="display:none;font-size:12px;color:var(--amber);
+           background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.25);
+           border-radius:var(--radius);padding:9px 12px;margin-bottom:14px">
+        ⚠ No sender identity set.
+        <span style="cursor:pointer;color:var(--blue);margin-left:4px"
+              onclick="closeEmailModal();openLoginModal()">Log in with your work or personal email →</span>
+      </div>
       <div class="form-group">
         <label>Recipient Email</label>
         <input type="email" id="email-to" placeholder="colleague@company.com">
@@ -964,6 +1009,49 @@ details .details-body{padding:20px}
     <div class="modal-footer">
       <button class="btn" onclick="closeEmailModal()">Cancel</button>
       <button class="btn btn-primary" id="send-btn" onclick="sendEmail()">Send Report</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="login-modal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <h3>Your Sender Identity</h3>
+      <button class="modal-close" onclick="closeLoginModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6">
+        Set your email so it is automatically filled in when you email reports.
+        Your app password is stored only in this browser — never sent anywhere except your SMTP provider.
+      </p>
+      <div class="form-group">
+        <label>Account Type</label>
+        <div class="type-toggle">
+          <button class="type-btn active work" id="type-work" onclick="setEmailType('work')">💼 Work Email</button>
+          <button class="type-btn personal" id="type-personal" onclick="setEmailType('personal')">🏠 Personal Email</button>
+        </div>
+        <input type="hidden" id="login-type" value="work">
+      </div>
+      <div class="form-group">
+        <label>Your Email Address</label>
+        <input type="email" id="login-email" placeholder="you@company.com"
+               style="font-size:14px;padding:10px 12px">
+      </div>
+      <div class="form-group">
+        <label>App Password <span style="font-weight:400;color:var(--text3)">(optional — saves re-entering it)</span></label>
+        <input type="password" id="login-password" placeholder="xxxx xxxx xxxx xxxx">
+        <div class="hint">
+          Stored locally in your browser only. Not sent to any server except your mail provider when you send a report.<br>
+          <a href="https://myaccount.google.com/apppasswords" target="_blank">Gmail → Security → App Passwords</a> &nbsp;·&nbsp;
+          <a href="https://account.live.com/proofs/AppPassword" target="_blank">Outlook App Password</a>
+        </div>
+      </div>
+      <div class="login-error" id="login-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="clearIdentity();closeLoginModal()" style="color:var(--red);border-color:var(--red);margin-right:auto">Clear</button>
+      <button class="btn" onclick="closeLoginModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLogin()">Save Identity</button>
     </div>
   </div>
 </div>
@@ -1294,17 +1382,131 @@ window.toggleGroup = function(header) {
   if (body) body.classList.toggle('open');
 };
 
+// ── Identity / Login ──────────────────────────────────────────────────────
+var IDENTITY_KEY = 'qamill-identity';
+
+function getIdentity() {
+  try { return JSON.parse(localStorage.getItem(IDENTITY_KEY) || 'null'); }
+  catch (e) { return null; }
+}
+
+function updateIdentityDisplay() {
+  var id    = getIdentity();
+  var badge = document.getElementById('identity-badge');
+  var dot   = document.getElementById('identity-dot');
+  var btn   = document.getElementById('login-btn');
+  var bar   = document.getElementById('sender-as-bar');
+
+  if (badge) {
+    if (id && id.email) {
+      badge.textContent = id.email;
+      badge.className   = 'identity-badge ' + (id.type || 'work');
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+  if (dot) {
+    dot.className    = 'identity-dot ' + (id && id.type ? id.type : 'work');
+    dot.style.display = (id && id.email) ? 'inline-block' : 'none';
+  }
+  if (btn) btn.textContent = (id && id.email) ? 'Change' : 'Log in';
+
+  // Update "Sending as" bar and nudge inside email modal
+  if (bar) {
+    if (id && id.email) {
+      var txt  = bar.querySelector('.sender-as-text');
+      var sdot = bar.querySelector('.sender-as-dot');
+      if (txt)  txt.textContent = 'Sending as: ' + id.email + ' (' + (id.type === 'personal' ? 'Personal' : 'Work') + ')';
+      if (sdot) sdot.style.background = id.type === 'personal' ? 'var(--teal)' : 'var(--blue)';
+      bar.classList.add('visible');
+    } else {
+      bar.classList.remove('visible');
+    }
+  }
+  var nudge = document.getElementById('no-identity-nudge');
+  if (nudge) nudge.style.display = (id && id.email) ? 'none' : 'block';
+}
+
+function initIdentity() {
+  updateIdentityDisplay();
+}
+
+window.openLoginModal = function() {
+  var modal = document.getElementById('login-modal');
+  if (!modal) return;
+  modal.classList.add('open');
+  var id = getIdentity();
+  if (id) {
+    var em = document.getElementById('login-email');
+    var pw = document.getElementById('login-password');
+    if (em) em.value = id.email || '';
+    if (pw && id.password) pw.value = id.password;
+    setEmailType(id.type || 'work');
+  } else {
+    setEmailType('work');
+  }
+};
+
+window.closeLoginModal = function() {
+  var m = document.getElementById('login-modal');
+  if (m) m.classList.remove('open');
+};
+
+window.setEmailType = function(type) {
+  var hidden = document.getElementById('login-type');
+  if (hidden) hidden.value = type;
+  var wBtn = document.getElementById('type-work');
+  var pBtn = document.getElementById('type-personal');
+  if (wBtn) { wBtn.classList.toggle('active', type === 'work');     wBtn.classList.toggle('work', true); }
+  if (pBtn) { pBtn.classList.toggle('active', type === 'personal'); pBtn.classList.toggle('personal', true); }
+  // Update placeholder to match type
+  var em = document.getElementById('login-email');
+  if (em) em.placeholder = type === 'work' ? 'you@company.com' : 'you@gmail.com';
+};
+
+window.saveLogin = function() {
+  var email    = ((document.getElementById('login-email')    || {}).value || '').trim();
+  var type     = (document.getElementById('login-type')      || {}).value || 'work';
+  var password = ((document.getElementById('login-password') || {}).value || '');
+  var errEl    = document.getElementById('login-error');
+  if (!email || email.indexOf('@') === -1) {
+    if (errEl) { errEl.textContent = 'Please enter a valid email address.'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (errEl) errEl.style.display = 'none';
+  localStorage.setItem(IDENTITY_KEY, JSON.stringify({ email: email, type: type, password: password }));
+  updateIdentityDisplay();
+  // Immediately pre-fill email modal fields
+  var fromField = document.getElementById('email-from');
+  if (fromField) fromField.value = email;
+  if (password) {
+    var passField = document.getElementById('email-pass');
+    if (passField) passField.value = password;
+  }
+  closeLoginModal();
+};
+
+window.clearIdentity = function() {
+  localStorage.removeItem(IDENTITY_KEY);
+  updateIdentityDisplay();
+  var fromField = document.getElementById('email-from');
+  if (fromField) fromField.value = '';
+};
+
 // ── Email modal ────────────────────────────────────────────────────────────
 window.openEmailModal = function() {
   var modal = document.getElementById('email-modal');
   if (!modal) return;
   modal.classList.add('open');
+
+  // Pre-fill subject/body from report data
   var rd = window.REPORT_DATA;
   if (rd) {
     var subj = document.getElementById('email-subject');
-    if (subj) subj.value = 'QAMill Report — ' + (rd.file_name || '');
+    if (subj && !subj.value) subj.value = 'QAMill Report — ' + (rd.file_name || '');
     var body = document.getElementById('email-body');
-    if (body) body.value =
+    if (body && !body.value) body.value =
       'QAMill Mutation Analysis Report\n' +
       'File: ' + (rd.file_name || '') + '\n' +
       'True Score: ' + (rd.true_score || '') + '%\n' +
@@ -1312,6 +1514,18 @@ window.openEmailModal = function() {
       ' | Equivalent: ' + (rd.equivalent || '') + '\n\n' +
       'See attached HTML report for full details.';
   }
+
+  // Pre-fill sender/password from saved identity
+  var id = getIdentity();
+  if (id && id.email) {
+    var fromField = document.getElementById('email-from');
+    if (fromField && !fromField.value) fromField.value = id.email;
+    if (id.password) {
+      var passField = document.getElementById('email-pass');
+      if (passField && !passField.value) passField.value = id.password;
+    }
+  }
+  updateIdentityDisplay();
 };
 
 window.closeEmailModal = function() {
@@ -1414,12 +1628,19 @@ document.addEventListener('DOMContentLoaded', function() {
   initAnimations();
   initTable();
   initBackToTop();
+  initIdentity();
 
-  // Close modal on overlay click
-  var overlay = document.getElementById('email-modal');
-  if (overlay) {
-    overlay.addEventListener('click', function(e) {
-      if (e.target === overlay) closeEmailModal();
+  // Close modals on overlay click
+  var emailOverlay = document.getElementById('email-modal');
+  if (emailOverlay) {
+    emailOverlay.addEventListener('click', function(e) {
+      if (e.target === emailOverlay) closeEmailModal();
+    });
+  }
+  var loginOverlay = document.getElementById('login-modal');
+  if (loginOverlay) {
+    loginOverlay.addEventListener('click', function(e) {
+      if (e.target === loginOverlay) closeLoginModal();
     });
   }
 });
