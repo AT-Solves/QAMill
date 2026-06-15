@@ -582,6 +582,150 @@ details .details-body{padding:20px}
   transition:opacity .2s}
 #back-to-top.visible{display:flex}
 
+/* ── Auth Modal (elite) ── */
+.am-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  z-index:999;display:flex;align-items:center;justify-content:center;
+  padding:16px;animation:amFadeIn .2s ease}
+@keyframes amFadeIn{from{opacity:0}to{opacity:1}}
+.am-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;width:460px;max-width:100%;max-height:90vh;
+  overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,.6);
+  animation:amSlideUp .25s cubic-bezier(.34,1.2,.64,1)}
+@keyframes amSlideUp{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.am-header{display:flex;align-items:center;justify-content:space-between;
+  padding:20px 22px 0}
+.am-header-left{display:flex;flex-direction:column;gap:2px}
+.am-logo{font-size:18px;font-weight:700;color:var(--teal);letter-spacing:-.3px}
+.am-tagline{font-size:12px;color:var(--text3)}
+.am-close{background:none;border:none;color:var(--text2);font-size:18px;
+  cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1;
+  transition:all .15s}
+.am-close:hover{background:var(--surface2);color:var(--text)}
+/* Primary identity banner */
+.am-identity{display:flex;align-items:center;gap:12px;
+  background:rgba(63,185,80,.07);border:1px solid rgba(63,185,80,.2);
+  border-radius:10px;padding:12px 14px;margin:14px 22px 0}
+.am-avatar{width:38px;height:38px;border-radius:50%;background:var(--teal);
+  color:#0d1117;font-size:16px;font-weight:700;display:flex;
+  align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.am-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.am-identity-text{flex:1;min-width:0}
+.am-identity-name{font-size:13px;font-weight:600;color:var(--text)}
+.am-identity-email{font-size:11px;color:var(--text2);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.am-identity-badge{font-size:10px;font-weight:700;letter-spacing:.06em;
+  background:rgba(63,185,80,.15);color:var(--teal);
+  padding:2px 8px;border-radius:20px;flex-shrink:0}
+/* Tabs */
+.am-tabs{display:flex;gap:2px;padding:14px 22px 0;border-bottom:1px solid var(--border);
+  margin:14px 0 0}
+.am-tab{background:none;border:none;color:var(--text2);font-size:13px;
+  font-family:var(--font);padding:8px 14px;cursor:pointer;border-radius:6px 6px 0 0;
+  position:relative;bottom:-1px;border-bottom:2px solid transparent;
+  transition:color .15s}
+.am-tab:hover{color:var(--text)}
+.am-tab.active{color:var(--teal);border-bottom-color:var(--teal);
+  background:var(--surface2)}
+/* Panes */
+.am-pane{padding:18px 22px}
+.am-hint{font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.55}
+/* Provider rows */
+.am-provider-row{display:flex;align-items:center;gap:12px;
+  border:1px solid var(--border);border-radius:10px;padding:11px 14px;
+  margin-bottom:8px;transition:border-color .15s,background .15s}
+.am-provider-row:hover{border-color:var(--teal);background:var(--surface2)}
+.am-provider-row.connected{border-color:rgba(63,185,80,.4);
+  background:rgba(63,185,80,.05)}
+.am-provider-icon{width:34px;height:34px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;flex-shrink:0;overflow:hidden}
+.am-provider-icon svg,.am-provider-icon img{width:20px;height:20px}
+.am-provider-info{flex:1;min-width:0}
+.am-provider-name{font-size:13px;font-weight:600;color:var(--text)}
+.am-provider-sub{font-size:11px;color:var(--text2);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.am-provider-sub.email-badge{color:var(--blue);font-weight:500}
+.am-connected-tick{color:var(--teal);font-size:16px;flex-shrink:0}
+.am-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;
+  border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text);
+  font-family:var(--font);transition:all .15s;white-space:nowrap}
+.am-btn:hover{border-color:var(--teal);color:var(--teal)}
+.am-btn-primary{background:var(--teal);color:#0d1117;border-color:var(--teal)}
+.am-btn-primary:hover{background:#5dcd6e;color:#0d1117}
+.am-btn-danger{color:var(--red);border-color:rgba(248,81,73,.4)}
+.am-btn-danger:hover{background:rgba(248,81,73,.1);border-color:var(--red)}
+/* LLM key entry */
+.am-key-entry{margin-top:12px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:8px;padding:14px}
+.am-key-label{font-size:12px;font-weight:600;color:var(--text2);
+  text-transform:uppercase;letter-spacing:.06em}
+.am-key-status{font-size:12px;margin-top:8px;min-height:16px}
+.am-key-status.ok{color:var(--teal)}
+.am-key-status.err{color:var(--red)}
+.am-key-status.spin{color:var(--text3)}
+.am-input{width:100%;padding:9px 12px;border-radius:6px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);
+  font-size:13px;font-family:var(--font)}
+.am-input:focus{outline:none;border-color:var(--teal)}
+/* Type toggle (Email tab) */
+.am-type-row{display:flex;gap:6px;margin-bottom:12px}
+.am-type-btn{flex:1;padding:8px 0;border-radius:6px;font-size:13px;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text2);
+  font-family:var(--font);font-weight:500;transition:all .15s}
+.am-type-btn:hover{border-color:var(--blue);color:var(--blue)}
+.am-type-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+/* Footer */
+.am-footer{padding:10px 22px 18px;font-size:11px;color:var(--text3);
+  border-top:1px solid var(--border);margin-top:4px}
+.am-footer code{font-family:var(--mono);background:var(--surface2);
+  padding:1px 5px;border-radius:4px}
+/* ── Setup panel ── */
+.am-setup-panel{background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:18px;margin:14px 22px 0;animation:amFadeIn .2s ease}
+.am-setup-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.am-setup-title{font-size:14px;font-weight:700;color:var(--text)}
+.am-setup-steps{font-size:12px;color:var(--text2);line-height:1.9;
+  padding-left:18px;margin-bottom:14px}
+.am-setup-steps li{padding-left:4px}
+.am-setup-steps code{background:var(--surface);border:1px solid var(--border);
+  border-radius:4px;padding:1px 6px;font-family:var(--mono);font-size:11px;color:var(--teal)}
+.am-setup-redirect{margin-bottom:4px}
+.am-redirect-uri{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:8px 12px;cursor:pointer;transition:border-color .15s}
+.am-redirect-uri:hover{border-color:var(--teal)}
+.am-redirect-uri span{font-size:11px;font-family:var(--mono);color:var(--teal);
+  word-break:break-all}
+.am-copy-btn{background:none;border:1px solid var(--border);border-radius:4px;
+  color:var(--text2);font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  font-family:var(--font)}
+.am-copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* ── Email cap badge ── */
+.am-email-cap{font-size:10px;font-weight:700;letter-spacing:.04em;
+  background:rgba(63,185,80,.15);color:var(--teal);
+  padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+/* ── Email modal redesign ── */
+.email-via-box{display:flex;align-items:center;gap:12px;
+  background:rgba(63,185,80,.07);border:1px solid rgba(63,185,80,.25);
+  border-radius:var(--radius);padding:12px 14px;margin-bottom:14px}
+.email-via-icon{width:36px;height:36px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.email-via-icon svg{width:22px;height:22px}
+.email-via-details{flex:1;min-width:0}
+.email-via-label{font-size:13px;font-weight:600;color:var(--teal)}
+.email-via-addr{font-size:11px;color:var(--text2)}
+.email-no-account-box{background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px;margin-bottom:14px;text-align:center}
+.email-no-account-box p{font-size:13px;color:var(--text2);margin-bottom:10px}
+.email-or-divider{font-size:11px;color:var(--text3);text-align:center;
+  margin:14px 0;position:relative}
+.email-or-divider::before,.email-or-divider::after{content:'';
+  position:absolute;top:50%;width:40%;height:1px;background:var(--border)}
+.email-or-divider::before{left:0}
+.email-or-divider::after{right:0}
+
 /* ── Identity / Login ── */
 .identity-wrap{display:flex;align-items:center;gap:6px}
 .identity-badge{font-size:11px;border-radius:20px;padding:3px 10px;
@@ -949,6 +1093,435 @@ window.toggleGroup = function(header) {
   if (body) body.classList.toggle('open');
 };
 
+// ── Auth modal ────────────────────────────────────────────────────────────
+var AM_API = 'http://localhost:8765';
+var amCurrentLlm = null;
+var amPollTimer  = null;
+
+// ── Provider default subtitles (shown when disconnected) ─────────────────
+var AM_DEFAULTS = {
+  google:    'Send reports via Gmail — no App Password needed',
+  microsoft: 'Send reports via Outlook — no App Password needed',
+  linkedin:  'Professional identity for sender name',
+  github:    'Developer identity + work email',
+  atlassian: 'Jira / Confluence workspace identity',
+  slack:     'Slack workspace identity',
+  claude:    'Anthropic',
+  gpt:       'OpenAI',
+  grok:      'xAI',
+  ollama:    'Local — no key needed',
+};
+
+var AM_ICONS = {
+  google:    '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>',
+  microsoft: '<svg viewBox="0 0 21 21" width="20" height="20"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>',
+  linkedin:  '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>',
+  github:    '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755-1.335-1.755-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>',
+  atlassian: '<svg viewBox="0 0 24 24" width="20" height="20"><defs><linearGradient id="atl-g" x1="98.%" y1="10.19%" x2="58.888%" y2="40.234%"><stop offset="0%" stop-color="#0052CC"/><stop offset="100%" stop-color="#2684FF"/></linearGradient></defs><path fill="url(#atl-g)" d="M.195 11.408L8.31 22.857c.504.744 1.629.744 2.133 0l8.117-11.449c.538-.75.03-1.797-.878-1.797H14.22c-.373 0-.726.172-.958.46L12 11.658l-1.262-1.587a1.21 1.21 0 0 0-.958-.46H6.073c-.909 0-1.417 1.047-.878 1.797zm11.55-9.265L9.72 5.867c.504.744 1.629.744 2.133 0l2.027-2.724a1.21 1.21 0 0 0 0-1.427L11.852.992a1.21 1.21 0 0 0-2.133 0L7.692 3.716a1.21 1.21 0 0 0 0 1.427l2.027 2.724c.504.744 1.629.744 2.133 0l2.027-2.724z" fill="#fff"/></svg>',
+  slack:     '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="#E01E5A" d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z"/><path fill="#36C5F0" d="M8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312z"/><path fill="#2EB67D" d="M18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 0 1-2.522 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.164 0a2.528 2.528 0 0 1 2.522 2.522v6.312z"/><path fill="#ECB22E" d="M15.164 18.956a2.528 2.528 0 0 1 2.522 2.522A2.528 2.528 0 0 1 15.164 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.27a2.527 2.527 0 0 1-2.52-2.522 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.164a2.528 2.528 0 0 1-2.523 2.522h-6.313z"/></svg>',
+  claude:    '<span style="font-size:17px;font-weight:800;color:#D4A574">✦</span>',
+  gpt:       '<span style="font-size:15px;font-weight:800;color:#10A37F">⬡</span>',
+  grok:      '<span style="font-size:14px;font-weight:900;color:#1DA1F2">𝕏</span>',
+  ollama:    '<span style="font-size:15px;color:#9B59B6">⚙</span>',
+};
+
+var AM_PROVIDER_BG = {
+  google:'#fff', microsoft:'#2f2f2f', linkedin:'#0A66C2',
+  github:'#24292e', atlassian:'#0052CC', slack:'#4A154B',
+  claude:'#2d1f0e', gpt:'#0a2a20', grok:'#0a1a2a', ollama:'#1a0a2a',
+};
+
+// ── Tab switching ─────────────────────────────────────────────────────────
+function amTab(name) {
+  document.querySelectorAll('.am-tab').forEach(function(t) {
+    t.classList.toggle('active', t.getAttribute('data-tab') === name);
+  });
+  document.querySelectorAll('.am-pane').forEach(function(p) { p.style.display = 'none'; });
+  var pane = document.getElementById('am-pane-' + name);
+  if (pane) pane.style.display = '';
+}
+
+// ── Status update (DOM-only — no re-render) ───────────────────────────────
+function amLoadStatus() {
+  Promise.all([
+    fetch(AM_API + '/auth/status').then(function(r) { return r.json(); }),
+    fetch(AM_API + '/auth/providers').then(function(r) { return r.json(); }),
+  ]).then(function(results) {
+    var status    = results[0];
+    var providers = results[1];
+
+    // Build configured map {provider: bool}
+    var configuredMap = {};
+    (providers.oauth || []).forEach(function(p) { configuredMap[p.id] = p.configured; });
+
+    amUpdateStatus(status.oauth || [], status.llm || [], status.primary || null);
+
+    // For disconnected + unconfigured providers → show "Setup" button
+    (providers.oauth || []).forEach(function(p) {
+      if (!p.configured) {
+        var row = document.getElementById('am-row-' + p.id);
+        var btn = document.getElementById('am-btn-' + p.id);
+        if (row && !row.classList.contains('connected') && btn) {
+          btn.textContent = 'Setup';
+          btn.className   = 'am-btn';   // secondary (not primary blue)
+          btn.onclick     = (function(pid) { return function() { amShowSetup(pid); }; })(p.id);
+        }
+      }
+    });
+  }).catch(function() {
+    // Backend off — buttons stay as "Connect" (can't proceed anyway)
+  });
+}
+
+function amUpdateStatus(oauthList, llmList, primary) {
+  // Index by provider
+  var oc = {}, lc = {};
+  (oauthList || []).forEach(function(c) { oc[c.provider] = c; });
+  (llmList   || []).forEach(function(l) { lc[l.provider] = l; });
+
+  // OAuth rows
+  ['google','microsoft','linkedin','github','atlassian','slack'].forEach(function(p) {
+    var c    = oc[p];
+    var row  = document.getElementById('am-row-' + p);
+    var btn  = document.getElementById('am-btn-' + p);
+    var sub  = document.getElementById('am-sub-' + p);
+    var tick = document.getElementById('am-tick-' + p);
+    if (!row) return;
+    if (c) {
+      row.classList.add('connected');
+      if (tick) tick.style.display = '';
+      if (sub)  sub.textContent = (c.workspace ? c.workspace + ' · ' : '') + (c.name || c.email || 'Connected');
+      if (btn)  { btn.textContent = 'Disconnect'; btn.className = 'am-btn am-btn-danger';
+                  btn.onclick = (function(pp){ return function(){ amDisconnect(pp); }; })(p); }
+    } else {
+      row.classList.remove('connected');
+      if (tick) tick.style.display = 'none';
+      if (sub)  sub.textContent = AM_DEFAULTS[p] || p;
+      if (btn)  { btn.textContent = 'Connect'; btn.className = 'am-btn am-btn-primary';
+                  btn.onclick = (function(pp){ return function(){ amConnect(pp); }; })(p); }
+    }
+  });
+
+  // LLM rows
+  var llmLabels = {claude:'Claude', gpt:'GPT-4o', grok:'Grok', ollama:'Ollama'};
+  ['claude','gpt','grok','ollama'].forEach(function(p) {
+    var c    = lc[p];
+    var row  = document.getElementById('am-row-' + p);
+    var btn  = document.getElementById('am-btn-' + p);
+    var sub  = document.getElementById('am-sub-' + p);
+    var tick = document.getElementById('am-tick-' + p);
+    if (!row) return;
+    if (c) {
+      row.classList.add('connected');
+      if (tick) tick.style.display = '';
+      if (sub)  sub.textContent = c.key_snippet || (c.from_env ? 'via env var' : 'connected');
+      if (btn && p !== 'ollama') {
+        btn.textContent = 'Remove'; btn.className = 'am-btn am-btn-danger';
+        btn.onclick = (function(pp){ return function(){ amDisconnectLlm(pp); }; })(p);
+      } else if (btn) { btn.textContent = '✓ Running'; btn.disabled = true; }
+    } else {
+      row.classList.remove('connected');
+      if (tick) tick.style.display = 'none';
+      if (sub)  sub.textContent = AM_DEFAULTS[p] || p;
+      if (btn)  {
+        btn.textContent = p === 'ollama' ? 'Check' : 'Add key';
+        btn.className = 'am-btn am-btn-primary'; btn.disabled = false;
+        btn.onclick = (function(pp,ll){ return function(){ amStartLlmKey(pp, ll); }; })(p, llmLabels[p]);
+      }
+    }
+  });
+
+  // Identity banner
+  amUpdateIdentityBanner(primary || oauthList[0] || null);
+  // Also refresh email modal OAuth section if open
+  amUpdateEmailVia(primary || oauthList[0] || null);
+}
+
+function amUpdateIdentityBanner(primary) {
+  var banner = document.getElementById('am-identity');
+  if (!banner) return;
+  if (!primary) { banner.style.display = 'none'; return; }
+  banner.style.display = 'flex';
+  var av = document.getElementById('am-avatar');
+  if (av) {
+    var initial = (primary.name || primary.email || '?').charAt(0).toUpperCase();
+    if (primary.picture) {
+      var img = document.createElement('img');
+      img.src = primary.picture;
+      img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover';
+      img.onerror = function() { av.textContent = initial; };
+      av.innerHTML = '';
+      av.appendChild(img);
+    } else {
+      av.textContent = initial;
+    }
+  }
+  var nm = document.getElementById('am-identity-name');
+  if (nm) nm.textContent = primary.name || '';
+  var em = document.getElementById('am-identity-email');
+  if (em) em.textContent = primary.email || '';
+  var badge = document.getElementById('am-identity-badge');
+  if (badge) badge.textContent = primary.can_email ? 'Sends via ' + primary.label : 'Identity';
+}
+
+// ── OAuth connect (popup) ─────────────────────────────────────────────────
+window.amConnect = function(provider) {
+  // Disable the button while popup is open
+  var btn = document.getElementById('am-btn-' + provider);
+  if (btn) { btn.textContent = 'Connecting…'; btn.disabled = true; }
+
+  var popup = window.open(
+    AM_API + '/auth/login/' + provider,
+    'qamill-oauth',
+    'width=560,height=700,menubar=no,toolbar=no,location=no,status=no'
+  );
+  if (amPollTimer) clearInterval(amPollTimer);
+  amPollTimer = setInterval(function() {
+    // Stop if popup was closed manually without completing
+    if (popup && popup.closed) {
+      clearInterval(amPollTimer); amPollTimer = null;
+      var b = document.getElementById('am-btn-' + provider);
+      if (b) { b.textContent = 'Connect'; b.disabled = false; b.className = 'am-btn am-btn-primary'; }
+      return;
+    }
+    fetch(AM_API + '/auth/status/' + provider)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.connected) {
+          clearInterval(amPollTimer); amPollTimer = null;
+          if (popup && !popup.closed) popup.close();
+          amLoadStatus();
+          updateIdentityDisplay();
+        }
+      }).catch(function() {});
+  }, 1200);
+  setTimeout(function() {
+    if (amPollTimer) { clearInterval(amPollTimer); amPollTimer = null; }
+    var b = document.getElementById('am-btn-' + provider);
+    if (b && b.disabled) { b.textContent = 'Connect'; b.disabled = false; b.className = 'am-btn am-btn-primary'; }
+  }, 600000);
+};
+
+window.amDisconnect = function(provider) {
+  fetch(AM_API + '/auth/logout/' + provider, {method:'DELETE'})
+    .then(function() { amLoadStatus(); updateIdentityDisplay(); });
+};
+
+// ── LLM key entry ─────────────────────────────────────────────────────────
+window.amStartLlmKey = function(provider, label) {
+  amCurrentLlm = provider;
+  var entry = document.getElementById('am-key-entry');
+  var lbl   = document.getElementById('am-key-label');
+  var inp   = document.getElementById('am-key-input');
+  var stat  = document.getElementById('am-key-status');
+  if (!entry) return;
+  if (lbl)  lbl.textContent = 'Enter ' + label + ' API key';
+  if (inp)  { inp.value = ''; inp.placeholder = provider === 'ollama' ? '(no key needed)' : 'sk-...'; }
+  if (stat) { stat.textContent = ''; stat.className = 'am-key-status'; }
+  entry.style.display = '';
+  if (inp && provider !== 'ollama') inp.focus();
+};
+
+window.amSaveLlmKey = function() {
+  var provider = amCurrentLlm;
+  var key  = ((document.getElementById('am-key-input') || {}).value || '');
+  var stat = document.getElementById('am-key-status');
+  if (!provider) return;
+  if (stat) { stat.textContent = 'Validating…'; stat.className = 'am-key-status spin'; }
+  fetch(AM_API + '/auth/llm/connect', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({provider: provider, api_key: key}),
+  }).then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || 'Validation failed'); });
+    return r.json();
+  }).then(function(d) {
+    if (stat) { stat.textContent = '✓ ' + d.label + ' connected'; stat.className = 'am-key-status ok'; }
+    setTimeout(function() { amCancelKey(); amLoadStatus(); }, 900);
+  }).catch(function(e) {
+    if (stat) { stat.textContent = '✗ ' + e.message; stat.className = 'am-key-status err'; }
+  });
+};
+
+window.amCancelKey = function() {
+  var entry = document.getElementById('am-key-entry');
+  if (entry) entry.style.display = 'none';
+  amCurrentLlm = null;
+};
+
+window.amDisconnectLlm = function(provider) {
+  fetch(AM_API + '/auth/llm/disconnect/' + provider, {method:'DELETE'})
+    .then(function() { amLoadStatus(); });
+};
+
+window.amSetType = function(type) {
+  document.getElementById('login-type').value = type;
+  var w = document.getElementById('am-type-work');
+  var p = document.getElementById('am-type-personal');
+  if (w) w.classList.toggle('active', type === 'work');
+  if (p) p.classList.toggle('active', type === 'personal');
+  var em = document.getElementById('login-email');
+  if (em) em.placeholder = type === 'work' ? 'you@company.com' : 'you@gmail.com';
+};
+
+// ── Provider setup (enter client_id + client_secret) ─────────────────────
+var AM_SETUP_INFO = {
+  google:    { url:'https://console.cloud.google.com/apis/credentials',
+               label:'Google Cloud Console',
+               steps:['Create/select a project','Enable the <strong>Gmail API</strong> under APIs &amp; Services',
+                      'Go to <strong>Credentials → Create OAuth 2.0 Client ID</strong>',
+                      'Type: <strong>Web application</strong>',
+                      'Add the Redirect URI shown below',
+                      'Copy Client ID and Client Secret'] },
+  microsoft: { url:'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps',
+               label:'Azure Portal',
+               steps:['Click <strong>New registration</strong>','Platform: <strong>Web</strong>',
+                      'Add the Redirect URI shown below',
+                      'Copy <strong>Application (client) ID</strong>',
+                      'Certificates &amp; Secrets → New client secret'] },
+  github:    { url:'https://github.com/settings/developers',
+               label:'GitHub Developer Settings',
+               steps:['OAuth Apps → <strong>New OAuth App</strong>',
+                      'Homepage URL: <code>http://localhost:8765</code>',
+                      'Authorization callback URL: see below',
+                      'Click Register, then <strong>Generate a new client secret</strong>'] },
+  linkedin:  { url:'https://www.linkedin.com/developers/apps',
+               label:'LinkedIn Developer Portal',
+               steps:['Create app → <strong>Auth tab</strong>',
+                      'Add the Redirect URL below to <strong>Authorized redirect URLs</strong>',
+                      'Copy Client ID and Primary Client Secret'] },
+  atlassian: { url:'https://developer.atlassian.com/console/myapps',
+               label:'Atlassian Developer Console',
+               steps:['Create app → select <strong>OAuth 2.0 (3LO)</strong>',
+                      'Add the Callback URL below','Settings → copy Client ID and Secret'] },
+  slack:     { url:'https://api.slack.com/apps',
+               label:'Slack API Console',
+               steps:['Create New App → <strong>From scratch</strong>',
+                      'OAuth &amp; Permissions → add the Redirect URL below',
+                      'Settings → Basic Information → copy Client ID and Client Secret'] },
+};
+
+var amCurrentSetupProvider = null;
+
+window.amShowSetup = function(provider) {
+  amCurrentSetupProvider = provider;
+  var info = AM_SETUP_INFO[provider] || {};
+  var redirectUri = AM_API + '/auth/callback/' + provider;
+
+  var stepsHtml = (info.steps || []).map(function(s, i) {
+    return '<li>' + s + '</li>';
+  }).join('');
+
+  var panel = document.getElementById('am-setup-panel');
+  if (!panel) return;
+
+  panel.innerHTML =
+    '<div class="am-setup-header">' +
+      '<div class="am-setup-title">Set up ' + provider.charAt(0).toUpperCase() + provider.slice(1) + ' OAuth</div>' +
+      '<button class="am-close" onclick="amHideSetup()" style="font-size:14px">✕</button>' +
+    '</div>' +
+    (info.url
+      ? '<a href="' + info.url + '" target="_blank" class="am-btn am-btn-primary" style="display:block;text-align:center;margin-bottom:14px">Open ' + (info.label||'Developer Console') + ' ↗</a>'
+      : '') +
+    '<ol class="am-setup-steps">' + stepsHtml + '</ol>' +
+    '<div class="am-setup-redirect">' +
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Redirect URI (copy this exactly)</div>' +
+      '<div class="am-redirect-uri" id="am-redirect-uri">' +
+        '<span></span>' +
+        '<button class="am-copy-btn" tabindex="-1">Copy</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="form-group" style="margin-top:14px">' +
+      '<label>Client ID</label>' +
+      '<input type="text" id="am-setup-id" class="am-input" placeholder="Paste your Client ID here" autocomplete="off">' +
+    '</div>' +
+    '<div class="form-group">' +
+      '<label>Client Secret</label>' +
+      '<input type="password" id="am-setup-secret" class="am-input" placeholder="Paste your Client Secret here">' +
+    '</div>' +
+    '<div class="am-key-status" id="am-setup-status"></div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px">' +
+      '<button class="am-btn" onclick="amHideSetup()">Cancel</button>' +
+      '<button class="am-btn am-btn-primary" onclick="amSaveOAuthConfig()" style="flex:1">Save &amp; Enable Connect</button>' +
+    '</div>';
+
+  // Set redirect URI text + wire copy handler via JS (no inline-onclick quote issues)
+  var uriRow = document.getElementById('am-redirect-uri');
+  if (uriRow) {
+    uriRow.querySelector('span').textContent = redirectUri;
+    uriRow.onclick = function() {
+      navigator.clipboard.writeText(redirectUri).then(function() {
+        var btn = uriRow.querySelector('.am-copy-btn');
+        if (btn) { btn.textContent = 'Copied ✓'; btn.style.color = 'var(--teal)'; }
+        setTimeout(function() { if (btn) { btn.textContent = 'Copy'; btn.style.color = ''; } }, 2000);
+      });
+    };
+  }
+
+  panel.style.display = '';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  var inp = document.getElementById('am-setup-id');
+  if (inp) inp.focus();
+};
+
+window.amHideSetup = function() {
+  var panel = document.getElementById('am-setup-panel');
+  if (panel) panel.style.display = 'none';
+  amCurrentSetupProvider = null;
+};
+
+window.amSaveOAuthConfig = function() {
+  var provider = amCurrentSetupProvider;
+  if (!provider) return;
+  var clientId     = ((document.getElementById('am-setup-id')     || {}).value || '').trim();
+  var clientSecret = ((document.getElementById('am-setup-secret') || {}).value || '').trim();
+  var status       = document.getElementById('am-setup-status');
+
+  if (!clientId || !clientSecret) {
+    if (status) { status.textContent = 'Both Client ID and Client Secret are required.'; status.className = 'am-key-status err'; }
+    return;
+  }
+  if (status) { status.textContent = 'Saving…'; status.className = 'am-key-status spin'; }
+
+  fetch(AM_API + '/auth/configure/' + provider, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+  }).then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || 'Save failed'); });
+    return r.json();
+  }).then(function(d) {
+    if (status) { status.textContent = '✓ Saved — click Connect to sign in'; status.className = 'am-key-status ok'; }
+    // Upgrade the button from Setup → Connect
+    var btn = document.getElementById('am-btn-' + provider);
+    if (btn) {
+      btn.textContent = 'Connect';
+      btn.className   = 'am-btn am-btn-primary';
+      btn.disabled    = false;
+      btn.onclick     = function() { amHideSetup(); amConnect(provider); };
+    }
+    setTimeout(function() {
+      amHideSetup();
+      amConnect(provider);  // immediately start the OAuth flow
+    }, 1000);
+  }).catch(function(e) {
+    if (status) { status.textContent = '✗ ' + e.message; status.className = 'am-key-status err'; }
+  });
+};
+
+// ── Open/close — show immediately (providers already rendered in HTML)
+window.openLoginModal = function() {
+  var m = document.getElementById('login-modal');
+  if (m) m.style.display = 'flex';
+  amLoadStatus(); // update connect/disconnect states in background
+};
+window.closeLoginModal = function() {
+  var m = document.getElementById('login-modal');
+  if (m) m.style.display = 'none';
+  if (amPollTimer) { clearInterval(amPollTimer); amPollTimer = null; }
+};
+window.openAuthModal  = window.openLoginModal;
+window.closeAuthModal = window.closeLoginModal;
+
 // ── Identity / Login ──────────────────────────────────────────────────────
 var IDENTITY_KEY = 'qamill-identity';
 
@@ -1061,13 +1634,49 @@ window.clearIdentity = function() {
   if (fromField) fromField.value = '';
 };
 
+// ── Email via-OAuth state sync ─────────────────────────────────────────────
+var AM_VIA_ICONS = {
+  google:    '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>',
+  microsoft: '<svg viewBox="0 0 21 21" width="22" height="22"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>',
+};
+
+function amUpdateEmailVia(primary) {
+  var viaBox  = document.getElementById('email-via-box');
+  var noAcct  = document.getElementById('email-no-account-area');
+  if (!viaBox || !noAcct) return;
+
+  if (primary && primary.can_email) {
+    viaBox.style.display  = '';
+    noAcct.style.display  = 'none';
+    var icon  = document.getElementById('email-via-icon');
+    var label = document.getElementById('email-via-label');
+    var addr  = document.getElementById('email-via-addr');
+    if (icon)  icon.innerHTML  = AM_VIA_ICONS[primary.provider] || '';
+    if (label) label.textContent = 'Sending via ' + (primary.label || primary.provider);
+    if (addr)  addr.textContent  = primary.email || '';
+  } else {
+    viaBox.style.display  = 'none';
+    noAcct.style.display  = '';
+    // Fall back: pre-fill sender from local identity
+    var id = getIdentity();
+    if (id && id.email) {
+      var fromField = document.getElementById('email-from');
+      if (fromField && !fromField.value) fromField.value = id.email;
+      if (id.password) {
+        var passField = document.getElementById('email-pass');
+        if (passField && !passField.value) passField.value = id.password;
+      }
+    }
+  }
+}
+
 // ── Email modal ────────────────────────────────────────────────────────────
 window.openEmailModal = function() {
   var modal = document.getElementById('email-modal');
   if (!modal) return;
   modal.classList.add('open');
 
-  // Pre-fill subject/body from report data
+  // Pre-fill subject/body
   var rd = window.REPORT_DATA;
   if (rd) {
     var subj = document.getElementById('email-subject');
@@ -1082,17 +1691,11 @@ window.openEmailModal = function() {
       'See attached HTML report for full details.';
   }
 
-  // Pre-fill sender/password from saved identity
-  var id = getIdentity();
-  if (id && id.email) {
-    var fromField = document.getElementById('email-from');
-    if (fromField && !fromField.value) fromField.value = id.email;
-    if (id.password) {
-      var passField = document.getElementById('email-pass');
-      if (passField && !passField.value) passField.value = id.password;
-    }
-  }
-  updateIdentityDisplay();
+  // Check OAuth status → show OAuth path or SMTP form
+  fetch(AM_API + '/auth/status')
+    .then(function(r) { return r.json(); })
+    .then(function(d) { amUpdateEmailVia(d.primary || null); })
+    .catch(function()  { amUpdateEmailVia(null); }); // backend off → show SMTP form
 };
 
 window.closeEmailModal = function() {
@@ -1630,49 +2233,157 @@ def _build_footer(timestamp: str, exec_time: float, total: int) -> str:
 <button class="btn" id="back-to-top" onclick="scrollToTop()" title="Back to top">↑</button>"""
 
 
+def _am_oauth_row(pid: str, label: str, subtitle: str, bg: str,
+                  icon: str, can_email: bool = False) -> str:
+    """Static OAuth provider row — JS updates connect/disconnect state by ID."""
+    email_cap = '<span class="am-email-cap">Sends email</span>' if can_email else ''
+    return (
+        f'<div class="am-provider-row" id="am-row-{pid}" data-provider="{pid}">'
+        f'<div class="am-provider-icon" style="background:{bg}">{icon}</div>'
+        f'<div class="am-provider-info">'
+        f'<div class="am-provider-name">{label}{email_cap}</div>'
+        f'<div class="am-provider-sub" id="am-sub-{pid}">{subtitle}</div>'
+        f'</div>'
+        f'<span class="am-connected-tick" id="am-tick-{pid}" style="display:none">✓</span>'
+        f'<button class="am-btn am-btn-primary" id="am-btn-{pid}" '
+        f'onclick="amConnect(\'{pid}\')" style="flex-shrink:0">Connect</button>'
+        f'</div>'
+    )
+
+
+def _am_llm_row(pid: str, label: str, subtitle: str, bg: str, icon: str) -> str:
+    """Static LLM provider row."""
+    is_ollama = pid == "ollama"
+    btn_text  = "Check" if is_ollama else "Add key"
+    return (
+        f'<div class="am-provider-row" id="am-row-{pid}" data-provider="{pid}">'
+        f'<div class="am-provider-icon" style="background:{bg}">{icon}</div>'
+        f'<div class="am-provider-info">'
+        f'<div class="am-provider-name">{label}</div>'
+        f'<div class="am-provider-sub" id="am-sub-{pid}">{subtitle}</div>'
+        f'</div>'
+        f'<span class="am-connected-tick" id="am-tick-{pid}" style="display:none">✓</span>'
+        f'<button class="am-btn am-btn-primary" id="am-btn-{pid}" '
+        f'onclick="amStartLlmKey(\'{pid}\',\'{label}\')" '
+        f'style="flex-shrink:0">{btn_text}</button>'
+        f'</div>'
+    )
+
+
+# Pre-built SVG icons (defined once, reused in Python HTML generation)
+_G = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>'
+_MS= '<svg viewBox="0 0 21 21" width="20" height="20"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>'
+_LI= '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>'
+_GH= '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755-1.335-1.755-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>'
+_AT= '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M.195 11.408L8.31 22.857c.504.744 1.629.744 2.133 0l8.117-11.449c.538-.75.03-1.797-.878-1.797H14.22c-.373 0-.726.172-.958.46L12 11.658l-1.262-1.587a1.21 1.21 0 0 0-.958-.46H6.073c-.909 0-1.417 1.047-.878 1.797zm11.55-9.265L9.72 5.867c.504.744 1.629.744 2.133 0l2.027-2.724a1.21 1.21 0 0 0 0-1.427L11.852.992a1.21 1.21 0 0 0-2.133 0L7.692 3.716a1.21 1.21 0 0 0 0 1.427l2.027 2.724c.504.744 1.629.744 2.133 0l2.027-2.724z" fill="#fff"/></svg>'
+_SL= '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="#E01E5A" d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z"/><path fill="#36C5F0" d="M8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312z"/><path fill="#2EB67D" d="M18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 0 1-2.522 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.164 0a2.528 2.528 0 0 1 2.522 2.522v6.312z"/><path fill="#ECB22E" d="M15.164 18.956a2.528 2.528 0 0 1 2.522 2.522A2.528 2.528 0 0 1 15.164 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.27a2.527 2.527 0 0 1-2.52-2.522 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.164a2.528 2.528 0 0 1-2.523 2.522h-6.313z"/></svg>'
+
+
 def _build_login_modal() -> str:
-    return """
-<div class="modal-overlay" id="login-modal">
-  <div class="modal" style="width:420px">
-    <div class="modal-header">
-      <h3>Your Sender Identity</h3>
-      <button class="modal-close" onclick="closeLoginModal()">✕</button>
+    """Elite multi-provider authentication popup — providers rendered statically."""
+    social_rows = (
+        _am_oauth_row("google",    "Google",    "Send reports via Gmail — no App Password needed", "#fff",    _G,  can_email=True) +
+        _am_oauth_row("microsoft", "Microsoft", "Send reports via Outlook — no App Password needed","#2f2f2f",_MS, can_email=True) +
+        _am_oauth_row("linkedin",  "LinkedIn",  "Professional identity for sender name",            "#0A66C2", _LI)
+    )
+    dev_rows = (
+        _am_oauth_row("github",    "GitHub",    "Developer identity + work email",          "#24292e", _GH) +
+        _am_oauth_row("atlassian", "Atlassian", "Jira / Confluence workspace identity",     "#0052CC", _AT) +
+        _am_oauth_row("slack",     "Slack",     "Slack workspace identity",                 "#4A154B", _SL)
+    )
+    llm_rows = (
+        _am_llm_row("claude", "Claude",  "Anthropic",             "#2d1f0e", '<span style="font-size:17px;font-weight:800;color:#D4A574">✦</span>') +
+        _am_llm_row("gpt",    "GPT-4o",  "OpenAI",                "#0a2a20", '<span style="font-size:15px;font-weight:800;color:#10A37F">⬡</span>') +
+        _am_llm_row("grok",   "Grok",    "xAI",                   "#0a1a2a", '<span style="font-size:14px;font-weight:900;color:#1DA1F2">𝕏</span>') +
+        _am_llm_row("ollama", "Ollama",  "Local — no key needed", "#1a0a2a", '<span style="font-size:15px;color:#9B59B6">⚙</span>')
+    )
+
+    return f"""
+<div class="am-overlay" id="login-modal" onclick="if(event.target===this)closeLoginModal()">
+<div class="am-card">
+
+  <div class="am-header">
+    <div class="am-header-left">
+      <span class="am-logo">QAMill</span>
+      <span class="am-tagline">Connect your accounts</span>
     </div>
-    <div class="modal-body">
-      <p style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6">
-        Set your email so it is automatically filled in when you email reports.
-        Your app password is stored only in this browser — never sent anywhere except your SMTP provider.
-      </p>
-      <div class="form-group">
-        <label>Account Type</label>
-        <div class="type-toggle">
-          <button class="type-btn active work" id="type-work" onclick="setEmailType('work')">💼 Work Email</button>
-          <button class="type-btn personal" id="type-personal" onclick="setEmailType('personal')">🏠 Personal Email</button>
-        </div>
-        <input type="hidden" id="login-type" value="work">
-      </div>
-      <div class="form-group">
-        <label>Your Email Address</label>
-        <input type="email" id="login-email" placeholder="you@company.com"
-               style="font-size:14px;padding:10px 12px">
-      </div>
-      <div class="form-group">
-        <label>App Password <span style="font-weight:400;color:var(--text3)">(optional — saves re-entering it)</span></label>
-        <input type="password" id="login-password" placeholder="xxxx xxxx xxxx xxxx">
-        <div class="hint">
-          Stored locally in your browser only. Not sent to any server except your mail provider when you send a report.<br>
-          <a href="https://myaccount.google.com/apppasswords" target="_blank">Gmail → Security → App Passwords</a> &nbsp;·&nbsp;
-          <a href="https://account.live.com/proofs/AppPassword" target="_blank">Outlook App Password</a>
-        </div>
-      </div>
-      <div class="login-error" id="login-error"></div>
+    <button class="am-close" onclick="closeLoginModal()">✕</button>
+  </div>
+
+  <!-- Identity banner — hidden until an account connects -->
+  <div class="am-identity" id="am-identity" style="display:none">
+    <div class="am-avatar" id="am-avatar">?</div>
+    <div class="am-identity-text">
+      <div class="am-identity-name"  id="am-identity-name"></div>
+      <div class="am-identity-email" id="am-identity-email"></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="clearIdentity();closeLoginModal()" style="color:var(--red);border-color:var(--red);margin-right:auto">Clear</button>
-      <button class="btn" onclick="closeLoginModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveLogin()">Save Identity</button>
+    <div class="am-identity-badge" id="am-identity-badge">Primary</div>
+  </div>
+
+  <!-- Setup panel — populated by amShowSetup(), hidden by default -->
+  <div class="am-setup-panel" id="am-setup-panel" style="display:none"></div>
+
+  <div class="am-tabs">
+    <button class="am-tab active" data-tab="social"    onclick="amTab('social')">Social</button>
+    <button class="am-tab"        data-tab="developer" onclick="amTab('developer')">Developer</button>
+    <button class="am-tab"        data-tab="llm"       onclick="amTab('llm')">LLM Keys</button>
+    <button class="am-tab"        data-tab="email"     onclick="amTab('email')">Email</button>
+  </div>
+
+  <!-- Social tab — Google / Microsoft / LinkedIn -->
+  <div class="am-pane" id="am-pane-social">
+    <p class="am-hint">Connect Google or Microsoft to send reports without an App Password.</p>
+    {social_rows}
+  </div>
+
+  <!-- Developer tab — GitHub / Atlassian / Slack -->
+  <div class="am-pane" id="am-pane-developer" style="display:none">
+    <p class="am-hint">Connect GitHub, Atlassian or Slack to use your work identity as sender.</p>
+    {dev_rows}
+  </div>
+
+  <!-- LLM Keys tab -->
+  <div class="am-pane" id="am-pane-llm" style="display:none">
+    <p class="am-hint">API keys are validated then stored locally. Never sent to QAMill servers.</p>
+    {llm_rows}
+    <div class="am-key-entry" id="am-key-entry" style="display:none">
+      <div class="am-key-label" id="am-key-label">Enter API Key</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="password" id="am-key-input" class="am-input" placeholder="sk-..."
+               onkeydown="if(event.key==='Enter')amSaveLlmKey()" style="flex:1">
+        <button class="am-btn am-btn-primary" onclick="amSaveLlmKey()">Validate</button>
+        <button class="am-btn" onclick="amCancelKey()">✕</button>
+      </div>
+      <div class="am-key-status" id="am-key-status"></div>
     </div>
   </div>
+
+  <!-- Email tab — manual SMTP fallback -->
+  <div class="am-pane" id="am-pane-email" style="display:none">
+    <p class="am-hint">Use this only if you prefer not to connect an account above.</p>
+    <div class="am-type-row">
+      <button class="am-type-btn active" id="am-type-work"     onclick="amSetType('work')">💼 Work</button>
+      <button class="am-type-btn"        id="am-type-personal" onclick="amSetType('personal')">🏠 Personal</button>
+    </div>
+    <input type="hidden" id="login-type" value="work">
+    <input type="email"    class="am-input" id="login-email"    placeholder="you@company.com" style="margin-bottom:8px">
+    <input type="password" class="am-input" id="login-password" placeholder="App password (optional)">
+    <div class="am-hint" style="margin-top:8px">
+      <a href="https://myaccount.google.com/apppasswords" target="_blank">Gmail App Password →</a>
+      &nbsp;·&nbsp;
+      <a href="https://account.live.com/proofs/AppPassword" target="_blank">Outlook App Password →</a>
+    </div>
+    <div class="login-error" id="login-error"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="am-btn am-btn-danger" onclick="clearIdentity();closeLoginModal()">Clear</button>
+      <button class="am-btn am-btn-primary" onclick="saveLogin()" style="margin-left:auto">Save</button>
+    </div>
+  </div>
+
+  <div class="am-footer">
+    Tokens stored in <code>~/.qamill/auth.json</code> — never transmitted to QAMill.
+  </div>
+</div>
 </div>"""
 
 
@@ -1685,20 +2396,54 @@ def _build_email_modal(file_name: str) -> str:
       <button class="modal-close" onclick="closeEmailModal()">✕</button>
     </div>
     <div class="modal-body">
-      <!-- Sender identity bar — shown when logged in -->
-      <div class="sender-as-bar" id="sender-as-bar">
-        <span class="sender-as-dot"></span>
-        <span class="sender-as-text">Sending as: —</span>
-        <span class="sender-as-change" onclick="closeEmailModal();openLoginModal()">Change identity</span>
+
+      <!-- ① OAuth path — shown when Google/Microsoft connected -->
+      <div class="email-via-box" id="email-via-box" style="display:none">
+        <div class="email-via-icon" id="email-via-icon"></div>
+        <div class="email-via-details">
+          <div class="email-via-label" id="email-via-label">Sending via Google</div>
+          <div class="email-via-addr"  id="email-via-addr">user@gmail.com</div>
+        </div>
+        <button class="am-btn" onclick="closeEmailModal();openLoginModal()"
+                style="margin-left:auto;font-size:11px">Change</button>
       </div>
-      <!-- Not logged in nudge — shown when no identity set -->
-      <div id="no-identity-nudge" style="display:none;font-size:12px;color:var(--amber);
-           background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.25);
-           border-radius:var(--radius);padding:9px 12px;margin-bottom:14px">
-        ⚠ No sender identity set.
-        <span style="cursor:pointer;color:var(--blue);margin-left:4px"
-              onclick="closeEmailModal();openLoginModal()">Log in with your work or personal email →</span>
+
+      <!-- ② No account — CTA + SMTP fallback -->
+      <div id="email-no-account-area">
+        <div class="email-no-account-box">
+          <p>Connect Google or Microsoft for one-click sending — no App Password needed</p>
+          <button class="am-btn am-btn-primary"
+                  onclick="closeEmailModal();openLoginModal()">Connect account</button>
+        </div>
+        <div class="email-or-divider">or send via SMTP</div>
+        <div class="form-group">
+          <label>Your Email (Sender)</label>
+          <input type="email" id="email-from" placeholder="you@gmail.com">
+        </div>
+        <div class="form-group">
+          <label>Provider</label>
+          <select id="smtp-provider" onchange="onSmtpChange(this.value)">
+            <option value="gmail">Gmail</option>
+            <option value="outlook">Outlook / Microsoft 365</option>
+            <option value="custom">Custom SMTP</option>
+          </select>
+        </div>
+        <div class="form-group" id="smtp-custom" style="display:none">
+          <label>SMTP Host</label>
+          <input type="text" id="smtp-host" placeholder="mail.example.com">
+          <input type="number" id="smtp-port" placeholder="587" style="margin-top:6px;width:100px">
+        </div>
+        <div class="form-group">
+          <label>App Password</label>
+          <input type="password" id="email-pass" placeholder="xxxx xxxx xxxx xxxx">
+          <div class="hint">
+            Use an App Password, not your regular password.<br>
+            <a href="https://myaccount.google.com/apppasswords" target="_blank">Gmail App Password →</a>
+          </div>
+        </div>
       </div>
+
+      <!-- Always visible: recipient + subject + message -->
       <div class="form-group">
         <label>Recipient Email</label>
         <input type="email" id="email-to" placeholder="colleague@company.com">
@@ -1709,35 +2454,9 @@ def _build_email_modal(file_name: str) -> str:
       </div>
       <div class="form-group">
         <label>Message</label>
-        <textarea id="email-body"></textarea>
+        <textarea id="email-body" style="height:70px"></textarea>
       </div>
-      <div class="form-group">
-        <label>SMTP Provider</label>
-        <select id="smtp-provider" onchange="onSmtpChange(this.value)">
-          <option value="gmail">Gmail</option>
-          <option value="outlook">Outlook / Microsoft 365</option>
-          <option value="custom">Custom SMTP</option>
-        </select>
-      </div>
-      <div class="form-group" id="smtp-custom" style="display:none">
-        <label>SMTP Host</label>
-        <input type="text" id="smtp-host" placeholder="mail.example.com">
-        <input type="number" id="smtp-port" placeholder="587" style="margin-top:6px;width:100px">
-      </div>
-      <div class="form-group">
-        <label>Your Email (Sender)</label>
-        <input type="email" id="email-from" placeholder="you@gmail.com">
-      </div>
-      <div class="form-group">
-        <label>App Password</label>
-        <input type="password" id="email-pass" placeholder="xxxx xxxx xxxx xxxx">
-        <div class="hint">
-          Use an App Password, not your regular password.<br>
-          <a href="https://myaccount.google.com/apppasswords" target="_blank">
-            Gmail: myaccount.google.com → Security → App Passwords
-          </a>
-        </div>
-      </div>
+
       <div class="modal-msg" id="modal-msg"></div>
     </div>
     <div class="modal-footer">

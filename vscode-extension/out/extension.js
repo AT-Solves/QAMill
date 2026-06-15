@@ -20,6 +20,9 @@ let lastFilePath;
 let jobDeliveryTimer;
 let lastProjectRoot;
 let pendingJob;
+let lastIdentityEmail; // tracks last-known signed-in account
+let signInNotified = false; // ensures the "signed in" toast fires once per session
+let identityPollTimer; // polls backend while dashboard open
 function activate(context) {
     // Status bar pill
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -42,7 +45,7 @@ function activate(context) {
     }));
     // ── Commands ──────────────────────────────────────────────────────────────
     // uri is passed automatically when invoked from Explorer right-click
-    context.subscriptions.push(vscode.commands.registerCommand("amil.runAnalysis", (uri) => runAnalysis(context, uri)), vscode.commands.registerCommand("amil.stopAnalysis", stopAnalysis), vscode.commands.registerCommand("amil.selectLLM", selectLLM));
+    context.subscriptions.push(vscode.commands.registerCommand("amil.runAnalysis", (uri) => runAnalysis(context, uri)), vscode.commands.registerCommand("amil.stopAnalysis", stopAnalysis), vscode.commands.registerCommand("amil.selectLLM", selectLLM), vscode.commands.registerCommand("amil.setIdentity", setIdentity));
 }
 function deactivate() {
     stopAnalysis();
@@ -95,15 +98,24 @@ async function runAnalysis(context, uri) {
     lastFilePath = filePath;
     lastProjectRoot = projectRoot;
     const llmProvider = config.get("llmProvider", "inhouse");
-    // ── Ensure backend is running ────────────────────────────────────────────
+    // ── Open the dashboard FIRST so its shell paints instantly ───────────────
+    // The webview is independent of the backend; showing it immediately removes
+    // the multi-second blank wait while Python boots. It renders a "starting"
+    // state and hydrates once the stream arrives.
+    openDashboard(context, port);
+    dashboardPanel?.webview.postMessage({ type: "set_file", file: path.basename(filePath) });
+    dashboardPanel?.webview.postMessage({ type: "engine_starting" });
+    // ── Ensure backend is running (in the background, dashboard already shown) ─
     statusBarItem.text = "$(sync~spin) QAMill Starting...";
     const backendReady = await ensureBackendRunning(context, port);
     if (!backendReady) {
-        vscode.window.showErrorMessage("QAMill: Could not start backend. Check Python is on PATH.");
+        const m = "Could not start the analysis engine. Check that Python is on your PATH.";
+        vscode.window.showErrorMessage(`QAMill: ${m}`);
+        dashboardPanel?.webview.postMessage({ type: "run_error", message: m });
         statusBarItem.text = "$(beaker) QAMill";
         return;
     }
-    // ── Start analysis BEFORE opening dashboard ──────────────────────────────
+    // ── Start analysis ───────────────────────────────────────────────────────
     const payload = {
         file_path: filePath,
         project_root: projectRoot,
@@ -118,7 +130,12 @@ async function runAnalysis(context, uri) {
         jobResp = await postJson(`http://localhost:${port}/analyze`, payload);
     }
     catch (err) {
-        vscode.window.showErrorMessage(`QAMill: Failed to start analysis — ${err}`);
+        const m = friendlyConnError(err, port);
+        vscode.window.showErrorMessage(m, "Retry")
+            .then(choice => { if (choice === "Retry") {
+            runAnalysis(context, uri);
+        } });
+        dashboardPanel?.webview.postMessage({ type: "run_error", message: m });
         statusBarItem.text = "$(beaker) QAMill";
         return;
     }
@@ -128,9 +145,7 @@ async function runAnalysis(context, uri) {
         file: path.basename(filePath),
         llm_provider: llmProvider,
     };
-    // ── Open / reveal dashboard (retains context, so JS state is preserved) ──
-    openDashboard(context, port);
-    // Deliver immediately — works if dashboard was already loaded
+    // Deliver immediately — dashboard is already open
     deliverPendingJob();
     statusBarItem.text = "$(sync~spin) QAMill Running...";
     vscode.window.showInformationMessage(`QAMill: Analysing ${path.basename(filePath)}…`);
@@ -202,7 +217,7 @@ function stopAnalysis() {
 }
 function isPortOpen(port) {
     return new Promise((resolve) => {
-        const req = http.get(`http://localhost:${port}/health`, (res) => {
+        const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
             resolve(res.statusCode === 200);
         });
         req.on("error", () => resolve(false));
@@ -245,6 +260,7 @@ function openDashboard(context, port) {
                 });
             }
             dashboardPanel?.webview.postMessage(buildSyncPayload());
+            refreshIdentity(port); // sync signed-in account from backend
             deliverPendingJob();
             return;
         }
@@ -405,7 +421,13 @@ function openDashboard(context, port) {
             return;
         }
         if (msg.type === "email_report") {
-            // Settings come from the webview form (msg.*) or fall back to saved config.
+            // Is an OAuth email account (Google/Microsoft) connected? Then no SMTP needed.
+            let oauthConnected = false;
+            try {
+                const st = await getJson(`http://127.0.0.1:${port}/auth/status`);
+                oauthConnected = !!(st?.primary && st.primary.can_email);
+            }
+            catch { /* backend may be busy — fall back to SMTP rules */ }
             const ec = readEmailConfig();
             const sender = (msg.sender || ec.sender).trim();
             const appPassword = msg.appPassword || ec.appPassword;
@@ -413,13 +435,14 @@ function openDashboard(context, port) {
             const smtpHost = msg.smtp_host || ec.smtp_host;
             const smtpPort = msg.smtp_port ?? ec.smtp_port;
             const useTls = msg.use_tls ?? ec.use_tls;
-            if (!sender || !appPassword || !recipient || !smtpHost) {
-                // Open the settings modal so the user can fill in what's missing.
+            // Recipient is always required; SMTP creds only required without OAuth.
+            if (!recipient || (!oauthConnected && (!sender || !appPassword || !smtpHost))) {
                 dashboardPanel?.webview.postMessage({ type: "open_email_modal" });
                 return;
             }
             dashboardPanel?.webview.postMessage({ type: "email_sending" });
             try {
+                // When OAuth is connected the backend sends via Gmail/Graph; SMTP fields ignored.
                 const result = await postJson(`http://localhost:${port}/email`, {
                     job_id: msg.job_id,
                     to_address: recipient,
@@ -427,13 +450,14 @@ function openDashboard(context, port) {
                     smtp_host: smtpHost,
                     smtp_port: smtpPort,
                     smtp_user: sender,
-                    smtp_password: appPassword,
+                    smtp_password: oauthConnected ? "" : appPassword,
                     use_tls: useTls,
                 });
+                const via = result.method === "oauth" ? ` via ${result.provider || "your account"}` : "";
                 dashboardPanel?.webview.postMessage({ type: "email_sent", to: result.to });
                 dashboardPanel?.webview.postMessage({ type: "email_modal_result", success: true,
-                    message: `Report sent to ${result.to}` });
-                vscode.window.showInformationMessage(`QAMill report sent to ${result.to}`);
+                    message: `Report sent to ${result.to}${via}` });
+                vscode.window.showInformationMessage(`QAMill report sent to ${result.to}${via}`);
             }
             catch (err) {
                 const errMsg = String(err).replace(/^Error: HTTP \d+: /, "");
@@ -514,10 +538,33 @@ function openDashboard(context, port) {
             vscode.env.openExternal(vscode.Uri.parse(msg.url));
             return;
         }
+        if (msg.type === "set_identity_prompt") {
+            await vscode.commands.executeCommand("amil.setIdentity");
+            return;
+        }
+        if (msg.type === "open_auth_modal") {
+            // Dashboard requests auth modal — trigger command
+            await vscode.commands.executeCommand("amil.setIdentity");
+            return;
+        }
     });
+    // Poll the backend for sign-in changes while the dashboard is open, so an
+    // OAuth login completed in the browser popup reflects in VS Code within ~3s.
+    if (identityPollTimer) {
+        clearInterval(identityPollTimer);
+    }
+    identityPollTimer = setInterval(() => {
+        if (dashboardPanel) {
+            refreshIdentity(port);
+        }
+    }, 5000);
     dashboardPanel.onDidDispose(() => {
         dashboardPanel = undefined;
         statusBarItem.text = "$(beaker) QAMill";
+        if (identityPollTimer) {
+            clearInterval(identityPollTimer);
+            identityPollTimer = undefined;
+        }
     });
 }
 // ── LLM selector quick-pick ───────────────────────────────────────────────────
@@ -535,6 +582,75 @@ async function selectLLM() {
         dashboardPanel?.webview.postMessage(buildSyncPayload());
         vscode.window.showInformationMessage(`QAMill: LLM set to ${choice.label}`);
     }
+}
+// ── Identity (sender email) ───────────────────────────────────────────────────
+async function setIdentity() {
+    const port = vscode.workspace.getConfiguration("amil").get("backendPort", 8765);
+    const choice = await vscode.window.showQuickPick([
+        { label: "$(account) Google", value: "google", group: "social" },
+        { label: "$(window) Microsoft", value: "microsoft", group: "social" },
+        { label: "$(person) LinkedIn", value: "linkedin", group: "social" },
+        { label: "$(github) GitHub", value: "github", group: "dev" },
+        { label: "$(globe) Atlassian (Jira)", value: "atlassian", group: "dev" },
+        { label: "$(comment) Slack workspace", value: "slack", group: "dev" },
+        { label: "$(mail) Work / Personal email (manual)", value: "__manual__", group: "manual" },
+    ], { placeHolder: "Sign in with…", title: "QAMill — Connect your account" });
+    if (!choice) {
+        return;
+    }
+    if (choice.value === "__manual__") {
+        // Manual email entry (kept as fallback)
+        const email = await vscode.window.showInputBox({
+            prompt: "Enter your email address",
+            placeHolder: "you@company.com",
+            validateInput: (v) => (v && v.includes("@") ? null : "Enter a valid email address"),
+        });
+        if (!email) {
+            return;
+        }
+        const cfg = vscode.workspace.getConfiguration("amil");
+        const t = vscode.ConfigurationTarget.Workspace;
+        await cfg.update("userEmail", email, t);
+        await cfg.update("email.sender", email, t);
+        dashboardPanel?.webview.postMessage(buildSyncPayload());
+        vscode.window.showInformationMessage(`QAMill: Sender email set to ${email}`);
+        return;
+    }
+    // OAuth flow — open system browser
+    const loginUrl = `http://localhost:${port}/auth/login/${choice.value}`;
+    await vscode.env.openExternal(vscode.Uri.parse(loginUrl));
+    // Poll until connected or timeout
+    vscode.window.showInformationMessage(`QAMill: Sign in to ${choice.label.replace(/\$\([^)]+\)\s*/g, "")} in your browser…`);
+    const started = Date.now();
+    const poll = async () => {
+        if (Date.now() - started > 300000) {
+            return;
+        } // 5 min timeout
+        try {
+            const status = await getJson(`http://localhost:${port}/auth/status/${choice.value}`);
+            if (status.connected) {
+                const name = status.name || status.email || choice.value;
+                // Sync identity to VS Code settings
+                const cfg = vscode.workspace.getConfiguration("amil");
+                const t = vscode.ConfigurationTarget.Workspace;
+                if (status.email) {
+                    await cfg.update("userEmail", status.email, t);
+                    await cfg.update("email.sender", status.email, t);
+                }
+                dashboardPanel?.webview.postMessage(buildSyncPayload());
+                dashboardPanel?.webview.postMessage({
+                    type: "auth_connected",
+                    provider: choice.value,
+                    name, email: status.email,
+                });
+                vscode.window.showInformationMessage(`QAMill: Connected to ${choice.label.replace(/\$\([^)]+\)\s*/g, "")} as ${name}`);
+                return;
+            }
+        }
+        catch { /* backend may be busy */ }
+        setTimeout(poll, 1500);
+    };
+    setTimeout(poll, 1500);
 }
 // ── Helpers ───────────────────────────────────────────────────────────────────
 /** SMTP host/port for a given provider name. */
@@ -563,13 +679,70 @@ function readEmailConfig() {
         use_tls: preset ? preset.tls : useTls,
     };
 }
+/**
+ * Pull the live signed-in identity from the backend and update the dashboard badge.
+ * The poll runs silently; the "signed in" toast fires at most ONCE per session,
+ * only on a genuine transition to a new account. Config writes are best-effort
+ * and can never break the detection loop.
+ */
+async function refreshIdentity(port) {
+    let status;
+    try {
+        status = await getJson(`http://127.0.0.1:${port}/auth/status`);
+    }
+    catch {
+        return; // backend not up yet — nothing to sync
+    }
+    const primary = status?.primary || null;
+    const email = primary?.email || "";
+    // Always update the dashboard badge (silent — no notification)
+    dashboardPanel?.webview.postMessage({
+        type: "apply_identity",
+        identity: primary
+            ? { email, provider: primary.provider, label: primary.label,
+                name: primary.name, picture: primary.picture,
+                can_email: primary.can_email, type: "work" }
+            : null,
+    });
+    if (email) {
+        statusBarItem.tooltip = `QAMill — signed in as ${email}`;
+    }
+    // Detect a genuine change. Advance the guard IMMEDIATELY (before any await)
+    // so a slow/failed config write can never cause repeat notifications.
+    if (email === lastIdentityEmail) {
+        return;
+    }
+    const isNewSignIn = !!email && email !== lastIdentityEmail;
+    lastIdentityEmail = email;
+    if (!email) {
+        signInNotified = false;
+    } // signed out — allow one toast on next sign-in
+    if (isNewSignIn && !signInNotified) {
+        signInNotified = true; // one toast per session, full stop
+        const label = primary.label || primary.provider || "account";
+        vscode.window.showInformationMessage(`QAMill: Signed in to ${label} as ${email}` +
+            (primary.can_email ? " — reports will send from this address." : ""));
+    }
+    // Mirror into config (best-effort — failures must not affect the loop)
+    if (email) {
+        try {
+            const cfg = vscode.workspace.getConfiguration("amil");
+            await cfg.update("userEmail", email, vscode.ConfigurationTarget.Workspace);
+            await cfg.update("email.sender", email, vscode.ConfigurationTarget.Workspace);
+        }
+        catch { /* no workspace / read-only settings — badge still works */ }
+    }
+}
 function buildSyncPayload() {
     const cfg = vscode.workspace.getConfiguration("amil");
     const provider = cfg.get("llmProvider", "inhouse");
     const autoHeal = cfg.get("autoHeal", true);
     const aiMutants = cfg.get("aiMutants", false);
     const mode = autoHeal && aiMutants ? "both" : autoHeal ? "auto_heal" : aiMutants ? "ai_mutants" : "none";
-    return { type: "sync_settings", provider, mode, email: readEmailConfig() };
+    const userEmail = cfg.get("userEmail", "");
+    const emailType = cfg.get("emailType", "work");
+    return { type: "sync_settings", provider, mode, email: readEmailConfig(),
+        identity: { email: userEmail, type: emailType } };
 }
 function updateLlmStatusBar() {
     const provider = vscode.workspace.getConfiguration("amil").get("llmProvider", "inhouse");
@@ -602,7 +775,17 @@ function getApiKey(config, provider) {
     };
     return keys[provider] || "";
 }
+/**
+ * Force IPv4 loopback. The backend binds 127.0.0.1 only; Node resolves
+ * "localhost" to ::1 first on Windows, so a stray IPv6 attempt turns a
+ * simple "backend not up yet" into a confusing AggregateError. Pinning the
+ * host to 127.0.0.1 makes every Node request hit the socket that exists.
+ */
+function ipv4(url) {
+    return url.replace("//localhost:", "//127.0.0.1:");
+}
 function postJson(url, body) {
+    url = ipv4(url);
     return new Promise((resolve, reject) => {
         const data = JSON.stringify(body);
         const req = http.request(url, {
@@ -635,7 +818,25 @@ function postJson(url, body) {
         req.end();
     });
 }
+function getJson(url) {
+    url = ipv4(url);
+    return new Promise((resolve, reject) => {
+        const req = http.get(url, (res) => {
+            let raw = "";
+            res.on("data", (c) => raw += c);
+            res.on("end", () => { try {
+                resolve(JSON.parse(raw));
+            }
+            catch {
+                reject(new Error(raw));
+            } });
+        });
+        req.on("error", reject);
+        req.setTimeout(8000, () => { req.destroy(); reject(new Error("timeout")); });
+    });
+}
 function getText(url) {
+    url = ipv4(url);
     return new Promise((resolve, reject) => {
         const req = http.get(url, (res) => {
             if ((res.statusCode ?? 0) >= 400) {
@@ -651,6 +852,20 @@ function getText(url) {
     });
 }
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+/** Turn a raw Node connection error (AggregateError / ECONNREFUSED) into a clear message. */
+function friendlyConnError(err, port) {
+    const msg = String(err?.message ?? err);
+    const code = err?.code ?? "";
+    const isConn = err?.name === "AggregateError" ||
+        code === "ECONNREFUSED" || code === "ECONNRESET" ||
+        /aggregate|ECONNREFUSED|timeout/i.test(msg);
+    if (isConn) {
+        return `QAMill: Can't reach the analysis engine on port ${port}. ` +
+            `It may still be starting up, or Python failed to launch — ` +
+            `check that Python is on your PATH. Click Retry in a moment.`;
+    }
+    return `QAMill: Failed to start analysis — ${msg}`;
+}
 // ── Dashboard HTML (inlined) ──────────────────────────────────────────────────
 function getDashboardHtml(port) {
     return `<!DOCTYPE html>
@@ -668,9 +883,23 @@ function getDashboardHtml(port) {
   h2{font-size:15px;font-weight:600;opacity:.9}
 
   /* ── Provider badge ── */
-  .title-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .title-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
   .provider-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
                   letter-spacing:.06em;text-transform:uppercase}
+  /* ── Identity badge ── */
+  .dash-identity{display:flex;align-items:center;gap:5px;margin-left:auto;flex-shrink:0}
+  .dash-id-dot{width:7px;height:7px;border-radius:50%;background:#8b949e;flex-shrink:0}
+  .dash-id-dot.work{background:#58a6ff}
+  .dash-id-dot.personal{background:#3fb950}
+  .dash-id-email{font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;
+                 white-space:nowrap;opacity:.75}
+  .dash-id-email.work{color:#58a6ff}
+  .dash-id-email.personal{color:#3fb950}
+  .dash-id-btn{background:none;border:1px dashed var(--vscode-widget-border);
+               color:var(--vscode-descriptionForeground);border-radius:4px;
+               padding:2px 8px;font-size:10px;cursor:pointer;white-space:nowrap}
+  .dash-id-btn:hover{border-color:var(--vscode-focusBorder,#007fd4);
+                     color:var(--vscode-textLink-foreground,#4ec9a0)}
   .pb-none   {background:#2a2a2a;color:#888}
   .pb-claude {background:#3a2510;color:#e07b39}
   .pb-gpt    {background:#1a3a1e;color:#4ec9a0}
@@ -881,7 +1110,7 @@ function getDashboardHtml(port) {
   .surv-hint{font-size:10px;color:#d7ba7d;font-style:italic;
              overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  /* ── Email settings modal ── */
+  /* ── Email modal ── */
   .email-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;
                  display:none;align-items:center;justify-content:center;padding:12px}
   .email-modal{background:var(--vscode-editor-background);
@@ -904,11 +1133,31 @@ function getDashboardHtml(port) {
                border-radius:4px;padding:6px 9px;font-size:12px;outline:none;
                box-sizing:border-box}
   .email-field:focus{border-color:var(--vscode-focusBorder,#007fd4)}
+  /* OAuth-first email send */
+  .em-via-box{display:flex;align-items:center;gap:10px;
+              background:rgba(78,201,160,.08);border:1px solid rgba(78,201,160,.25);
+              border-radius:6px;padding:10px 12px;margin-bottom:12px}
+  .em-via-icon{width:32px;height:32px;border-radius:6px;display:flex;
+               align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+  .em-via-icon svg{width:20px;height:20px}
+  .em-via-detail{flex:1;min-width:0}
+  .em-via-lbl{font-size:12px;font-weight:600;color:#4ec9a0}
+  .em-via-addr{font-size:11px;opacity:.65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .em-no-account{background:rgba(86,156,214,.06);border:1px solid rgba(86,156,214,.2);
+                 border-radius:6px;padding:12px;margin-bottom:12px;text-align:center}
+  .em-no-account p{font-size:12px;opacity:.75;margin-bottom:8px}
+  .em-connect-btn{background:#0e639c;color:#fff;border:none;border-radius:4px;
+                  padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer}
+  .em-connect-btn:hover{opacity:.85}
+  .em-divider{font-size:11px;opacity:.4;text-align:center;margin:10px 0;
+              position:relative}
+  .em-divider::before,.em-divider::after{content:'';position:absolute;
+    top:50%;width:42%;height:1px;background:var(--vscode-widget-border)}
+  .em-divider::before{left:0}.em-divider::after{right:0}
   .email-note{background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.4);
               border-radius:4px;padding:8px 10px;font-size:11px;
               color:#d29922;line-height:1.6;margin-bottom:2px}
   .email-note a{color:#4ec9a0;text-decoration:none;cursor:pointer}
-  .email-note a:hover{text-decoration:underline}
   .email-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap}
   .email-btn{border:none;border-radius:5px;padding:7px 16px;font-size:12px;
              font-weight:600;cursor:pointer;transition:opacity .18s;white-space:nowrap}
@@ -921,16 +1170,21 @@ function getDashboardHtml(port) {
                       margin-top:10px;display:none;line-height:1.5}
   .ems-ok   {background:#1e3a2f;color:#4ec9a0;border:1px solid #2e5a3f;display:block!important}
   .ems-error{background:#3a1e1e;color:#f48771;border:1px solid #5a2e2e;display:block!important}
-  .ems-info  {background:rgba(86,156,214,.12);color:#569cd6;border:1px solid rgba(86,156,214,.3);display:block!important}
+  .ems-info {background:rgba(86,156,214,.12);color:#569cd6;border:1px solid rgba(86,156,214,.3);display:block!important}
 </style>
 </head>
 <body>
 
-<!-- ── Title row with provider badge ── -->
+<!-- ── Title row with provider badge + identity ── -->
 <div class="title-row">
   <h2>QAMill &mdash; Mutation Analysis</h2>
   <span class="file-label" id="run-file"></span>
   <span class="provider-badge pb-inhouse" id="provider-badge">OLLAMA</span>
+  <div class="dash-identity">
+    <span class="dash-id-dot" id="dash-id-dot"></span>
+    <span class="dash-id-email" id="dash-id-email" title="Sender email for reports"></span>
+    <button class="dash-id-btn" id="dash-id-btn" onclick="vscode.postMessage({type:'open_auth_modal'})">Log in</button>
+  </div>
 </div>
 
 <!-- ── Score cards ── -->
@@ -987,40 +1241,65 @@ function getDashboardHtml(port) {
   <div id="waiting">Right-click a file &#8594; Run QAMill Mutation Analysis</div>
 </div>
 
-<!-- ── Email settings modal ── -->
+<!-- ── Email modal (OAuth-first) ── -->
 <div class="email-overlay" id="email-overlay">
   <div class="email-modal" id="email-modal-card">
     <div class="email-modal-hdr">
-      <span>&#128231; Email Report Settings</span>
+      <span>&#128231; Send Report</span>
       <button class="email-close-btn" id="email-close-btn">&#215;</button>
     </div>
     <div class="email-body" id="email-body">
-      <div class="email-note" id="email-provider-note">
-        <strong>Gmail:</strong> You must use an <strong>App Password</strong>, not your regular
-        Gmail password &mdash; regular passwords are blocked by Google for SMTP access.
-        <a id="email-help-link">Create App Password &#8594;</a>
+
+      <!-- OAuth sender (shown when Google/Microsoft connected) -->
+      <div class="em-via-box" id="em-via-box" style="display:none">
+        <div class="em-via-icon" id="em-via-icon"></div>
+        <div class="em-via-detail">
+          <div class="em-via-lbl" id="em-via-lbl">Sending via Google</div>
+          <div class="em-via-addr" id="em-via-addr">user@gmail.com</div>
+        </div>
+        <button class="email-btn email-btn-secondary" style="padding:4px 10px;font-size:11px"
+                onclick="vscode.postMessage({type:'open_auth_modal'});closeEmailModal()">Change</button>
       </div>
-      <label class="email-label">SMTP Provider</label>
-      <select id="email-provider" class="email-field">
-        <option value="gmail">Gmail</option>
-        <option value="outlook">Outlook / Office 365</option>
-        <option value="custom">Custom SMTP</option>
-      </select>
-      <label class="email-label">Your Email Address (Sender)</label>
-      <input type="email" id="email-sender" class="email-field" placeholder="you@gmail.com" autocomplete="email">
-      <label class="email-label">App Password &mdash; NOT your regular password</label>
-      <input type="password" id="email-apppassword" class="email-field" placeholder="xxxx xxxx xxxx xxxx" autocomplete="new-password">
-      <label class="email-label">Send Report To (Recipient)</label>
+
+      <!-- No account: connect CTA + SMTP fallback -->
+      <div id="em-no-account-area">
+        <div class="em-no-account">
+          <p>Connect Google or Microsoft to send without App Password</p>
+          <button class="em-connect-btn"
+                  onclick="vscode.postMessage({type:'open_auth_modal'});closeEmailModal()">
+            Connect account &#8594;
+          </button>
+        </div>
+        <div class="em-divider">or enter SMTP settings</div>
+        <div class="email-note" id="email-provider-note">
+          <strong>Gmail:</strong> Use an <strong>App Password</strong>, not your regular password.
+          <a id="email-help-link">Create App Password &#8594;</a>
+        </div>
+        <label class="email-label">SMTP Provider</label>
+        <select id="email-provider" class="email-field">
+          <option value="gmail">Gmail</option>
+          <option value="outlook">Outlook / Office 365</option>
+          <option value="custom">Custom SMTP</option>
+        </select>
+        <label class="email-label">Your Email (Sender)</label>
+        <input type="email" id="email-sender" class="email-field" placeholder="you@gmail.com" autocomplete="email">
+        <label class="email-label">App Password</label>
+        <input type="password" id="email-apppassword" class="email-field" placeholder="xxxx xxxx xxxx xxxx" autocomplete="new-password">
+        <div id="email-custom-fields" style="display:none">
+          <label class="email-label">SMTP Host</label>
+          <input type="text" id="email-smtp-host" class="email-field" placeholder="smtp.example.com">
+          <label class="email-label">SMTP Port</label>
+          <input type="number" id="email-smtp-port" class="email-field" value="587">
+        </div>
+      </div>
+
+      <!-- Always: recipient -->
+      <label class="email-label">Send Report To</label>
       <input type="email" id="email-recipient" class="email-field" placeholder="recipient@example.com">
-      <div id="email-custom-fields" style="display:none">
-        <label class="email-label">SMTP Host</label>
-        <input type="text" id="email-smtp-host" class="email-field" placeholder="smtp.example.com">
-        <label class="email-label">SMTP Port</label>
-        <input type="number" id="email-smtp-port" class="email-field" value="587">
-      </div>
+
       <div class="email-modal-status" id="email-modal-status"></div>
       <div class="email-actions">
-        <button class="email-btn email-btn-secondary" id="email-test-btn">&#9889; Test Connection</button>
+        <button class="email-btn email-btn-secondary" id="email-test-btn">&#9889; Test</button>
         <button class="email-btn email-btn-primary"   id="email-send-btn">&#128231; Send Report</button>
       </div>
     </div>
@@ -1184,6 +1463,14 @@ window.addEventListener('message', e => {
     const lbl = document.getElementById('run-file');
     if (lbl) lbl.textContent = msg.file || '';
   }
+  if (msg.type === 'engine_starting') {
+    var pl = document.getElementById('progress-label');
+    if (pl) pl.textContent = 'Starting analysis engine…';
+    var barEl = document.getElementById('bar');
+    if (barEl) { barEl.style.width = '8%'; barEl.classList.add('running'); }
+    var w = document.getElementById('waiting');
+    if (w) w.textContent = 'Booting the QAMill engine — this takes a moment on first run…';
+  }
   if (msg.type === 'sync_settings') {
     const llmSel  = document.getElementById('llm-select-mini');
     const modeSel = document.getElementById('mode-select');
@@ -1191,6 +1478,8 @@ window.addEventListener('message', e => {
     if (modeSel && msg.mode)     modeSel.value = msg.mode;
     updateBadge(msg.provider || 'inhouse');
     if (msg.email) { emailSettings = msg.email; }
+    // Apply identity to dashboard header
+    if (msg.identity) { applyIdentity(msg.identity); }
   }
   if (msg.type === 'open_email_modal') {
     openEmailModal();
@@ -1213,12 +1502,67 @@ window.addEventListener('message', e => {
     }
     return;
   }
+  if (msg.type === 'apply_identity') {
+    // Live identity pushed from backend (catches sign-ins done in the browser popup)
+    applyIdentity(msg.identity);
+    return;
+  }
+  if (msg.type === 'auth_connected') {
+    // OAuth completed in system browser — refresh identity badge + email modal
+    applyIdentity({ email: msg.email || '', type: 'work', provider: msg.provider });
+    // If email modal is open, switch to OAuth path
+    var viaBox = document.getElementById('em-via-box');
+    var noAcct = document.getElementById('em-no-account-area');
+    if (viaBox && noAcct && document.getElementById('email-overlay').style.display === 'flex') {
+      var icon = document.getElementById('em-via-icon');
+      var lbl  = document.getElementById('em-via-lbl');
+      var addr = document.getElementById('em-via-addr');
+      if (icon) icon.innerHTML  = emViaIcons[msg.provider] || '';
+      if (lbl)  lbl.textContent = 'Sending via ' + (msg.provider || '');
+      if (addr) addr.textContent = msg.email || '';
+      viaBox.style.display = 'flex';
+      noAcct.style.display = 'none';
+    }
+    return;
+  }
   if (msg.type === 'ai_response') {
     const area = document.getElementById('chat-response');
     area.innerHTML = '<span class="chat-answer"><strong>QAMill:</strong> ' + esc(msg.answer) + '</span>';
     document.getElementById('send-btn').disabled = false;
   }
 });
+
+// ── Identity display ─────────────────────────────────────────────────────────
+function applyIdentity(identity) {
+  var dot  = document.getElementById('dash-id-dot');
+  var lbl  = document.getElementById('dash-id-email');
+  var btn  = document.getElementById('dash-id-btn');
+  if (!dot || !lbl || !btn) return;
+  if (identity && identity.email) {
+    var type = identity.type || 'work';
+    var providerName = identity.label || (identity.provider
+      ? identity.provider.charAt(0).toUpperCase() + identity.provider.slice(1) : '');
+    dot.className = 'dash-id-dot ' + type;
+    dot.title     = providerName ? 'Signed in with ' + providerName : '';
+    lbl.textContent = identity.email;
+    lbl.className   = 'dash-id-email ' + type;
+    lbl.title       = (providerName ? providerName + ' · ' : '') + identity.email +
+                      (identity.can_email ? ' · sends reports' : '');
+    btn.textContent = 'Change';
+    btn.title       = 'Signed in' + (providerName ? ' with ' + providerName : '') + ' — click to manage';
+  } else {
+    dot.className   = 'dash-id-dot';
+    dot.title       = '';
+    lbl.textContent = '';
+    btn.textContent = 'Log in';
+    btn.title       = 'Sign in to send reports';
+  }
+  // Pre-fill sender in email modal if it's open
+  var senderField = document.getElementById('email-sender');
+  if (senderField && identity && identity.email && !senderField.value) {
+    senderField.value = identity.email;
+  }
+}
 
 // ── Settings (auto-apply on change) ─────────────────────────────────────────
 function updateBadge(p) {
@@ -1671,23 +2015,53 @@ const EMAIL_PRESETS = {
   custom:  {host:'',                        port:587, tls:true},
 };
 
+var emViaIcons = {
+  google:    '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>',
+  microsoft: '<svg viewBox="0 0 21 21" width="20" height="20"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>',
+};
+
 function openEmailModal() {
   const overlay = document.getElementById('email-overlay');
   if (!overlay) return;
-  const s = emailSettings;
-  const prov = s.provider || 'gmail';
-  var el;
-  el = document.getElementById('email-provider');   if (el) el.value = prov;
-  el = document.getElementById('email-sender');      if (el) el.value = s.sender      || '';
-  el = document.getElementById('email-apppassword'); if (el) el.value = s.appPassword || '';
-  el = document.getElementById('email-recipient');   if (el) el.value = s.recipient   || '';
-  el = document.getElementById('email-smtp-host');   if (el) el.value = s.smtp_host   || '';
-  el = document.getElementById('email-smtp-port');   if (el) el.value = String(s.smtp_port || 587);
-  updateEmailProviderUI();
   clearEmailModalStatus();
   overlay.style.display = 'flex';
-  el = document.getElementById('email-sender');
-  if (el && !el.value) el.focus();
+
+  // Pre-fill SMTP fields from saved settings (fallback)
+  const s = emailSettings;
+  var el;
+  el = document.getElementById('email-provider');   if (el) el.value = s.provider || 'gmail';
+  el = document.getElementById('email-sender');      if (el && !el.value) el.value = s.sender      || '';
+  el = document.getElementById('email-apppassword'); if (el && !el.value) el.value = s.appPassword || '';
+  el = document.getElementById('email-recipient');   if (el && !el.value) el.value = s.recipient   || '';
+  el = document.getElementById('email-smtp-host');   if (el) el.value = s.smtp_host || '';
+  el = document.getElementById('email-smtp-port');   if (el) el.value = String(s.smtp_port || 587);
+  updateEmailProviderUI();
+
+  // Check OAuth status — show OAuth path if connected, else SMTP form
+  var viaBox     = document.getElementById('em-via-box');
+  var noAcctArea = document.getElementById('em-no-account-area');
+  fetch('http://localhost:${port}/auth/status')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var primary = d.primary;
+      if (primary && primary.can_email) {
+        if (viaBox)     viaBox.style.display     = 'flex';
+        if (noAcctArea) noAcctArea.style.display  = 'none';
+        var icon = document.getElementById('em-via-icon');
+        var lbl  = document.getElementById('em-via-lbl');
+        var addr = document.getElementById('em-via-addr');
+        if (icon) icon.innerHTML  = emViaIcons[primary.provider] || '';
+        if (lbl)  lbl.textContent = 'Sending via ' + (primary.label || primary.provider);
+        if (addr) addr.textContent = primary.email || '';
+      } else {
+        if (viaBox)     viaBox.style.display     = 'none';
+        if (noAcctArea) noAcctArea.style.display  = '';
+      }
+    })
+    .catch(function() {
+      if (viaBox)     viaBox.style.display    = 'none';
+      if (noAcctArea) noAcctArea.style.display = '';
+    });
 }
 
 function closeEmailModal() {

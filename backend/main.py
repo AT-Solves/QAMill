@@ -30,6 +30,7 @@ from llm_adapter import create_adapter, NoLLMAdapter
 from cross_method_mutator import CrossMethodMutator
 from ai_mutant_generator import AIMutantGenerator
 from report_generator import build_html_report
+from auth_manager import auth, OAUTH_PROVIDERS, LLM_PROVIDERS
 
 app = FastAPI(title="AMIL Mutation Testing Server", version="1.0.0")
 
@@ -464,10 +465,24 @@ RESPONSE QUALITY:
 
 @app.post("/ask")
 async def ask_assistant(req: AskRequest):
+    import httpx as _httpx
+
     kwargs = {}
     if req.llm_api_key:
         kwargs["api_key"] = req.llm_api_key
-    llm = create_adapter(req.llm_provider, **kwargs)
+
+    try:
+        llm = create_adapter(req.llm_provider, **kwargs)
+    except ValueError as e:
+        return {"answer": str(e)}
+
+    # NoLLMAdapter cannot answer conversational questions
+    if isinstance(llm, NoLLMAdapter):
+        return {"answer": (
+            "The AI assistant needs an LLM provider to answer questions. "
+            "Open the provider dropdown in the QAMill dashboard and select "
+            "Claude, GPT-4o, Grok, or Ollama, then ask again."
+        )}
 
     full_prompt = (
         f"{_ASK_SYSTEM}\n\n"
@@ -483,7 +498,43 @@ async def ask_assistant(req: AskRequest):
         "ANSWER:"
     )
 
-    raw_answer = await llm.call_async(full_prompt, max_tokens=400)
+    try:
+        raw_answer = await llm.call_async(full_prompt, max_tokens=400)
+    except _httpx.ConnectError:
+        provider_name = llm.name
+        if provider_name == "inhouse":
+            return {"answer": (
+                "Cannot reach Ollama at localhost:11434. "
+                "Start it with `ollama serve` and make sure the llama3 model is pulled "
+                "(`ollama pull llama3`), then try again."
+            )}
+        return {"answer": (
+            f"Cannot connect to the {provider_name} API. "
+            "Check your internet connection and try again."
+        )}
+    except _httpx.HTTPStatusError as e:
+        code = e.response.status_code
+        if code in (401, 403):
+            return {"answer": (
+                f"Authentication failed for {llm.name} (HTTP {code}). "
+                "Check your API key in QAMill settings."
+            )}
+        if code == 429:
+            return {"answer": (
+                f"Rate limit reached for {llm.name}. Wait a moment and try again."
+            )}
+        return {"answer": (
+            f"The {llm.name} API returned an error (HTTP {code}). "
+            "Check your provider settings and API key."
+        )}
+    except _httpx.TimeoutException:
+        return {"answer": (
+            f"The {llm.name} API timed out. "
+            "The model may be busy — try again in a few seconds."
+        )}
+    except Exception as e:
+        return {"answer": f"QAMill assistant error: {e}"}
+
     answer = _validate_and_sanitise(raw_answer, req.context)
     return {"answer": answer}
 
@@ -664,7 +715,33 @@ def _smtp_send(
 
 @app.post("/email/test")
 async def test_email_connection(req: EmailTestRequest):
-    """Send a test email to verify SMTP credentials before sending a real report."""
+    """
+    Send a test email. If a Google/Microsoft account is connected, test via that
+    (OAuth — no App Password). Otherwise verify the supplied SMTP credentials.
+    """
+    # ── OAuth path first (matches how reports actually send) ───────────────
+    primary = auth.get_primary_identity()
+    if primary and primary.get("can_email"):
+        try:
+            await auth.send_email_via_oauth(
+                primary["provider"],
+                to              = req.to_address,
+                subject         = "QAMill — Connection Test",
+                text_body       = "This is a test email from QAMill. Your account is "
+                                  f"connected via {primary['label']} and report sending works.",
+                html_body       = "<p>This is a test email from <strong>QAMill</strong>.</p>"
+                                  f"<p>Connected via {primary['label']} — report sending works.</p>",
+                attachment_html = "",
+                att_filename    = "",
+            )
+            return {"status": "sent", "to": req.to_address,
+                    "method": "oauth", "provider": primary["provider"],
+                    "message": f"Test email sent via {primary['label']} to {req.to_address}"}
+        except Exception as e:
+            raise HTTPException(400,
+                f"Connected to {primary['label']} but the test send failed: {e}")
+
+    # ── SMTP path (App Password) ───────────────────────────────────────────
     sender = req.sender_email or req.smtp_user
     msg    = MIMEMultipart("alternative")
     msg["Subject"] = "QAMill — SMTP Connection Test"
@@ -687,13 +764,13 @@ async def test_email_connection(req: EmailTestRequest):
         req.smtp_host, req.smtp_port, req.smtp_user, req.smtp_password,
         sender, req.to_address, msg, req.use_tls,
     )
-    return {"status": "sent", "to": req.to_address,
+    return {"status": "sent", "to": req.to_address, "method": "smtp",
             "message": f"Test email sent successfully to {req.to_address}"}
 
 
 @app.post("/email")
 async def email_report(req: EmailRequest):
-    """Send analysis report to an email address via SMTP."""
+    """Send analysis report. OAuth (Gmail/Graph) if connected, else SMTP."""
     if req.job_id not in _job_events:
         raise HTTPException(404, f"Job {req.job_id} not found")
 
@@ -702,14 +779,7 @@ async def email_report(req: EmailRequest):
     file_name = start_ev.get("file", "unknown")
     summary   = _job_summaries.get(req.job_id, {})
     score     = summary.get("true_score", 0)
-
-    sender = req.sender_email or req.smtp_user
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"QAMill Report — {file_name} — Score: {score}%"
-    msg["From"]    = sender
-    msg["To"]      = req.to_address
-
+    subject   = f"QAMill Report — {file_name} — Score: {score}%"
     plain = (
         f"QAMill Mutation Analysis Report\n"
         f"File      : {file_name}\n"
@@ -717,8 +787,37 @@ async def email_report(req: EmailRequest):
         f"Killed    : {summary.get('killed', 0)}\n"
         f"Survived  : {summary.get('survived', 0)}\n"
         f"Equivalent: {summary.get('equivalent', 0)}\n\n"
-        f"Open the HTML report in your browser for the full details."
+        f"Open the attached HTML report in your browser for the full details."
     )
+    ts       = datetime.now().strftime("%Y%m%d-%H%M%S")
+    att_name = f"qamill-{Path(file_name).stem}-{ts}.html"
+
+    # ── OAuth path first (no App Password) ─────────────────────────────────
+    primary = auth.get_primary_identity()
+    if primary and primary.get("can_email"):
+        try:
+            await auth.send_email_via_oauth(
+                primary["provider"],
+                to              = req.to_address,
+                subject         = subject,
+                text_body       = plain,
+                html_body       = html_body,
+                attachment_html = html_body,
+                att_filename    = att_name,
+            )
+            return {"status": "sent", "to": req.to_address, "subject": subject,
+                    "method": "oauth", "provider": primary["provider"]}
+        except Exception as oauth_err:
+            if not req.smtp_password:
+                raise HTTPException(400, str(oauth_err))
+            # else fall through to SMTP
+
+    # ── SMTP path ──────────────────────────────────────────────────────────
+    sender = req.sender_email or req.smtp_user
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = sender
+    msg["To"]      = req.to_address
     msg.attach(MIMEText(plain, "plain"))
     msg.attach(MIMEText(html_body, "html"))
 
@@ -728,8 +827,7 @@ async def email_report(req: EmailRequest):
         req.smtp_host, req.smtp_port, req.smtp_user, req.smtp_password,
         sender, req.to_address, msg, req.use_tls,
     )
-
-    return {"status": "sent", "to": req.to_address, "subject": msg["Subject"]}
+    return {"status": "sent", "to": req.to_address, "subject": subject, "method": "smtp"}
 
 
 # ── /email-report endpoint (Task 4) ──────────────────────────────────────
@@ -748,42 +846,64 @@ class EmailReportRequest(BaseModel):
 
 @app.post("/email-report")
 async def email_report_direct(req: EmailReportRequest):
-    """Send HTML report via SMTP. Called from the report's Email modal."""
+    """Send HTML report. Uses OAuth (Gmail/Graph) if connected, else SMTP."""
+    ts          = datetime.now().strftime("%Y%m%d-%H%M%S")
+    att_name    = f"qamill-report-{ts}.html"
+    summary_html = (
+        "<html><body style='font-family:sans-serif;padding:24px'>"
+        "<h2 style='color:#3fb950'>QAMill Mutation Report</h2>"
+        f"<pre style='background:#f6f8fa;padding:16px;border-radius:6px'>{req.message}</pre>"
+        "<p style='color:#666;margin-top:16px'>See the attached HTML file for the full interactive report.</p>"
+        "</body></html>"
+    )
+
+    # ── Try OAuth path first (no App Password needed) ──────────────────
+    primary = auth.get_primary_identity()
+    if primary and primary.get("can_email"):
+        oauth_provider = primary["provider"]
+        try:
+            await auth.send_email_via_oauth(
+                oauth_provider,
+                to             = req.recipient,
+                subject        = req.subject,
+                text_body      = req.message,
+                html_body      = summary_html,
+                attachment_html= req.report_html,
+                att_filename   = att_name,
+            )
+            return {"success": True,
+                    "message": f"Report sent to {req.recipient} via {primary['label']}",
+                    "method":  "oauth",
+                    "provider": oauth_provider}
+        except Exception as oauth_err:
+            # OAuth failed — fall through to SMTP if credentials supplied
+            if not req.app_password:
+                raise HTTPException(400, str(oauth_err))
+
+    # ── SMTP path (App Password) ───────────────────────────────────────
     provider_settings = {
-        "gmail":   ("smtp.gmail.com",          587, True),
-        "outlook": ("smtp-mail.outlook.com",   587, True),
+        "gmail":   ("smtp.gmail.com",        587, True),
+        "outlook": ("smtp-mail.outlook.com", 587, True),
     }
     if req.smtp_provider in provider_settings:
         host, port, use_tls = provider_settings[req.smtp_provider]
     else:
-        host     = req.smtp_host or "localhost"
-        port     = req.smtp_port or 587
-        use_tls  = True
+        host    = req.smtp_host or "localhost"
+        port    = req.smtp_port or 587
+        use_tls = True
 
     msg = MIMEMultipart("mixed")
     msg["Subject"] = req.subject
     msg["From"]    = req.sender_email
     msg["To"]      = req.recipient
-
-    # Plain text body
     msg.attach(MIMEText(req.message, "plain"))
-
-    # HTML summary body
-    summary_html = f"""<html><body style="font-family:sans-serif;padding:24px">
-<h2 style="color:#3fb950">QAMill Mutation Report</h2>
-<pre style="background:#f6f8fa;padding:16px;border-radius:6px">{req.message}</pre>
-<p style="color:#666;margin-top:16px">See the attached HTML file for the full interactive report.</p>
-</body></html>"""
     msg.attach(MIMEText(summary_html, "html"))
 
-    # Attach full HTML report
     if req.report_html:
-        ts   = datetime.now().strftime("%Y%m%d-%H%M%S")
-        att  = MIMEBase("application", "octet-stream")
+        att = MIMEBase("application", "octet-stream")
         att.set_payload(req.report_html.encode("utf-8"))
         encoders.encode_base64(att)
-        att.add_header("Content-Disposition",
-                        f'attachment; filename="qamill-report-{ts}.html"')
+        att.add_header("Content-Disposition", f'attachment; filename="{att_name}"')
         msg.attach(att)
 
     loop = asyncio.get_event_loop()
@@ -792,7 +912,265 @@ async def email_report_direct(req: EmailReportRequest):
         host, port, req.sender_email, req.app_password,
         req.sender_email, req.recipient, msg, use_tls,
     )
-    return {"success": True, "message": f"Report sent to {req.recipient}"}
+    return {"success": True, "message": f"Report sent to {req.recipient}",
+            "method": "smtp"}
+
+
+# ── Auth endpoints ─────────────────────────────────────────────────────────
+
+class LLMConnectRequest(BaseModel):
+    provider: str
+    api_key:  str = ""
+
+
+class OAuthConfigRequest(BaseModel):
+    client_id:     str
+    client_secret: str
+
+
+_PROVIDER_SETUP_URLS = {
+    "google":    ("https://console.cloud.google.com/apis/credentials",
+                  "Google Cloud Console", "Enable Gmail API, then create an OAuth 2.0 Client ID (Web application)."),
+    "microsoft": ("https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps",
+                  "Azure App Registrations", "Register a new app, set Web platform, add the redirect URI below."),
+    "github":    ("https://github.com/settings/developers",
+                  "GitHub Developer Settings", "Create an OAuth App with the callback URL below."),
+    "linkedin":  ("https://www.linkedin.com/developers/apps",
+                  "LinkedIn Developer Portal", "Create an app and add the redirect URL below under OAuth 2.0 settings."),
+    "atlassian": ("https://developer.atlassian.com/console/myapps",
+                  "Atlassian Developer Console", "Create an OAuth 2.0 (3LO) app and add the callback URL below."),
+    "slack":     ("https://api.slack.com/apps",
+                  "Slack API Console", "Create a new app, go to OAuth & Permissions and add the redirect URL below."),
+}
+
+
+def _auth_page(success: bool, message: str, provider: str = "") -> str:
+    """HTML popup shown after OAuth callback — success self-closes, error shows setup help."""
+    if success:
+        color   = "#3fb950"
+        heading = f"Connected to {provider.title()}!"
+        body    = f"""<div class="icon">✓</div>
+<h2>{heading}</h2>
+<p style="color:#8b949e">{message}</p>
+<p style="color:#484f58;font-size:12px">This window will close automatically…</p>
+<button onclick="window.close()">Close</button>
+<script>setTimeout(function(){{window.close();}},1400);</script>"""
+    else:
+        color   = "#f85149"
+        setup   = _PROVIDER_SETUP_URLS.get(provider, ("", "", ""))
+        cb_uri  = f"http://localhost:8765/auth/callback/{provider}" if provider else ""
+        setup_hint = ""
+        if setup[0]:
+            setup_hint = f"""
+<div class="setup-box">
+  <div class="setup-title">How to set up {provider.title()} OAuth</div>
+  <ol>
+    <li>Open <a href="{setup[0]}" target="_blank">{setup[1]} ↗</a></li>
+    <li>{setup[2]}</li>
+    <li>Set this <strong>Redirect URI</strong>:<br>
+        <code onclick="navigator.clipboard.writeText('{cb_uri}').then(function(){{this.style.color='#3fb950'}}.bind(this))">{cb_uri} <small>(click to copy)</small></code></li>
+    <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+    <li>Click the button below and paste them in</li>
+  </ol>
+  <button class="setup-btn" onclick="window.opener&&window.opener.openLoginModal&&window.opener.openLoginModal();window.close()">
+    ← Enter credentials in QAMill
+  </button>
+</div>"""
+        body = f"""<div class="icon">✗</div>
+<h2>OAuth not configured</h2>
+<p>{message}</p>
+{setup_hint}
+<button onclick="window.close()" style="margin-top:8px">Close</button>"""
+
+    return f"""<!DOCTYPE html><html data-theme="dark">
+<head><meta charset="UTF-8"><title>QAMill Auth</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+     background:#0d1117;color:#e6edf3;display:flex;align-items:center;
+     justify-content:center;min-height:100vh;flex-direction:column;
+     gap:12px;text-align:center;padding:28px}}
+.icon{{font-size:52px;color:{color}}}
+h2{{font-size:20px;font-weight:600;color:{color};margin-bottom:4px}}
+p{{font-size:13px;color:#8b949e;max-width:360px;line-height:1.6}}
+button{{padding:9px 24px;border-radius:6px;border:1px solid #30363d;
+        background:#21262d;color:#e6edf3;cursor:pointer;font-size:13px}}
+button:hover{{border-color:#3fb950;color:#3fb950}}
+.setup-box{{background:#161b22;border:1px solid #30363d;border-radius:10px;
+            padding:20px 24px;max-width:400px;text-align:left;margin-top:8px}}
+.setup-title{{font-size:13px;font-weight:700;color:#c9d1d9;margin-bottom:12px}}
+ol{{padding-left:18px;font-size:12px;color:#8b949e;line-height:2}}
+ol a{{color:#58a6ff;text-decoration:none}}
+ol a:hover{{text-decoration:underline}}
+code{{display:inline-block;background:#21262d;border:1px solid #30363d;
+      border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;
+      margin-top:4px;color:#4ec9a0;word-break:break-all}}
+code:hover{{border-color:#4ec9a0}}
+.setup-btn{{margin-top:16px;background:#3fb950;color:#0d1117;border:none;
+            padding:9px 20px;border-radius:6px;font-size:13px;font-weight:600;
+            cursor:pointer;width:100%}}
+.setup-btn:hover{{opacity:.88}}
+</style></head>
+<body>{body}</body></html>"""
+
+
+def _redirect_interstitial(provider: str, url: str) -> str:
+    """Instant spinner page that JS-redirects to the provider — no blank white flash."""
+    label = OAUTH_PROVIDERS.get(provider, {}).get("label", provider.title())
+    safe  = url.replace("\\", "\\\\").replace('"', '\\"')
+    return f"""<!DOCTYPE html><html data-theme="dark">
+<head><meta charset="UTF-8"><title>Connecting to {label}…</title>
+<meta http-equiv="refresh" content="0;url={url}">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+     background:#0d1117;color:#e6edf3;display:flex;align-items:center;
+     justify-content:center;min-height:100vh;flex-direction:column;gap:18px}}
+.spinner{{width:44px;height:44px;border:4px solid #21262d;border-top-color:#3fb950;
+         border-radius:50%;animation:spin .8s linear infinite}}
+@keyframes spin{{to{{transform:rotate(360deg)}}}}
+p{{font-size:14px;color:#8b949e}}
+strong{{color:#3fb950}}
+a{{color:#58a6ff;font-size:12px}}
+</style></head>
+<body>
+<div class="spinner"></div>
+<p>Connecting to <strong>{label}</strong>…</p>
+<a href="{url}">Click here if you are not redirected automatically</a>
+<script>location.replace("{safe}");</script>
+</body></html>"""
+
+
+@app.get("/auth/login/{provider}")
+async def auth_login(provider: str):
+    """Show an instant interstitial, then redirect to the OAuth consent page."""
+    from fastapi.responses import HTMLResponse
+    if provider not in OAUTH_PROVIDERS:
+        raise HTTPException(400, f"Unknown provider: {provider}")
+    if not auth.provider_configured(provider):
+        cfg = OAUTH_PROVIDERS[provider]
+        page = _auth_page(False,
+            f"OAuth is not configured for {cfg['label']}. "
+            f"Set the {cfg['env_id']} and {cfg['env_secret']} environment variables "
+            "on the QAMill backend and restart.", provider)
+        return HTMLResponse(page)
+    try:
+        url = auth.get_authorization_url(provider)
+        # Instant branded spinner instead of a blank white screen during redirect
+        return HTMLResponse(_redirect_interstitial(provider, url))
+    except Exception as e:
+        return HTMLResponse(_auth_page(False, str(e), provider))
+
+
+@app.get("/auth/callback/{provider}")
+async def auth_callback(provider: str,
+                         code:  Optional[str] = None,
+                         state: Optional[str] = None,
+                         error: Optional[str] = None,
+                         error_description: Optional[str] = None):
+    """Handle the OAuth redirect from the provider."""
+    from fastapi.responses import HTMLResponse
+    if error:
+        return HTMLResponse(_auth_page(False,
+            error_description or error, provider))
+    if not code or not state:
+        return HTMLResponse(_auth_page(False,
+            "Missing authorization code — please try again.", provider))
+    try:
+        entry = await auth.handle_callback(provider, code, state)
+        name  = entry.get("name") or entry.get("email") or provider
+        return HTMLResponse(_auth_page(True, name, provider))
+    except Exception as e:
+        return HTMLResponse(_auth_page(False, str(e), provider))
+
+
+@app.get("/auth/status")
+async def auth_status():
+    """Return all connected OAuth providers and LLM keys."""
+    return {
+        "oauth":   auth.get_connected_providers(),
+        "llm":     auth.get_connected_llm_providers(),
+        "primary": auth.get_primary_identity(),
+    }
+
+
+@app.get("/auth/status/{provider}")
+async def auth_status_provider(provider: str):
+    """Return connection status for a single OAuth provider."""
+    entry = auth.get_oauth_entry(provider)
+    if not entry:
+        return {"connected": False}
+    return {"connected": True, "email": entry.get("email", ""),
+            "name": entry.get("name", ""), "picture": entry.get("picture", "")}
+
+
+@app.delete("/auth/logout/{provider}")
+async def auth_logout(provider: str):
+    auth.logout(provider)
+    return {"success": True, "provider": provider}
+
+
+@app.delete("/auth/logout-all")
+async def auth_logout_all():
+    auth.logout_all()
+    return {"success": True}
+
+
+@app.post("/auth/configure/{provider}")
+async def auth_configure(provider: str, req: OAuthConfigRequest):
+    """Store OAuth client_id + client_secret for a provider (no env var / restart needed)."""
+    if provider not in OAUTH_PROVIDERS:
+        raise HTTPException(400, f"Unknown provider: {provider}")
+    if not req.client_id.strip() or not req.client_secret.strip():
+        raise HTTPException(400, "Both client_id and client_secret are required")
+    auth.store_oauth_client(provider, req.client_id, req.client_secret)
+    return {"success": True, "provider": provider,
+            "configured": True, "label": OAUTH_PROVIDERS[provider]["label"]}
+
+
+@app.post("/auth/llm/connect")
+async def auth_llm_connect(req: LLMConnectRequest):
+    try:
+        result = await auth.validate_and_store_llm_key(req.provider, req.api_key)
+        return result
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/auth/llm/disconnect/{provider}")
+async def auth_llm_disconnect(provider: str):
+    auth.disconnect_llm(provider)
+    return {"success": True, "provider": provider}
+
+
+@app.get("/auth/providers")
+async def auth_providers_list():
+    """Return all provider configs (without secrets) for the UI."""
+    oauth_list = [
+        {
+            "id":           p,
+            "label":        cfg["label"],
+            "group":        cfg.get("group", "social"),
+            "color":        cfg["color"],
+            "bg":           cfg["bg"],
+            "text":         cfg.get("text", "#fff"),
+            "can_email":    cfg.get("can_email", False),
+            "configured":   auth.provider_configured(p),
+        }
+        for p, cfg in OAUTH_PROVIDERS.items()
+    ]
+    llm_list = [
+        {
+            "id":          p,
+            "label":       cfg["label"],
+            "sublabel":    cfg["sublabel"],
+            "color":       cfg["color"],
+            "bg":          cfg["bg"],
+            "placeholder": cfg["key_placeholder"],
+        }
+        for p, cfg in LLM_PROVIDERS.items()
+    ]
+    return {"oauth": oauth_list, "llm": llm_list}
 
 
 # ── Entry point ────────────────────────────────────────────────────────────
