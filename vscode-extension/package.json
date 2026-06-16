@@ -6,7 +6,8 @@
   "publisher": "amil",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Testing", "Other"],
-"main": "./out/extension.js",
+  "icon": "media/qamill-logo.png",
+  "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {

@@ -49,7 +49,7 @@ OAUTH_PROVIDERS: dict[str, dict] = {
         "pkce":        True,
         "can_email":   True,     # can send via Gmail API
         "access_type": "offline",
-        "extra_params": {"prompt": "select_account"},
+        "extra_params": {"prompt": "consent"},   # force consent screen so gmail.send is always explicitly granted
         "env_id":      "QAMILL_GOOGLE_CLIENT_ID",
         "env_secret":  "QAMILL_GOOGLE_CLIENT_SECRET",
     },
@@ -664,7 +664,17 @@ class AuthManager:
                 json={"raw": raw},
             )
             if r.status_code == 401:
-                raise ValueError("Gmail token expired — please reconnect your Google account.")
+                raise ValueError(
+                    "Gmail token expired. Open QAMill → Log in → Social → "
+                    "Google → Disconnect, then Connect again to refresh."
+                )
+            if r.status_code == 403:
+                # Most common cause: gmail.send scope was never granted (cached consent)
+                raise ValueError(
+                    "Gmail send permission not granted for this account. "
+                    "Open QAMill → Log in → Social → Google → Disconnect, "
+                    "then Connect again and approve 'Send email on your behalf' on the consent screen."
+                )
             r.raise_for_status()
 
     async def _graph_send(self, token: str, to: str, subject: str,

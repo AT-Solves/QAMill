@@ -17,6 +17,8 @@ let lastFilePath: string | undefined;
 let jobDeliveryTimer: ReturnType<typeof setTimeout> | undefined;
 let lastProjectRoot: string | undefined;
 let pendingJob: { stream_url: string; file: string; llm_provider: string } | undefined;
+let activeStreamReq: import("http").ClientRequest | undefined;  // Node.js HTTP stream reader
+let streamEventsReceived = 0;                        // for SSE resume on reconnect
 let lastIdentityEmail: string | undefined;          // tracks last-known signed-in account
 let signInNotified = false;                          // ensures the "signed in" toast fires once per session
 let identityPollTimer: ReturnType<typeof setInterval> | undefined;  // polls backend while dashboard open
@@ -157,15 +159,17 @@ async function runAnalysis(context: vscode.ExtensionContext, uri?: vscode.Uri) {
     return;
   }
 
-  // Store job so it can be delivered once the dashboard is ready
+  // Store job metadata for the dashboard
   pendingJob = {
     stream_url:   jobResp.stream_url,
     file:         path.basename(filePath),
     llm_provider: llmProvider,
   };
-
-  // Deliver immediately — dashboard is already open
   deliverPendingJob();
+
+  // Stream via Node.js http — bypasses VS Code webview proxy buffering.
+  // Each event is forwarded to the webview via postMessage as it arrives.
+  startExtensionStream(jobResp.stream_url);
   statusBarItem.text = "$(sync~spin) QAMill Running...";
   vscode.window.showInformationMessage(`QAMill: Analysing ${path.basename(filePath)}…`);
 }
@@ -255,20 +259,28 @@ function openDashboard(context: vscode.ExtensionContext, port: number) {
     return;
   }
 
+  const logoUri = vscode.Uri.joinPath(context.extensionUri, "media", "qamill-logo.png");
+
   dashboardPanel = vscode.window.createWebviewPanel(
     "amilDashboard",
     "QAMill Dashboard",
     vscode.ViewColumn.Beside,
     {
       enableScripts: true,
-      retainContextWhenHidden: true,   // keep JS state alive — no reloads on focus change
+      retainContextWhenHidden: true,
       localResourceRoots: [
         vscode.Uri.joinPath(context.extensionUri, "media"),
       ],
     }
   );
 
-  dashboardPanel.webview.html = getDashboardHtml(port);
+  // Logo in the VS Code tab
+  dashboardPanel.iconPath = logoUri;
+
+  // Webview-safe URI so the HTML <img> can load the logo
+  const webviewLogoUri = dashboardPanel.webview.asWebviewUri(logoUri);
+  const cspSource      = dashboardPanel.webview.cspSource;
+  dashboardPanel.webview.html = getDashboardHtml(port, webviewLogoUri.toString(), cspSource);
 
   // Tell dashboard which file and LLM are active on first open
   setTimeout(() => {
@@ -570,8 +582,25 @@ function openDashboard(context: vscode.ExtensionContext, port: number) {
     }
 
     if (msg.type === "open_auth_modal") {
-      // Dashboard requests auth modal — trigger command
       await vscode.commands.executeCommand("amil.setIdentity");
+      return;
+    }
+
+    if (msg.type === "sign_out") {
+      try {
+        await deleteRequest(`http://127.0.0.1:${port}/auth/logout-all`);
+      } catch { /* best-effort */ }
+      // Clear saved identity from settings
+      const cfg = vscode.workspace.getConfiguration("amil");
+      const t   = vscode.ConfigurationTarget.Workspace;
+      try {
+        await cfg.update("userEmail",    "", t);
+        await cfg.update("email.sender", "", t);
+      } catch { /* no workspace */ }
+      lastIdentityEmail = "";
+      signInNotified    = false;
+      dashboardPanel?.webview.postMessage({ type: "apply_identity", identity: null });
+      vscode.window.showInformationMessage("QAMill: Signed out successfully.");
       return;
     }
   });
@@ -587,6 +616,7 @@ function openDashboard(context: vscode.ExtensionContext, port: number) {
     dashboardPanel = undefined;
     statusBarItem.text = "$(beaker) QAMill";
     if (identityPollTimer) { clearInterval(identityPollTimer); identityPollTimer = undefined; }
+    if (activeStreamReq)   { try { activeStreamReq.destroy(); } catch {} activeStreamReq = undefined; }
   });
 }
 
@@ -883,6 +913,90 @@ function getText(url: string): Promise<string> {
 
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
 
+function deleteRequest(url: string): Promise<any> {
+  url = ipv4(url);
+  return new Promise((resolve, reject) => {
+    const req = http.request(url, { method: "DELETE" }, (res) => {
+      let raw = "";
+      res.on("data", (c) => raw += c);
+      res.on("end", () => { try { resolve(JSON.parse(raw)); } catch { resolve({}); } });
+    });
+    req.on("error", reject);
+    req.setTimeout(5000, () => { req.destroy(); reject(new Error("timeout")); });
+    req.end();
+  });
+}
+
+/**
+ * Read the SSE stream via Node.js http (not webview fetch) to avoid the VS Code
+ * webview proxy buffering the entire response before delivering it. Each event is
+ * forwarded to the webview via postMessage as soon as it arrives off the wire.
+ */
+async function startExtensionStream(rawUrl: string): Promise<void> {
+  // Cancel any in-progress stream from a previous job
+  if (activeStreamReq) {
+    try { activeStreamReq.destroy(); } catch {}
+    activeStreamReq = undefined;
+  }
+  streamEventsReceived = 0;
+
+  const MAX_ATTEMPTS = 20;
+  let attempt        = 0;
+  let retryDelay     = 2000;
+
+  const forward = (event: any) => {
+    dashboardPanel?.webview.postMessage({ type: "stream_event", event });
+  };
+
+  while (attempt <= MAX_ATTEMPTS) {
+    if (attempt > 0) {
+      forward({ type: "status", message: `Reconnecting… (attempt ${attempt}/${MAX_ATTEMPTS})` });
+      await new Promise(r => setTimeout(r, retryDelay));
+      retryDelay = Math.min(Math.round(retryDelay * 1.6), 30000);
+    }
+
+    const resumeUrl = ipv4(rawUrl) + (streamEventsReceived > 0 ? `?from_event=${streamEventsReceived}` : "");
+    const done = await new Promise<boolean>((resolve) => {
+      let buf = "";
+      const req = http.get(resumeUrl, (res) => {
+        if ((res.statusCode ?? 0) === 404) {
+          forward({ type: "status", message: "Job not found (404) — analysis may have expired." });
+          resolve(true);  // don't retry 404
+          return;
+        }
+        res.on("data", (chunk: Buffer) => {
+          buf += chunk.toString("utf8");
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            const t = line.trim();
+            if (!t.startsWith("data:")) { continue; }
+            try {
+              const event = JSON.parse(t.slice(5).trim());
+              streamEventsReceived++;
+              forward(event);
+              if (event.type === "complete" || event.type === "error") {
+                req.destroy();
+                resolve(true);   // clean finish
+              }
+            } catch { /* skip malformed line */ }
+          }
+        });
+        res.on("end",   () => resolve(false));  // server closed — retry
+        res.on("error", () => resolve(false));
+      });
+      req.on("error", () => resolve(false));
+      req.setTimeout(35000, () => { req.destroy(); resolve(false); });
+      activeStreamReq = req;
+    });
+
+    if (done) { break; }
+    attempt++;
+  }
+
+  activeStreamReq = undefined;
+}
+
 /** Turn a raw Node connection error (AggregateError / ECONNREFUSED) into a clear message. */
 function friendlyConnError(err: any, port: number): string {
   const msg  = String(err?.message ?? err);
@@ -900,13 +1014,14 @@ function friendlyConnError(err: any, port: number): string {
 
 // ── Dashboard HTML (inlined) ──────────────────────────────────────────────────
 
-function getDashboardHtml(port: number): string {
+function getDashboardHtml(port: number, logoUri: string = "", cspSource: string = ""): string {
+  const imgSrc = [cspSource, "data:"].filter(Boolean).join(" ");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src http://localhost:${port} http://127.0.0.1:${port};">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src http://localhost:${port} http://127.0.0.1:${port}; img-src ${imgSrc};">
 <title>QAMill Dashboard</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -917,17 +1032,40 @@ function getDashboardHtml(port: number): string {
 
   /* ── Provider badge ── */
   .title-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .title-logo{height:26px;width:26px;object-fit:contain;flex-shrink:0;border-radius:4px}
+  .title-logo-wrap{display:flex;align-items:center;gap:7px;flex-shrink:0}
+  .title-logo-wrap h2{font-size:15px;font-weight:600;opacity:.9}
   .provider-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
                   letter-spacing:.06em;text-transform:uppercase}
-  /* ── Identity badge ── */
-  .dash-identity{display:flex;align-items:center;gap:5px;margin-left:auto;flex-shrink:0}
-  .dash-id-dot{width:7px;height:7px;border-radius:50%;background:#8b949e;flex-shrink:0}
-  .dash-id-dot.work{background:#58a6ff}
-  .dash-id-dot.personal{background:#3fb950}
-  .dash-id-email{font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;
-                 white-space:nowrap;opacity:.75}
-  .dash-id-email.work{color:#58a6ff}
-  .dash-id-email.personal{color:#3fb950}
+  /* ── Identity chip + sign-out dropdown ── */
+  .dash-identity{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;position:relative}
+  .dash-id-chip{display:none;align-items:center;gap:6px;padding:3px 10px 3px 4px;
+                border-radius:20px;cursor:pointer;border:1px solid var(--vscode-widget-border);
+                background:var(--vscode-input-background);user-select:none}
+  .dash-id-chip:hover{border-color:var(--vscode-focusBorder,#4ec9a0)}
+  .dash-id-avatar{width:22px;height:22px;border-radius:50%;background:#4ec9a0;
+                  color:#0d1117;font-size:10px;font-weight:700;display:flex;
+                  align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+  .dash-id-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+  .dash-id-name{font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;
+                white-space:nowrap;color:var(--vscode-foreground);opacity:.85}
+  .dash-id-caret{font-size:9px;opacity:.5}
+  /* Dropdown */
+  .dash-id-menu{position:absolute;top:calc(100% + 6px);right:0;min-width:200px;z-index:9999;
+                background:var(--vscode-editorWidget-background,var(--vscode-editor-background));
+                border:1px solid var(--vscode-widget-border);border-radius:6px;
+                box-shadow:0 4px 20px rgba(0,0,0,.5);display:none;overflow:hidden}
+  .dash-id-chip.open .dash-id-menu{display:block}
+  .dim-user{padding:10px 12px 8px;border-bottom:1px solid var(--vscode-widget-border)}
+  .dim-name{font-size:12px;font-weight:600;color:var(--vscode-foreground)}
+  .dim-email{font-size:11px;opacity:.6;word-break:break-all;margin-top:2px}
+  .dim-via{font-size:10px;color:#4ec9a0;margin-top:4px;font-weight:600;letter-spacing:.04em}
+  .dim-item{display:block;width:100%;text-align:left;background:none;border:none;
+            color:var(--vscode-foreground);font-size:12px;padding:8px 12px;
+            cursor:pointer;font-family:var(--vscode-font-family)}
+  .dim-item:hover{background:var(--vscode-list-hoverBackground)}
+  .dim-signout{color:#f48771!important}
+  /* Log in button (signed out) */
   .dash-id-btn{background:none;border:1px dashed var(--vscode-widget-border);
                color:var(--vscode-descriptionForeground);border-radius:4px;
                padding:2px 8px;font-size:10px;cursor:pointer;white-space:nowrap}
@@ -980,9 +1118,24 @@ function getDashboardHtml(port: number): string {
   .mini-tag{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;flex-shrink:0;letter-spacing:.04em}
   .badge{font-size:11px;font-weight:600;padding:2px 7px;border-radius:20px;
          flex-shrink:0;min-width:76px;text-align:center}
-  /* ── Pulsing progress bar while running ── */
+  /* ── Progress bar animations ── */
   @keyframes bar-pulse{0%,100%{opacity:1}50%{opacity:.4}}
   .bar-fill.running{animation:bar-pulse 1.1s ease-in-out infinite}
+  @keyframes bar-shimmer{
+    0%  {background-position:-400px 0}
+    100%{background-position:calc(400px + 100%) 0}
+  }
+  /* Indeterminate shimmer — pre-result phases (baseline, generating) */
+  .bar-fill.shimmer{
+    width:100%!important;
+    background:linear-gradient(90deg,#4ec9a022 20%,#4ec9a0bb 50%,#4ec9a022 80%);
+    background-size:400px 100%;
+    animation:bar-shimmer 1.5s ease-in-out infinite;
+  }
+  /* Phase label colours */
+  .phase-baseline{color:#569cd6}
+  .phase-generate{color:#dcdcaa}
+  .phase-testing {color:#4ec9a0}
   .b-killed    {background:#1e3a2f;color:#4ec9a0}
   .b-survived  {background:#3a1e1e;color:#f48771}
   .b-equivalent{background:#2a2a1e;color:#dcdcaa}
@@ -1210,12 +1363,29 @@ function getDashboardHtml(port: number): string {
 
 <!-- ── Title row with provider badge + identity ── -->
 <div class="title-row">
-  <h2>QAMill &mdash; Mutation Analysis</h2>
+  <div class="title-logo-wrap">
+    ${logoUri ? `<img src="${logoUri}" class="title-logo" alt="QAMill">` : ""}
+    <h2>QAMill &mdash; Mutation Analysis</h2>
+  </div>
   <span class="file-label" id="run-file"></span>
   <span class="provider-badge pb-inhouse" id="provider-badge">OLLAMA</span>
   <div class="dash-identity">
-    <span class="dash-id-dot" id="dash-id-dot"></span>
-    <span class="dash-id-email" id="dash-id-email" title="Sender email for reports"></span>
+    <!-- Signed-in chip with dropdown -->
+    <div class="dash-id-chip" id="dash-id-chip" onclick="toggleDashIdMenu(event)">
+      <div class="dash-id-avatar" id="dash-id-avatar"></div>
+      <span class="dash-id-name" id="dash-id-name"></span>
+      <span class="dash-id-caret">▾</span>
+      <div class="dash-id-menu" id="dash-id-menu">
+        <div class="dim-user">
+          <div class="dim-name" id="dim-name"></div>
+          <div class="dim-email" id="dim-email"></div>
+          <div class="dim-via" id="dim-via"></div>
+        </div>
+        <button class="dim-item" onclick="event.stopPropagation();vscode.postMessage({type:'open_auth_modal'});closeDashIdMenu()">Manage accounts</button>
+        <button class="dim-item dim-signout" onclick="event.stopPropagation();vscode.postMessage({type:'sign_out'});closeDashIdMenu()">Sign out</button>
+      </div>
+    </div>
+    <!-- Log in button (signed out) -->
     <button class="dash-id-btn" id="dash-id-btn" onclick="vscode.postMessage({type:'open_auth_modal'})">Log in</button>
   </div>
 </div>
@@ -1426,7 +1596,8 @@ window.addEventListener('message', e => {
     // Ignore duplicate deliveries for the same job
     if (msg.stream_url === currentStreamUrl) return;
     currentStreamUrl = msg.stream_url;
-    eventsReceived = 0;  // reset for fresh job
+    eventsReceived = 0;
+    phaseResultsStarted = false;
     currentJobId = (msg.stream_url || '').split('/').pop().split('?')[0] || null;
     vscode.postMessage({ type: 'job_received' }); // stop retry timer + polling response
     appendLog('job_started received ✓ — starting analysis', 'ok');
@@ -1451,12 +1622,18 @@ window.addEventListener('message', e => {
       clearFeed();
       addStatus('▶ ' + (msg.file || '') + '  ·  LLM: ' + (msg.llm_provider || 'none').toUpperCase());
       appendLog('▶ File: ' + (msg.file || 'unknown') + (isTestFile ? '  ⚠ This is a test file — consider selecting the source file instead' : ''), isTestFile ? 'warn' : 'ok');
-      appendLog('LLM: ' + (msg.llm_provider || 'none').toUpperCase() + '  |  Stream: ' + msg.stream_url, 'info');
-      connectStream(msg.stream_url);
+      appendLog('LLM: ' + (msg.llm_provider || 'none').toUpperCase(), 'info');
+      // Extension streams via Node.js http and forwards events here as 'stream_event' messages.
+      // Do NOT call connectStream() — webview fetch() is buffered by VS Code's proxy.
     } catch(err) {
       const feed = document.getElementById('feed');
       if (feed) feed.innerHTML = '<div style="color:#f48771;padding:8px">Dashboard error: ' + String(err) + '</div>';
     }
+  }
+  if (msg.type === 'stream_event') {
+    // Each SSE event forwarded from the extension's Node.js HTTP reader — no proxy buffering.
+    handleEvent(msg.event);
+    return;
   }
   if (msg.type === 'backend_log') {
     appendLog(msg.text, msg.level || 'info');
@@ -1565,32 +1742,61 @@ window.addEventListener('message', e => {
   }
 });
 
-// ── Identity display ─────────────────────────────────────────────────────────
+// ── Identity chip + dropdown ──────────────────────────────────────────────────
+function toggleDashIdMenu(e) {
+  var chip = document.getElementById('dash-id-chip');
+  if (chip) chip.classList.toggle('open');
+  e.stopPropagation();
+}
+function closeDashIdMenu() {
+  var chip = document.getElementById('dash-id-chip');
+  if (chip) chip.classList.remove('open');
+}
+document.addEventListener('click', function() { closeDashIdMenu(); });
+
 function applyIdentity(identity) {
-  var dot  = document.getElementById('dash-id-dot');
-  var lbl  = document.getElementById('dash-id-email');
+  var chip = document.getElementById('dash-id-chip');
   var btn  = document.getElementById('dash-id-btn');
-  if (!dot || !lbl || !btn) return;
+  if (!chip || !btn) return;
+
   if (identity && identity.email) {
-    var type = identity.type || 'work';
-    var providerName = identity.label || (identity.provider
-      ? identity.provider.charAt(0).toUpperCase() + identity.provider.slice(1) : '');
-    dot.className = 'dash-id-dot ' + type;
-    dot.title     = providerName ? 'Signed in with ' + providerName : '';
-    lbl.textContent = identity.email;
-    lbl.className   = 'dash-id-email ' + type;
-    lbl.title       = (providerName ? providerName + ' · ' : '') + identity.email +
-                      (identity.can_email ? ' · sends reports' : '');
-    btn.textContent = 'Change';
-    btn.title       = 'Signed in' + (providerName ? ' with ' + providerName : '') + ' — click to manage';
+    chip.style.display = 'inline-flex';
+    btn.style.display  = 'none';
+
+    // Avatar
+    var av = document.getElementById('dash-id-avatar');
+    if (av) {
+      if (identity.picture) {
+        var img = document.createElement('img');
+        img.src = identity.picture;
+        img.onerror = function() { av.textContent = identity.email.charAt(0).toUpperCase(); };
+        av.innerHTML = ''; av.appendChild(img);
+      } else {
+        av.textContent = identity.email.charAt(0).toUpperCase();
+      }
+    }
+    // Chip label
+    var nm = document.getElementById('dash-id-name');
+    if (nm) nm.textContent = identity.name || identity.email;
+
+    // Dropdown details
+    var dn = document.getElementById('dim-name');
+    if (dn) dn.textContent = identity.name || '';
+    var de = document.getElementById('dim-email');
+    if (de) de.textContent = identity.email;
+    var dv = document.getElementById('dim-via');
+    if (dv) {
+      var lbl = identity.label || identity.provider || '';
+      dv.textContent = lbl ? 'Signed in with ' + lbl : '';
+      dv.style.display = lbl ? '' : 'none';
+    }
   } else {
-    dot.className   = 'dash-id-dot';
-    dot.title       = '';
-    lbl.textContent = '';
-    btn.textContent = 'Log in';
-    btn.title       = 'Sign in to send reports';
+    chip.style.display = 'none';
+    chip.classList.remove('open');
+    btn.style.display  = '';
+    btn.textContent    = 'Log in';
   }
-  // Pre-fill sender in email modal if it's open
+  // Pre-fill sender in email modal
   var senderField = document.getElementById('email-sender');
   if (senderField && identity && identity.email && !senderField.value) {
     senderField.value = identity.email;
@@ -1769,20 +1975,57 @@ async function connectStream(url) {
   streamActive = false; es = null;
 }
 
+// Phase tracking — drives the bar through pre-result stages
+var phaseResultsStarted = false;
+
+function setPhaseBar(widthPct, label, labelClass) {
+  var bar = document.getElementById('bar');
+  var pl  = document.getElementById('progress-label');
+  if (bar) {
+    bar.classList.remove('shimmer', 'running');
+    if (widthPct === null) {
+      // Indeterminate — use shimmer
+      bar.classList.add('shimmer');
+    } else {
+      bar.style.width = widthPct + '%';
+      bar.classList.add('running');
+    }
+  }
+  if (pl && label) {
+    pl.innerHTML = '<span class="' + (labelClass || '') + '">' + label + '</span>';
+  }
+}
+
 function handleEvent(e) {
   if (e.type === 'ping') return;
   eventsReceived++;
   if (e.type === 'status') {
     addStatus(e.message);
+    // Drive bar through named phases so it never looks frozen
+    if (!phaseResultsStarted) {
+      var m = e.message || '';
+      if (/baseline|running.*test/i.test(m)) {
+        setPhaseBar(null, '⏳ Running baseline tests…', 'phase-baseline');
+      } else if (/generat.*mutant|creat.*mutant/i.test(m)) {
+        setPhaseBar(null, '⚙ Generating mutants…', 'phase-generate');
+      } else if (/test.*mutant|applying|analys/i.test(m)) {
+        setPhaseBar(null, '🔬 Testing mutants…', 'phase-testing');
+      } else {
+        // Unknown status — keep shimmer, update label
+        var bar = document.getElementById('bar');
+        if (bar && !phaseResultsStarted) bar.classList.add('shimmer');
+      }
+    }
     appendLog(e.message, 'info');
     return;
   }
   if (e.type === 'start') {
     startInfo = e;
+    phaseResultsStarted = false;
     const aiPart = e.ai_mutant_count ? ' + ' + e.ai_mutant_count + ' AI' : '';
-    document.getElementById('progress-label').textContent =
-      'Analyzing ' + e.total + ' mutants (' + e.ast_mutant_count + ' AST' + aiPart + ')...';
-    appendLog('Found ' + e.total + ' mutants  (' + e.ast_mutant_count + ' AST' + aiPart + ')', 'ok');
+    const totalStr = e.total + ' mutants (' + e.ast_mutant_count + ' AST' + aiPart + ')';
+    setPhaseBar(null, '🔬 Testing ' + totalStr + '…', 'phase-testing');
+    appendLog('Found ' + totalStr, 'ok');
     return;
   }
   if (e.type === 'survived_priority') {
@@ -1790,6 +2033,12 @@ function handleEvent(e) {
     return;
   }
   if (e.type === 'mutant_result') {
+    if (!phaseResultsStarted) {
+      // First real result — exit shimmer, switch to deterministic progress
+      phaseResultsStarted = true;
+      var bar = document.getElementById('bar');
+      if (bar) { bar.classList.remove('shimmer'); bar.classList.add('running'); }
+    }
     mutantResults.push(e);
     updateScores(e);
     updateBar(e.index, e.total);

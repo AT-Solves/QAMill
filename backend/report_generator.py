@@ -3,11 +3,38 @@ report_generator.py
 Elite self-contained HTML report generator for QAMill mutation testing results.
 Generates a single HTML file with inline CSS and JavaScript — no server required.
 """
+import base64
 import json
 import os
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+
+# ── Logo / favicon loader ─────────────────────────────────────────────────────
+
+_ASSETS = Path(__file__).parent / "assets"
+
+def _load_logo_b64() -> str:
+    """Return base64 PNG data URI for the QAMill logo, or '' if not yet saved."""
+    f = _ASSETS / "qamill-logo-b64.txt"
+    return f.read_text().strip() if f.exists() else ""
+
+def _load_favicon_b64() -> str:
+    f = _ASSETS / "qamill-favicon-b64.txt"
+    return f.read_text().strip() if f.exists() else _load_logo_b64()
+
+def _logo_img(height: str = "32px") -> str:
+    b64 = _load_logo_b64()
+    if b64:
+        return f'<img src="data:image/png;base64,{b64}" alt="QAMill" style="height:{height};vertical-align:middle">'
+    # Fallback: text mark
+    return '<span style="font-size:22px;font-weight:800;color:var(--teal)">QAMill</span>'
+
+def _favicon_tag() -> str:
+    b64 = _load_favicon_b64()
+    if b64:
+        return f'<link rel="icon" type="image/png" href="data:image/png;base64,{b64}">'
+    return '<link rel="icon" href="data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><text y=\'.9em\' font-size=\'90\'>⚗</text></svg>">'
 
 # ── Operator registry ─────────────────────────────────────────────────────────
 
@@ -585,8 +612,8 @@ details .details-body{padding:20px}
 /* ── Auth Modal (elite) ── */
 .am-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  z-index:999;display:flex;align-items:center;justify-content:center;
-  padding:16px;animation:amFadeIn .2s ease}
+  z-index:999;display:none;align-items:center;justify-content:center;
+  padding:16px}
 @keyframes amFadeIn{from{opacity:0}to{opacity:1}}
 .am-card{background:var(--surface);border:1px solid var(--border);
   border-radius:16px;width:460px;max-width:100%;max-height:90vh;
@@ -725,6 +752,39 @@ details .details-body{padding:20px}
   position:absolute;top:50%;width:40%;height:1px;background:var(--border)}
 .email-or-divider::before{left:0}
 .email-or-divider::after{right:0}
+
+/* ── Identity chip + sign-out dropdown ── */
+.id-chip{position:relative;display:inline-flex;align-items:center;gap:7px;
+  padding:5px 10px 5px 5px;border-radius:20px;cursor:pointer;
+  background:var(--surface2);border:1px solid var(--border);
+  transition:border-color .15s;user-select:none}
+.id-chip:hover{border-color:var(--teal)}
+.id-avatar{width:26px;height:26px;border-radius:50%;background:var(--teal);
+  color:#0d1117;font-size:11px;font-weight:700;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;overflow:hidden}
+.id-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.id-email{font-size:12px;color:var(--text);max-width:160px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.id-caret{font-size:10px;color:var(--text3)}
+/* Dropdown */
+.id-menu{position:absolute;top:calc(100% + 6px);right:0;min-width:220px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:500;overflow:hidden;
+  display:none;animation:amFadeIn .15s ease}
+.id-chip.open .id-menu{display:block}
+.id-menu-user{padding:14px 16px 12px}
+.id-menu-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.id-menu-email{font-size:11px;color:var(--text2);margin-bottom:4px;word-break:break-all}
+.id-menu-provider{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--teal);background:rgba(63,185,80,.12);display:inline-block;
+  padding:2px 8px;border-radius:20px}
+.id-menu-divider{height:1px;background:var(--border);margin:0}
+.id-menu-item{display:block;width:100%;text-align:left;background:none;border:none;
+  color:var(--text);font-family:var(--font);font-size:13px;padding:10px 16px;
+  cursor:pointer;transition:background .12s}
+.id-menu-item:hover{background:var(--surface2)}
+.id-menu-signout{color:var(--red)!important}
+.id-menu-signout:hover{background:rgba(248,81,73,.08)!important}
 
 /* ── Identity / Login ── */
 .identity-wrap{display:flex;align-items:center;gap:6px}
@@ -1511,12 +1571,14 @@ window.amSaveOAuthConfig = function() {
 // ── Open/close — show immediately (providers already rendered in HTML)
 window.openLoginModal = function() {
   var m = document.getElementById('login-modal');
-  if (m) m.style.display = 'flex';
-  amLoadStatus(); // update connect/disconnect states in background
+  if (!m) return;
+  m.style.display = 'flex';
+  m.style.animation = 'amFadeIn .2s ease';
+  amLoadStatus();
 };
 window.closeLoginModal = function() {
   var m = document.getElementById('login-modal');
-  if (m) m.style.display = 'none';
+  if (m) { m.style.display = 'none'; m.style.animation = ''; }
   if (amPollTimer) { clearInterval(amPollTimer); amPollTimer = null; }
 };
 window.openAuthModal  = window.openLoginModal;
@@ -1530,27 +1592,79 @@ function getIdentity() {
   catch (e) { return null; }
 }
 
-function updateIdentityDisplay() {
-  var id    = getIdentity();
-  var badge = document.getElementById('identity-badge');
-  var dot   = document.getElementById('identity-dot');
-  var btn   = document.getElementById('login-btn');
-  var bar   = document.getElementById('sender-as-bar');
+window.toggleIdMenu = function(e) {
+  var chip = document.getElementById('id-chip');
+  if (!chip) return;
+  chip.classList.toggle('open');
+  e.stopPropagation();
+};
+// Close dropdown when clicking anywhere outside
+document.addEventListener('click', function() {
+  var chip = document.getElementById('id-chip');
+  if (chip) chip.classList.remove('open');
+});
 
-  if (badge) {
-    if (id && id.email) {
-      badge.textContent = id.email;
-      badge.className   = 'identity-badge ' + (id.type || 'work');
-      badge.style.display = 'inline-block';
-    } else {
-      badge.style.display = 'none';
+window.signOut = function() {
+  // Close dropdown
+  var chip = document.getElementById('id-chip');
+  if (chip) chip.classList.remove('open');
+
+  // 1. Call backend to revoke all OAuth tokens
+  fetch(AM_API + '/auth/logout-all', { method: 'DELETE' })
+    .catch(function() { /* best-effort — clear local state regardless */ });
+
+  // 2. Clear local identity state
+  clearIdentity();
+  updateIdentityDisplay();
+
+  // 3. Update email modal to show SMTP fallback
+  amUpdateEmailVia(null);
+};
+
+function updateIdentityDisplay() {
+  var id  = getIdentity();
+  var btn = document.getElementById('login-btn');
+  var chip = document.getElementById('id-chip');
+
+  if (id && id.email) {
+    // Show chip, hide plain Login button
+    if (chip) chip.style.display = 'inline-flex';
+    if (btn)  btn.style.display  = 'none';
+
+    // Avatar
+    var av = document.getElementById('id-avatar');
+    if (av) {
+      if (id.picture) {
+        var img = document.createElement('img');
+        img.src = id.picture;
+        img.onerror = function() { av.textContent = id.email.charAt(0).toUpperCase(); };
+        av.innerHTML = ''; av.appendChild(img);
+      } else {
+        av.textContent = id.email.charAt(0).toUpperCase();
+      }
     }
+    // Email in chip
+    var em = document.getElementById('id-email');
+    if (em) em.textContent = id.name || id.email;
+
+    // Dropdown details
+    var mn = document.getElementById('id-menu-name');
+    if (mn) mn.textContent = id.name || '';
+    var me = document.getElementById('id-menu-email');
+    if (me) me.textContent = id.email;
+    var mp = document.getElementById('id-menu-provider');
+    if (mp) {
+      var label = id.label || id.provider || '';
+      mp.textContent = label ? 'via ' + label : 'Connected';
+      mp.style.display = label ? '' : 'none';
+    }
+  } else {
+    // Signed out — show Login button, hide chip
+    if (chip) { chip.style.display = 'none'; chip.classList.remove('open'); }
+    if (btn)  { btn.style.display  = ''; btn.textContent = 'Log in'; }
   }
-  if (dot) {
-    dot.className    = 'identity-dot ' + (id && id.type ? id.type : 'work');
-    dot.style.display = (id && id.email) ? 'inline-block' : 'none';
-  }
-  if (btn) btn.textContent = (id && id.email) ? 'Change' : 'Log in';
+
+  var bar = document.getElementById('sender-as-bar');
 
   // Update "Sending as" bar and nudge inside email modal
   if (bar) {
@@ -1822,16 +1936,31 @@ document.addEventListener('DOMContentLoaded', function() {
 # ── Section builders ──────────────────────────────────────────────────────────
 
 def _build_header(file_name: str, timestamp: str) -> str:
+    logo_html = _logo_img("34px")
     return f"""
 <header class="qm-header">
-  <div class="qm-logo">QA<span>Mill</span></div>
+  <div class="qm-logo">{logo_html}<span class="qm-logo-text" style="margin-left:8px;font-size:18px;font-weight:700;color:var(--teal)">QAMill</span></div>
   <div class="qm-file" title="{_html_esc(file_name)}">{_html_esc(file_name)}</div>
   <div class="qm-header-right">
-    <div class="identity-wrap">
-      <span class="identity-dot" id="identity-dot"></span>
-      <span class="identity-badge" id="identity-badge"></span>
-      <button class="btn btn-login" id="login-btn" onclick="openLoginModal()">Log in</button>
+    <!-- Identity chip — shown when signed in -->
+    <div class="id-chip" id="id-chip" style="display:none" onclick="toggleIdMenu(event)">
+      <div class="id-avatar" id="id-avatar"></div>
+      <span class="id-email" id="id-email"></span>
+      <span class="id-caret">▾</span>
+      <!-- Dropdown -->
+      <div class="id-menu" id="id-menu">
+        <div class="id-menu-user">
+          <div class="id-menu-name" id="id-menu-name"></div>
+          <div class="id-menu-email" id="id-menu-email"></div>
+          <div class="id-menu-provider" id="id-menu-provider"></div>
+        </div>
+        <div class="id-menu-divider"></div>
+        <button class="id-menu-item" onclick="event.stopPropagation();openLoginModal()">Manage accounts</button>
+        <button class="id-menu-item id-menu-signout" onclick="event.stopPropagation();signOut()">Sign out</button>
+      </div>
     </div>
+    <!-- Log in button — shown when signed out -->
+    <button class="btn btn-login" id="login-btn" onclick="openLoginModal()">Log in</button>
     <span class="qm-ts">{_html_esc(timestamp)}</span>
     <button class="btn btn-theme" id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">☀</button>
     <button class="btn btn-pdf" onclick="downloadPdf()">⬇ PDF</button>
@@ -2539,6 +2668,7 @@ def build_html_report(data: dict) -> str:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QAMill Report — {_html_esc(file_name)}</title>
+{_favicon_tag()}
 <style>
 {_CSS}
 </style>
