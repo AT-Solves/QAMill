@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -388,6 +389,12 @@ class AuthManager:
             "connected_at":  int(time.time()),
         }
         self._store_set("oauth", provider, value=entry)
+
+        # ── Auto-create / link a QAMill user account from this OAuth identity ──
+        if profile.get("email"):
+            self._upsert_oauth_user(provider, profile)
+            self._set_session(profile["email"])
+
         return entry
 
     async def _fetch_profile(self, provider: str, token: str, raw_tokens: dict) -> dict:
@@ -498,6 +505,149 @@ class AuthManager:
         data = self._load()
         data.pop("oauth", None)
         self._save(data)
+
+    # ── User accounts (sign up / sign in / sign out / session) ────────────
+    #
+    # Storage layout in ~/.qamill/auth.json:
+    #   "users":   { "<email>": {email, name, picture, auth_type,
+    #                            pw_hash, pw_salt, providers[], created_at} }
+    #   "session": { "email": "<email>", "token": "<hmac>", "issued_at": int }
+    #
+    # Passwords: scrypt (stdlib hashlib) with a per-user random salt — no deps.
+    # Session token: HMAC-SHA256 over email+issued_at with a machine-local secret,
+    # so a copied token can't be forged without the secret.
+
+    _SESSION_TTL = 60 * 60 * 24 * 30   # 30 days
+
+    def _machine_secret(self) -> bytes:
+        """Stable per-install secret for signing session tokens."""
+        sec = self._store_get("_session_secret")
+        if not sec:
+            sec = secrets.token_hex(32)
+            self._store_set("_session_secret", value=sec)
+        return sec.encode()
+
+    @staticmethod
+    def _hash_pw(password: str, salt: str) -> str:
+        return hashlib.scrypt(
+            password.encode(), salt=salt.encode(),
+            n=16384, r=8, p=1, dklen=32,
+        ).hex()
+
+    def _make_token(self, email: str, issued_at: int) -> str:
+        msg = f"{email}:{issued_at}".encode()
+        return hmac.new(self._machine_secret(), msg, hashlib.sha256).hexdigest()
+
+    def _set_session(self, email: str) -> str:
+        issued = int(time.time())
+        token  = self._make_token(email, issued)
+        self._store_set("session", value={"email": email, "token": token, "issued_at": issued})
+        return token
+
+    def _norm_email(self, email: str) -> str:
+        return (email or "").strip().lower()
+
+    # ── Sign up (email + password) ───────────────────────────────────────
+    def sign_up(self, email: str, password: str, name: str = "") -> dict:
+        email = self._norm_email(email)
+        if not email or "@" not in email:
+            raise ValueError("Enter a valid email address.")
+        if len(password) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        users = self._load().get("users", {})
+        existing = users.get(email)
+        if existing and existing.get("pw_hash"):
+            raise ValueError("An account with this email already exists. Sign in instead.")
+
+        salt = secrets.token_hex(16)
+        user = {
+            "email":      email,
+            "name":       name.strip() or email.split("@")[0],
+            "picture":    "",
+            "auth_type":  "email",
+            "pw_hash":    self._hash_pw(password, salt),
+            "pw_salt":    salt,
+            "providers":  existing.get("providers", []) if existing else [],
+            "created_at": int(time.time()),
+        }
+        self._store_set("users", email, value=user)
+        self._set_session(email)
+        return self._public_user(user)
+
+    # ── Sign in (email + password) ───────────────────────────────────────
+    def sign_in(self, email: str, password: str) -> dict:
+        email = self._norm_email(email)
+        user  = self._load().get("users", {}).get(email)
+        if not user or not user.get("pw_hash"):
+            raise ValueError("No account found with this email. Sign up first.")
+        expected = user["pw_hash"]
+        actual   = self._hash_pw(password, user.get("pw_salt", ""))
+        if not hmac.compare_digest(expected, actual):
+            raise ValueError("Incorrect password.")
+        self._set_session(email)
+        return self._public_user(user)
+
+    # ── OAuth → user account ─────────────────────────────────────────────
+    def _upsert_oauth_user(self, provider: str, profile: dict) -> None:
+        email = self._norm_email(profile.get("email", ""))
+        if not email:
+            return
+        users = self._load().get("users", {})
+        user  = users.get(email, {
+            "email": email, "auth_type": "oauth", "providers": [],
+            "created_at": int(time.time()), "pw_hash": "", "pw_salt": "",
+        })
+        user["name"]    = user.get("name") or profile.get("name", "")
+        user["picture"] = profile.get("picture", "") or user.get("picture", "")
+        provs = set(user.get("providers", []))
+        provs.add(provider)
+        user["providers"] = sorted(provs)
+        self._store_set("users", email, value=user)
+
+    # ── Session / current user ───────────────────────────────────────────
+    def get_current_user(self) -> Optional[dict]:
+        sess = self._store_get("session")
+        if not sess:
+            return None
+        email, token, issued = sess.get("email"), sess.get("token"), sess.get("issued_at", 0)
+        if not email or not token:
+            return None
+        # Expiry
+        if int(time.time()) - int(issued) > self._SESSION_TTL:
+            self.sign_out()
+            return None
+        # Integrity — token must match (defends against a tampered store)
+        if not hmac.compare_digest(token, self._make_token(email, int(issued))):
+            self.sign_out()
+            return None
+        user = self._load().get("users", {}).get(email)
+        return self._public_user(user) if user else None
+
+    def sign_out(self) -> None:
+        """Clear session. Does NOT delete the account or OAuth tokens by default."""
+        data = self._load()
+        data.pop("session", None)
+        self._save(data)
+
+    def sign_out_full(self) -> None:
+        """Sign out AND disconnect all OAuth tokens (used by 'Sign out everywhere')."""
+        data = self._load()
+        data.pop("session", None)
+        data.pop("oauth", None)
+        self._save(data)
+
+    def _public_user(self, user: Optional[dict]) -> Optional[dict]:
+        """Strip secrets before returning a user to any caller."""
+        if not user:
+            return None
+        return {
+            "email":     user.get("email", ""),
+            "name":      user.get("name", ""),
+            "picture":   user.get("picture", ""),
+            "auth_type": user.get("auth_type", "email"),
+            "providers": user.get("providers", []),
+            "can_email": bool([p for p in user.get("providers", []) if p in ("google", "microsoft")]),
+        }
 
     # ── LLM keys ────────────────────────────────────────────────────────
 

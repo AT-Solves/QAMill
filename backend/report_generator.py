@@ -708,6 +708,35 @@ details .details-body{padding:20px}
   border-top:1px solid var(--border);margin-top:4px}
 .am-footer code{font-family:var(--mono);background:var(--surface2);
   padding:1px 5px;border-radius:4px}
+/* ── Auth gate (sign in / sign up) ── */
+#am-authgate{padding:20px 22px 8px}
+.am-seg{display:flex;background:var(--surface2);border-radius:10px;padding:4px;
+  margin-bottom:18px}
+.am-seg-btn{flex:1;padding:8px 0;border:none;background:none;cursor:pointer;
+  font-family:var(--font);font-size:13px;font-weight:600;color:var(--text2);
+  border-radius:7px;transition:all .15s}
+.am-seg-btn.active{background:var(--teal);color:#0d1117}
+.am-social-grid{display:flex;flex-direction:column;gap:8px}
+.am-social-btn{display:flex;align-items:center;gap:12px;width:100%;
+  padding:10px 14px;border-radius:10px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--border);
+  color:var(--text);font-family:var(--font);font-size:13px;font-weight:500;
+  transition:border-color .15s,background .15s;text-align:left}
+.am-social-btn:hover{border-color:var(--teal);background:var(--surface2)}
+.am-social-ic{width:30px;height:30px;border-radius:7px;display:flex;
+  align-items:center;justify-content:center;flex-shrink:0}
+.am-social-ic svg{width:18px;height:18px}
+.am-or{display:flex;align-items:center;text-align:center;gap:10px;
+  margin:18px 0 16px;color:var(--text3);font-size:12px}
+.am-or::before,.am-or::after{content:'';flex:1;height:1px;background:var(--border)}
+.am-form .form-group{margin-bottom:12px}
+.am-form label{display:block;font-size:11px;font-weight:600;color:var(--text2);
+  margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+/* Profile card (signed in) */
+.am-profile{display:flex;align-items:center;gap:12px;
+  background:rgba(63,185,80,.07);border:1px solid rgba(63,185,80,.2);
+  border-radius:10px;padding:14px 16px;margin:16px 22px 0}
+
 /* ── Setup panel ── */
 .am-setup-panel{background:var(--surface2);border:1px solid var(--border);
   border-radius:10px;padding:18px;margin:14px 22px 0;animation:amFadeIn .2s ease}
@@ -1201,6 +1230,96 @@ function amTab(name) {
   if (pane) pane.style.display = '';
 }
 
+// ── Sign in / sign up / sign out ───────────────────────────────────────────
+var amAuthMode = 'signin';
+
+window.amSetAuthMode = function(mode) {
+  amAuthMode = mode;
+  var inSign = mode === 'signin';
+  document.getElementById('am-seg-signin').classList.toggle('active', inSign);
+  document.getElementById('am-seg-signup').classList.toggle('active', !inSign);
+  document.getElementById('am-name-group').style.display = inSign ? 'none' : '';
+  var submit = document.getElementById('am-auth-submit');
+  if (submit) submit.textContent = inSign ? 'Sign in' : 'Create account';
+  var pass = document.getElementById('am-auth-pass');
+  if (pass) pass.setAttribute('autocomplete', inSign ? 'current-password' : 'new-password');
+  var st = document.getElementById('am-auth-status');
+  if (st) { st.textContent = ''; st.className = 'am-key-status'; }
+};
+
+window.amSubmitAuth = function() {
+  var email = (document.getElementById('am-auth-email') || {}).value || '';
+  var pass  = (document.getElementById('am-auth-pass')  || {}).value || '';
+  var name  = (document.getElementById('am-auth-name')  || {}).value || '';
+  var st    = document.getElementById('am-auth-status');
+  var endpoint = amAuthMode === 'signin' ? '/auth/signin' : '/auth/signup';
+  var body = amAuthMode === 'signin'
+    ? { email: email, password: pass }
+    : { email: email, password: pass, name: name };
+
+  if (st) { st.textContent = 'Please wait…'; st.className = 'am-key-status spin'; }
+  fetch(AM_API + endpoint, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  }).then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || 'Failed'); });
+    return r.json();
+  }).then(function(d) {
+    if (st) { st.textContent = '✓ Welcome' + (d.user.name ? ', ' + d.user.name : '') + '!'; st.className = 'am-key-status ok'; }
+    // Persist locally so the report header reflects it immediately
+    if (typeof saveIdentityFromUser === 'function') saveIdentityFromUser(d.user);
+    amApplyAuthState(d.user);
+    amLoadStatus();
+    if (typeof updateIdentityDisplay === 'function') updateIdentityDisplay();
+  }).catch(function(e) {
+    if (st) { st.textContent = '✗ ' + e.message; st.className = 'am-key-status err'; }
+  });
+};
+
+window.amSignOut = function() {
+  fetch(AM_API + '/auth/signout', { method: 'POST' })
+    .catch(function() {})
+    .then(function() {
+      clearIdentity();
+      amApplyAuthState(null);
+      if (typeof updateIdentityDisplay === 'function') updateIdentityDisplay();
+      if (typeof amUpdateEmailVia === 'function') amUpdateEmailVia(null);
+    });
+};
+
+function amApplyAuthState(user) {
+  var gate = document.getElementById('am-authgate');
+  var signedIn = document.getElementById('am-signedin');
+  var tagline = document.getElementById('am-tagline');
+  if (user && user.email) {
+    if (gate)     gate.style.display     = 'none';
+    if (signedIn) signedIn.style.display = '';
+    if (tagline)  tagline.textContent    = 'Your account';
+    // Profile card
+    var av = document.getElementById('am-avatar');
+    if (av) {
+      var initial = (user.name || user.email).charAt(0).toUpperCase();
+      if (user.picture) {
+        var img = document.createElement('img');
+        img.src = user.picture;
+        img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover';
+        img.onerror = function() { av.textContent = initial; };
+        av.innerHTML = ''; av.appendChild(img);
+      } else { av.textContent = initial; }
+    }
+    var nm = document.getElementById('am-identity-name');
+    if (nm) nm.textContent = user.name || user.email.split('@')[0];
+    var em = document.getElementById('am-identity-email');
+    if (em) em.textContent = user.email;
+    // Mirror to local identity so report header + email modal stay in sync
+    if (typeof saveIdentityFromUser === 'function') saveIdentityFromUser(user);
+  } else {
+    if (gate)     gate.style.display     = '';
+    if (signedIn) signedIn.style.display = 'none';
+    if (tagline)  tagline.textContent    = 'Sign in to continue';
+  }
+}
+
 // ── Status update (DOM-only — no re-render) ───────────────────────────────
 function amLoadStatus() {
   Promise.all([
@@ -1209,6 +1328,9 @@ function amLoadStatus() {
   ]).then(function(results) {
     var status    = results[0];
     var providers = results[1];
+
+    // Toggle signed-out gate vs signed-in management view
+    amApplyAuthState(status.user || null);
 
     // Build configured map {provider: bool}
     var configuredMap = {};
@@ -1592,6 +1714,18 @@ function getIdentity() {
   catch (e) { return null; }
 }
 
+// Persist the signed-in user to local identity (drives the report header chip)
+function saveIdentityFromUser(user) {
+  if (!user || !user.email) return;
+  try {
+    localStorage.setItem(IDENTITY_KEY, JSON.stringify({
+      email: user.email, name: user.name || '', picture: user.picture || '',
+      provider: (user.providers && user.providers[0]) || user.auth_type || '',
+      can_email: !!user.can_email, type: 'work',
+    }));
+  } catch (e) {}
+}
+
 window.toggleIdMenu = function(e) {
   var chip = document.getElementById('id-chip');
   if (!chip) return;
@@ -1609,15 +1743,16 @@ window.signOut = function() {
   var chip = document.getElementById('id-chip');
   if (chip) chip.classList.remove('open');
 
-  // 1. Call backend to revoke all OAuth tokens
-  fetch(AM_API + '/auth/logout-all', { method: 'DELETE' })
+  // 1. End the QAMill session (clears server-side session token)
+  fetch(AM_API + '/auth/signout', { method: 'POST' })
     .catch(function() { /* best-effort — clear local state regardless */ });
 
   // 2. Clear local identity state
   clearIdentity();
   updateIdentityDisplay();
 
-  // 3. Update email modal to show SMTP fallback
+  // 3. Reflect signed-out state in the auth modal + email modal
+  if (typeof amApplyAuthState === 'function') amApplyAuthState(null);
   amUpdateEmailVia(null);
 };
 
@@ -2434,36 +2569,85 @@ def _build_login_modal() -> str:
   <div class="am-header">
     <div class="am-header-left">
       <span class="am-logo">QAMill</span>
-      <span class="am-tagline">Connect your accounts</span>
+      <span class="am-tagline" id="am-tagline">Sign in to continue</span>
     </div>
     <button class="am-close" onclick="closeLoginModal()">✕</button>
   </div>
 
-  <!-- Identity banner — hidden until an account connects -->
-  <div class="am-identity" id="am-identity" style="display:none">
-    <div class="am-avatar" id="am-avatar">?</div>
-    <div class="am-identity-text">
-      <div class="am-identity-name"  id="am-identity-name"></div>
-      <div class="am-identity-email" id="am-identity-email"></div>
+  <!-- ════════ SIGNED-OUT: Auth gate ════════ -->
+  <div id="am-authgate">
+    <!-- Sign in / Sign up segmented control -->
+    <div class="am-seg">
+      <button class="am-seg-btn active" id="am-seg-signin" onclick="amSetAuthMode('signin')">Sign in</button>
+      <button class="am-seg-btn"        id="am-seg-signup" onclick="amSetAuthMode('signup')">Sign up</button>
     </div>
-    <div class="am-identity-badge" id="am-identity-badge">Primary</div>
+
+    <!-- Social sign-in (each also creates a QAMill account) -->
+    <div class="am-social-grid">
+      <button class="am-social-btn" onclick="amConnect('google')">
+        <span class="am-social-ic" style="background:#fff">{_G}</span>Continue with Google</button>
+      <button class="am-social-btn" onclick="amConnect('microsoft')">
+        <span class="am-social-ic" style="background:#2f2f2f">{_MS}</span>Continue with Microsoft</button>
+      <button class="am-social-btn" onclick="amConnect('atlassian')">
+        <span class="am-social-ic" style="background:#0052CC">{_AT}</span>Continue with Atlassian (Jira)</button>
+      <button class="am-social-btn" onclick="amConnect('github')">
+        <span class="am-social-ic" style="background:#24292e">{_GH}</span>Continue with GitHub</button>
+    </div>
+
+    <div class="am-or"><span>or</span></div>
+
+    <!-- Email + password form -->
+    <div class="am-form">
+      <div class="form-group" id="am-name-group" style="display:none">
+        <label>Name</label>
+        <input type="text" id="am-auth-name" class="am-input" placeholder="Your name" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="am-auth-email" class="am-input" placeholder="you@company.com" autocomplete="email"
+               onkeydown="if(event.key==='Enter')document.getElementById('am-auth-pass').focus()">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="am-auth-pass" class="am-input" placeholder="At least 8 characters"
+               autocomplete="current-password" onkeydown="if(event.key==='Enter')amSubmitAuth()">
+      </div>
+      <div class="am-key-status" id="am-auth-status"></div>
+      <button class="am-btn am-btn-primary" id="am-auth-submit" onclick="amSubmitAuth()"
+              style="width:100%;justify-content:center;padding:10px">Sign in</button>
+    </div>
+    <div class="am-footer" style="border:none;text-align:center;padding-top:14px">
+      Your password is hashed and stored only on this machine.
+    </div>
   </div>
 
-  <!-- Setup panel — populated by amShowSetup(), hidden by default -->
-  <div class="am-setup-panel" id="am-setup-panel" style="display:none"></div>
+  <!-- ════════ SIGNED-IN: profile + connection management ════════ -->
+  <div id="am-signedin" style="display:none">
+    <!-- Profile card -->
+    <div class="am-profile">
+      <div class="am-avatar" id="am-avatar">?</div>
+      <div class="am-identity-text">
+        <div class="am-identity-name"  id="am-identity-name"></div>
+        <div class="am-identity-email" id="am-identity-email"></div>
+      </div>
+      <button class="am-btn am-btn-danger" onclick="amSignOut()" style="flex-shrink:0">Sign out</button>
+    </div>
 
-  <div class="am-tabs">
-    <button class="am-tab active" data-tab="social"    onclick="amTab('social')">Social</button>
-    <button class="am-tab"        data-tab="developer" onclick="amTab('developer')">Developer</button>
-    <button class="am-tab"        data-tab="llm"       onclick="amTab('llm')">LLM Keys</button>
-    <button class="am-tab"        data-tab="email"     onclick="amTab('email')">Email</button>
-  </div>
+    <!-- Setup panel — populated by amShowSetup(), hidden by default -->
+    <div class="am-setup-panel" id="am-setup-panel" style="display:none"></div>
 
-  <!-- Social tab — Google / Microsoft / LinkedIn -->
-  <div class="am-pane" id="am-pane-social">
-    <p class="am-hint">Connect Google or Microsoft to send reports without an App Password.</p>
-    {social_rows}
-  </div>
+    <div class="am-tabs">
+      <button class="am-tab active" data-tab="social"    onclick="amTab('social')">Connections</button>
+      <button class="am-tab"        data-tab="developer" onclick="amTab('developer')">Developer</button>
+      <button class="am-tab"        data-tab="llm"       onclick="amTab('llm')">LLM Keys</button>
+      <button class="am-tab"        data-tab="email"     onclick="amTab('email')">Email</button>
+    </div>
+
+    <!-- Social tab — Google / Microsoft / LinkedIn -->
+    <div class="am-pane" id="am-pane-social">
+      <p class="am-hint">Connect Google or Microsoft to send reports without an App Password.</p>
+      {social_rows}
+    </div>
 
   <!-- Developer tab — GitHub / Atlassian / Slack -->
   <div class="am-pane" id="am-pane-developer" style="display:none">
@@ -2512,8 +2696,173 @@ def _build_login_modal() -> str:
   <div class="am-footer">
     Tokens stored in <code>~/.qamill/auth.json</code> — never transmitted to QAMill.
   </div>
+  </div><!-- /am-signedin -->
 </div>
 </div>"""
+
+
+def build_login_page() -> str:
+    """
+    Standalone browser login/sign-up page served at GET /login.
+    Self-contained: reuses the elite `am-*` styles + a focused auth script.
+    """
+    return f"""<!DOCTYPE html><html data-theme="dark" lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in · QAMill</title>
+{_favicon_tag()}
+<style>
+{_CSS}
+/* Standalone page: center the card, no overlay dimming */
+body{{background:radial-gradient(ellipse at top,#10202a 0%,var(--bg) 60%);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
+.lp-card{{width:440px;max-width:100%;background:var(--surface);
+  border:1px solid var(--border);border-radius:16px;
+  box-shadow:0 32px 80px rgba(0,0,0,.5);overflow:hidden}}
+.lp-brand{{display:flex;align-items:center;gap:10px;padding:22px 24px 4px}}
+.lp-brand img{{height:34px}}
+.lp-brand .nm{{font-size:20px;font-weight:800;color:var(--teal)}}
+.lp-sub{{padding:0 24px;font-size:13px;color:var(--text2);margin-bottom:6px}}
+</style></head>
+<body>
+<div class="lp-card">
+  <div class="lp-brand">{_logo_img("34px")}<span class="nm">QAMill</span></div>
+  <div class="lp-sub" id="lp-sub">Sign in to send reports and manage your account.</div>
+
+  <!-- ════ SIGNED OUT: gate ════ -->
+  <div id="am-authgate" style="padding:16px 24px 8px">
+    <div class="am-seg">
+      <button class="am-seg-btn active" id="am-seg-signin" onclick="amSetAuthMode('signin')">Sign in</button>
+      <button class="am-seg-btn"        id="am-seg-signup" onclick="amSetAuthMode('signup')">Sign up</button>
+    </div>
+    <div class="am-social-grid">
+      <button class="am-social-btn" onclick="amConnect('google')">
+        <span class="am-social-ic" style="background:#fff">{_G}</span>Continue with Google</button>
+      <button class="am-social-btn" onclick="amConnect('microsoft')">
+        <span class="am-social-ic" style="background:#2f2f2f">{_MS}</span>Continue with Microsoft</button>
+      <button class="am-social-btn" onclick="amConnect('atlassian')">
+        <span class="am-social-ic" style="background:#0052CC">{_AT}</span>Continue with Atlassian (Jira)</button>
+      <button class="am-social-btn" onclick="amConnect('github')">
+        <span class="am-social-ic" style="background:#24292e">{_GH}</span>Continue with GitHub</button>
+    </div>
+    <div class="am-or"><span>or</span></div>
+    <div class="am-form">
+      <div class="form-group" id="am-name-group" style="display:none">
+        <label>Name</label>
+        <input type="text" id="am-auth-name" class="am-input" placeholder="Your name" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="am-auth-email" class="am-input" placeholder="you@company.com" autocomplete="email"
+               onkeydown="if(event.key==='Enter')document.getElementById('am-auth-pass').focus()">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="am-auth-pass" class="am-input" placeholder="At least 8 characters"
+               autocomplete="current-password" onkeydown="if(event.key==='Enter')amSubmitAuth()">
+      </div>
+      <div class="am-key-status" id="am-auth-status"></div>
+      <button class="am-btn am-btn-primary" id="am-auth-submit" onclick="amSubmitAuth()"
+              style="width:100%;justify-content:center;padding:11px">Sign in</button>
+    </div>
+    <div class="am-footer" style="border:none;text-align:center;padding:14px 0 18px">
+      Your password is hashed and stored only on this machine.
+    </div>
+  </div>
+
+  <!-- ════ SIGNED IN: profile ════ -->
+  <div id="am-signedin" style="display:none;padding:8px 24px 22px">
+    <div class="am-profile" style="margin:8px 0 0">
+      <div class="am-avatar" id="am-avatar">?</div>
+      <div class="am-identity-text">
+        <div class="am-identity-name"  id="am-identity-name"></div>
+        <div class="am-identity-email" id="am-identity-email"></div>
+      </div>
+      <button class="am-btn am-btn-danger" onclick="amSignOut()" style="flex-shrink:0">Sign out</button>
+    </div>
+    <div id="lp-providers" style="margin-top:14px"></div>
+    <div class="am-footer" style="border:none;text-align:center;padding-top:16px">
+      You can close this tab — your session is saved.
+    </div>
+  </div>
+</div>
+
+<script>
+var AM_API = '';   // same origin (served by the backend)
+var amAuthMode = 'signin';
+
+window.amSetAuthMode = function(mode) {{
+  amAuthMode = mode;
+  var inSign = mode === 'signin';
+  document.getElementById('am-seg-signin').classList.toggle('active', inSign);
+  document.getElementById('am-seg-signup').classList.toggle('active', !inSign);
+  document.getElementById('am-name-group').style.display = inSign ? 'none' : '';
+  document.getElementById('am-auth-submit').textContent = inSign ? 'Sign in' : 'Create account';
+  var st = document.getElementById('am-auth-status');
+  st.textContent = ''; st.className = 'am-key-status';
+}};
+
+window.amSubmitAuth = function() {{
+  var email = document.getElementById('am-auth-email').value || '';
+  var pass  = document.getElementById('am-auth-pass').value || '';
+  var name  = (document.getElementById('am-auth-name')||{{}}).value || '';
+  var st = document.getElementById('am-auth-status');
+  var ep = amAuthMode === 'signin' ? '/auth/signin' : '/auth/signup';
+  var body = amAuthMode === 'signin' ? {{email:email,password:pass}} : {{email:email,password:pass,name:name}};
+  st.textContent = 'Please wait…'; st.className = 'am-key-status spin';
+  fetch(ep, {{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(body)}})
+    .then(function(r){{ if(!r.ok) return r.json().then(function(e){{throw new Error(e.detail||'Failed');}}); return r.json(); }})
+    .then(function(d){{ st.textContent='✓ Welcome'+(d.user.name?', '+d.user.name:'')+'!'; st.className='am-key-status ok'; applyState(d.user); }})
+    .catch(function(e){{ st.textContent='✗ '+e.message; st.className='am-key-status err'; }});
+}};
+
+var amPoll=null;
+window.amConnect = function(provider) {{
+  var w = window.open('/auth/login/'+provider, 'qamill-oauth', 'width=560,height=720');
+  if (amPoll) clearInterval(amPoll);
+  amPoll = setInterval(function(){{
+    if (w && w.closed) {{ clearInterval(amPoll); amPoll=null; }}
+    fetch('/auth/me').then(function(r){{return r.json();}}).then(function(d){{
+      if (d.user) {{ clearInterval(amPoll); amPoll=null; if(w&&!w.closed)w.close(); applyState(d.user); }}
+    }}).catch(function(){{}});
+  }}, 1200);
+  setTimeout(function(){{ if(amPoll){{clearInterval(amPoll);amPoll=null;}} }}, 600000);
+}};
+
+window.amSignOut = function() {{
+  fetch('/auth/signout',{{method:'POST'}}).catch(function(){{}}).then(function(){{ applyState(null); }});
+}};
+
+function applyState(user) {{
+  var gate = document.getElementById('am-authgate');
+  var si   = document.getElementById('am-signedin');
+  var sub  = document.getElementById('lp-sub');
+  if (user && user.email) {{
+    gate.style.display='none'; si.style.display='';
+    sub.textContent = 'You are signed in.';
+    var initial = (user.name||user.email).charAt(0).toUpperCase();
+    var av = document.getElementById('am-avatar');
+    if (user.picture) {{
+      var img=document.createElement('img'); img.src=user.picture;
+      img.style.cssText='width:100%;height:100%;border-radius:50%;object-fit:cover';
+      img.onerror=function(){{av.textContent=initial;}}; av.innerHTML=''; av.appendChild(img);
+    }} else av.textContent=initial;
+    document.getElementById('am-identity-name').textContent = user.name||user.email.split('@')[0];
+    document.getElementById('am-identity-email').textContent = user.email;
+    var prov = (user.providers||[]).map(function(p){{return p.charAt(0).toUpperCase()+p.slice(1);}});
+    document.getElementById('lp-providers').innerHTML = prov.length
+      ? '<div class="am-hint">Connected: '+prov.join(', ')+'</div>' : '';
+  }} else {{
+    gate.style.display=''; si.style.display='none';
+    sub.textContent = 'Sign in to send reports and manage your account.';
+  }}
+}}
+
+// Load current session on open
+fetch('/auth/me').then(function(r){{return r.json();}}).then(function(d){{applyState(d.user);}}).catch(function(){{}});
+</script>
+</body></html>"""
 
 
 def _build_email_modal(file_name: str) -> str:

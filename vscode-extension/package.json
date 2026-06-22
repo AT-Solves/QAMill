@@ -1,18 +1,23 @@
 {
   "name": "qamill-mutation-testing",
-  "displayName": "QAMill — AI Mutation Testing",
-  "description": "QAMill: equivalent mutant detection, auto-healing tests, live dashboard.",
-  "version": "1.0.0",
+  "displayName": "QAMill — AI QA Governance",
+  "description": "AI-Driven Test Excellence",
+  "version": "1.0.10",
   "publisher": "amil",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Testing", "Other"],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing",
+    "Other"
+  ],
   "icon": "media/qamill-logo.png",
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "amil.runAnalysis",
-        "title": "QAMill: Run Mutation Analysis"
+        "title": "QAMill: Analyze Test Quality"
       },
       {
         "command": "amil.stopAnalysis",
@@ -20,13 +25,40 @@
       },
       {
         "command": "amil.selectLLM",
-        "title": "QAMill: Select LLM Provider"
+        "title": "QAMill: Select AI Model"
+      },
+      {
+        "command": "amil.generateUnitTests",
+        "title": "QAMill: Generate Unit Tests"
+      },
+      {
+        "command": "amil.generateManualTests",
+        "title": "QAMill: Generate QA Test Cases"
+      },
+      {
+        "command": "amil.openTestStudio",
+        "title": "QAMill: Open Test Authoring Studio"
       }
     ],
     "menus": {
       "editor/context": [
         {
           "command": "amil.runAnalysis",
+          "group": "testing",
+          "when": "resourceExtname == .py"
+        },
+        {
+          "command": "amil.openTestStudio",
+          "group": "testing",
+          "when": "resourceExtname == .py"
+        },
+        {
+          "command": "amil.generateUnitTests",
+          "group": "testing",
+          "when": "resourceExtname == .py"
+        },
+        {
+          "command": "amil.generateManualTests",
           "group": "testing",
           "when": "resourceExtname == .py"
         }
@@ -36,16 +68,32 @@
           "command": "amil.runAnalysis",
           "group": "testing",
           "when": "resourceExtname == .py || explorerResourceIsFolder"
+        },
+        {
+          "command": "amil.generateUnitTests",
+          "group": "testing",
+          "when": "resourceExtname == .py"
+        },
+        {
+          "command": "amil.generateManualTests",
+          "group": "testing",
+          "when": "resourceExtname == .py"
         }
       ]
     },
     "configuration": {
-      "title": "QAMill Mutation Testing",
+      "title": "QAMill QA Governance",
       "properties": {
         "amil.llmProvider": {
           "type": "string",
           "default": "inhouse",
-          "enum": ["none", "claude", "gpt", "grok", "inhouse"],
+          "enum": [
+            "none",
+            "claude",
+            "gpt",
+            "grok",
+            "inhouse"
+          ],
           "enumDescriptions": [
             "In-house AST only — no API calls",
             "Anthropic Claude",
@@ -55,27 +103,120 @@
           ],
           "description": "LLM provider for equivalent detection and test healing"
         },
-        "amil.anthropicApiKey": { "type": "string", "default": "", "description": "Anthropic API key" },
-        "amil.openaiApiKey":    { "type": "string", "default": "", "description": "OpenAI API key" },
-        "amil.xaiApiKey":       { "type": "string", "default": "", "description": "xAI API key" },
-        "amil.ollamaModel":     { "type": "string", "default": "llama3", "description": "Ollama model name" },
-        "amil.autoHeal":        { "type": "boolean", "default": true, "description": "Auto-generate tests for survived mutants" },
-        "amil.detectEquivalents": { "type": "boolean", "default": true, "description": "Filter equivalent mutants" },
-        "amil.backendPort":     { "type": "number", "default": 8765, "description": "QAMill backend port" },
-        "amil.email.provider":     { "type": "string", "default": "gmail",
-          "enum": ["gmail", "outlook", "custom"],
-          "enumDescriptions": ["Gmail — smtp.gmail.com:587 (App Password required)", "Outlook / Office 365 — smtp-mail.outlook.com:587", "Custom SMTP server — enter host and port manually"],
-          "description": "SMTP provider for sending QAMill email reports" },
-        "amil.email.sender":      { "type": "string", "default": "", "description": "Your email address (used as sender / SMTP login)" },
-        "amil.email.appPassword": { "type": "string", "default": "", "description": "App Password for Gmail/Outlook — NOT your regular password" },
-        "amil.email.recipient":   { "type": "string", "default": "", "description": "Recipient email address for QAMill reports" },
-        "amil.email.to":          { "type": "string", "default": "", "description": "(Legacy) Recipient email — use amil.email.recipient instead" },
-        "amil.email.autoSend":    { "type": "boolean", "default": false, "description": "Automatically email report when analysis completes" },
-        "amil.email.smtpHost":    { "type": "string", "default": "", "description": "Custom SMTP server hostname (only used when provider is 'custom')" },
-        "amil.email.smtpPort":    { "type": "number", "default": 587, "description": "Custom SMTP port — 587 for STARTTLS, 465 for SSL" },
-        "amil.email.smtpUser":    { "type": "string", "default": "", "description": "(Legacy) SMTP username — use amil.email.sender instead" },
-        "amil.email.smtpPassword":{ "type": "string", "default": "", "description": "(Legacy) SMTP password — use amil.email.appPassword instead" },
-        "amil.email.smtpTls":     { "type": "boolean", "default": true, "description": "Use STARTTLS (true, port 587) or SSL (false, port 465)" }
+        "amil.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API key"
+        },
+        "amil.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key"
+        },
+        "amil.xaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "xAI API key"
+        },
+        "amil.ollamaModel": {
+          "type": "string",
+          "default": "llama3",
+          "description": "Ollama model name"
+        },
+        "amil.autoHeal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-generate tests for survived mutants"
+        },
+        "amil.detectEquivalents": {
+          "type": "boolean",
+          "default": true,
+          "description": "Filter equivalent mutants"
+        },
+        "amil.backendPort": {
+          "type": "number",
+          "default": 8765,
+          "description": "QAMill backend port"
+        },
+        "amil.userEmail": {
+          "type": "string",
+          "default": "",
+          "description": "Signed-in QAMill account email"
+        },
+        "amil.emailType": {
+          "type": "string",
+          "default": "work",
+          "enum": [
+            "work",
+            "personal"
+          ],
+          "description": "Account type for the sender identity"
+        },
+        "amil.email.provider": {
+          "type": "string",
+          "default": "gmail",
+          "enum": [
+            "gmail",
+            "outlook",
+            "custom"
+          ],
+          "enumDescriptions": [
+            "Gmail — smtp.gmail.com:587 (App Password required)",
+            "Outlook / Office 365 — smtp-mail.outlook.com:587",
+            "Custom SMTP server — enter host and port manually"
+          ],
+          "description": "SMTP provider for sending QAMill email reports"
+        },
+        "amil.email.sender": {
+          "type": "string",
+          "default": "",
+          "description": "Your email address (used as sender / SMTP login)"
+        },
+        "amil.email.appPassword": {
+          "type": "string",
+          "default": "",
+          "description": "App Password for Gmail/Outlook — NOT your regular password"
+        },
+        "amil.email.recipient": {
+          "type": "string",
+          "default": "",
+          "description": "Recipient email address for QAMill reports"
+        },
+        "amil.email.to": {
+          "type": "string",
+          "default": "",
+          "description": "(Legacy) Recipient email — use amil.email.recipient instead"
+        },
+        "amil.email.autoSend": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically email report when analysis completes"
+        },
+        "amil.email.smtpHost": {
+          "type": "string",
+          "default": "",
+          "description": "Custom SMTP server hostname (only used when provider is 'custom')"
+        },
+        "amil.email.smtpPort": {
+          "type": "number",
+          "default": 587,
+          "description": "Custom SMTP port — 587 for STARTTLS, 465 for SSL"
+        },
+        "amil.email.smtpUser": {
+          "type": "string",
+          "default": "",
+          "description": "(Legacy) SMTP username — use amil.email.sender instead"
+        },
+        "amil.email.smtpPassword": {
+          "type": "string",
+          "default": "",
+          "description": "(Legacy) SMTP password — use amil.email.appPassword instead"
+        },
+        "amil.email.smtpTls": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use STARTTLS (true, port 587) or SSL (false, port 465)"
+        }
       }
     }
   },

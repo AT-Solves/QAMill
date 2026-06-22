@@ -2,10 +2,11 @@
     "amil.llmProvider": "inhouse",
     "amil.autoHeal": true,
     "amil.email.to": "yaminidevasena.achiever@gmail.com",
-    "amil.email.provider": "gmail",
-    "amil.email.sender": "raghueee24@gmail.com",
+    "amil.email.provider": "custom",
+    "amil.email.sender": "ypasumarth@somecorpgroup.com",
     "amil.email.appPassword": "Test@123",
-    "amil.email.recipient": "raghueee24@gmail.com",
+    "amil.email.recipient": "ypasumarth@movadogroup.com",
     "amil.email.smtpHost": "smtp.gmail.com",
-    "amil.email.smtpPort": 587
+    "amil.email.smtpPort": 587,
+    "amil.userEmail": "ypasumarth@somecorpgroup.com"
 }

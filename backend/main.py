@@ -27,9 +27,10 @@ from mutation_engine import MutationEngine, OPERATOR_METADATA
 from equivalent_detector import EquivalentDetector
 from test_runner import TestRunner, mutation_hint, mutation_priority, MAX_WORKERS
 from llm_adapter import create_adapter, NoLLMAdapter
+from test_generator import TestGenerator, manual_cases_to_markdown
 from cross_method_mutator import CrossMethodMutator
 from ai_mutant_generator import AIMutantGenerator
-from report_generator import build_html_report
+from report_generator import build_html_report, build_login_page
 from auth_manager import auth, OAUTH_PROVIDERS, LLM_PROVIDERS
 
 app = FastAPI(title="AMIL Mutation Testing Server", version="1.0.0")
@@ -79,6 +80,15 @@ class AskRequest(BaseModel):
     context: str
     llm_provider: str = "none"
     llm_api_key: Optional[str] = None
+
+
+class GenerateTestsRequest(BaseModel):
+    file_path:    str
+    project_root: str = ""
+    llm_provider: str = "none"
+    llm_api_key:  Optional[str] = None
+    verify:       bool = True   # unit tests only: run against the original code
+    format:       str = "test_case"   # unit | test_case | table | gherkin | traceability
 
 
 class EmailRequest(BaseModel):
@@ -413,7 +423,9 @@ async def stream_results(job_id: str, from_event: int = 0):
 
             while True:
                 try:
-                    event = await asyncio.wait_for(sub_q.get(), timeout=30)
+                    # Ping every 10s of silence so the client keepalive never
+                    # approaches its socket timeout during slow mutant phases.
+                    event = await asyncio.wait_for(sub_q.get(), timeout=10)
                     yield f"data: {json.dumps(event)}\n\n"
                     if event.get("type") in ("complete", "error"):
                         return
@@ -537,6 +549,77 @@ async def ask_assistant(req: AskRequest):
 
     answer = _validate_and_sanitise(raw_answer, req.context)
     return {"answer": answer}
+
+
+# ── Test generation: unit tests + manual test suite ────────────────────────
+
+def _make_test_generator(req: GenerateTestsRequest) -> TestGenerator:
+    kwargs = {}
+    if req.llm_api_key:
+        kwargs["api_key"] = req.llm_api_key
+    llm = create_adapter(req.llm_provider, **kwargs)
+    root = req.project_root or str(Path(req.file_path).parent)
+    return TestGenerator(llm, root)
+
+
+@app.post("/generate/unit-tests")
+async def generate_unit_tests(req: GenerateTestsRequest):
+    """Generate a complete, verified pytest unit-test suite for a source file."""
+    if not Path(req.file_path).exists():
+        raise HTTPException(400, f"File not found: {req.file_path}")
+    try:
+        gen = _make_test_generator(req)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    result = await gen.generate_unit_tests(req.file_path, verify=req.verify)
+    return {
+        "success":     result.success,
+        "test_code":   result.test_code,
+        "verified":    result.verified,
+        "passed":      result.passed,
+        "failed":      result.failed,
+        "message":     result.message,
+        "module":      result.module_name,
+        "filename":    f"test_{result.module_name}.py",
+    }
+
+
+@app.post("/generate/manual-tests")
+async def generate_manual_tests(req: GenerateTestsRequest):
+    """Generate a human-readable manual QA test suite for a source file."""
+    if not Path(req.file_path).exists():
+        raise HTTPException(400, f"File not found: {req.file_path}")
+    try:
+        gen = _make_test_generator(req)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    result = await gen.generate_manual_tests(req.file_path)
+    if result.get("success"):
+        result["markdown"] = manual_cases_to_markdown(
+            result["cases"], result.get("module", ""))
+    return result
+
+
+@app.get("/generate/formats")
+async def generate_formats():
+    """List available test-suite output formats for the UI selector."""
+    from test_generator import SUITE_FORMATS
+    return {"formats": [{"id": k, **v} for k, v in SUITE_FORMATS.items()]}
+
+
+@app.post("/generate/test-suite")
+async def generate_test_suite(req: GenerateTestsRequest):
+    """
+    Unified generator: pick the output format (unit | test_case | table |
+    gherkin | traceability). Returns normalised {content, lang, ...} for the UI.
+    """
+    if not Path(req.file_path).exists():
+        raise HTTPException(400, f"File not found: {req.file_path}")
+    try:
+        gen = _make_test_generator(req)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return await gen.generate_suite(req.file_path, req.format, verify=req.verify)
 
 
 def _validate_and_sanitise(answer: str, context: str) -> str:
@@ -672,19 +755,38 @@ def _smtp_send(
         code   = e.smtp_code
         detail = e.smtp_error.decode(errors="replace") if isinstance(e.smtp_error, bytes) else str(e.smtp_error)
         detail_lo = detail.lower()
-        if code == 534 or "534" in str(code) or "two-step" in detail_lo or "application-specific" in detail_lo:
+        host_lo   = (smtp_host or "").lower()
+        is_gmail  = "gmail" in host_lo or "google" in host_lo
+        is_ms     = "outlook" in host_lo or "office365" in host_lo or "microsoft" in host_lo
+        # Is the sender on a corporate (non-consumer) domain?
+        sender_dom = (sender.split("@")[-1] if "@" in sender else "").lower()
+        is_corp    = sender_dom not in ("gmail.com", "outlook.com", "hotmail.com", "live.com", "yahoo.com", "")
+
+        if is_corp:
+            # Corporate accounts almost never allow SMTP App Passwords — OAuth is the path.
             raise HTTPException(401,
-                "Gmail requires an App Password. "
-                "Enable 2-Step Verification at myaccount.google.com, "
-                "then go to Security → App Passwords and generate one.")
+                f"SMTP sign-in was rejected for {sender}. Corporate accounts usually block "
+                "password-based SMTP. Use the 'Connect account' button above to sign in with "
+                "Google or Microsoft (OAuth) — no password needed. "
+                f"(Server said: {detail[:120]})")
+        if is_gmail and (code == 534 or "two-step" in detail_lo or "application-specific" in detail_lo):
+            raise HTTPException(401,
+                "Gmail requires an App Password. Enable 2-Step Verification at "
+                "myaccount.google.com, then Security → App Passwords. "
+                "Easier: use 'Connect account → Google' above (no password needed).")
         if code == 535 or "535" in str(code) or "username and password not accepted" in detail_lo:
-            raise HTTPException(401,
-                "Authentication failed — use an App Password, not your regular password. "
-                "Regular passwords are blocked by Gmail and Outlook for SMTP access. "
-                "See: myaccount.google.com/apppasswords")
+            if is_gmail:
+                hint = ("Use a Gmail App Password (myaccount.google.com/apppasswords), "
+                        "or 'Connect account → Google' above for password-free sending.")
+            elif is_ms:
+                hint = ("Use a Microsoft App Password, or 'Connect account → Microsoft' above "
+                        "for password-free sending.")
+            else:
+                hint = (f"Check the username and password for {smtp_host}. If this is a work "
+                        "account, your admin may require OAuth — try 'Connect account' above.")
+            raise HTTPException(401, f"Authentication failed for {smtp_host}. {hint}")
         raise HTTPException(401,
-            f"Authentication failed (SMTP {code}) — "
-            "check your App Password and sender address. "
+            f"Authentication failed (SMTP {code}) for {smtp_host}. "
             f"Server said: {detail[:160]}")
 
     except smtplib.SMTPSenderRefused as e:
@@ -1009,6 +1111,17 @@ class OAuthConfigRequest(BaseModel):
     client_secret: str
 
 
+class SignUpRequest(BaseModel):
+    email:    str
+    password: str
+    name:     str = ""
+
+
+class SignInRequest(BaseModel):
+    email:    str
+    password: str
+
+
 _PROVIDER_SETUP_URLS = {
     "google":    ("https://console.cloud.google.com/apis/credentials",
                   "Google Cloud Console", "Enable Gmail API, then create an OAuth 2.0 Client ID (Web application)."),
@@ -1165,14 +1278,60 @@ async def auth_callback(provider: str,
         return HTMLResponse(_auth_page(False, str(e), provider))
 
 
+@app.get("/login")
+async def login_page():
+    """Standalone, user-friendly login / sign-up page in the browser."""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(build_login_page())
+
+
 @app.get("/auth/status")
 async def auth_status():
-    """Return all connected OAuth providers and LLM keys."""
+    """Return all connected OAuth providers, LLM keys, and the signed-in user."""
     return {
         "oauth":   auth.get_connected_providers(),
         "llm":     auth.get_connected_llm_providers(),
         "primary": auth.get_primary_identity(),
+        "user":    auth.get_current_user(),
     }
+
+
+# ── User accounts: sign up / sign in / sign out / current user ────────────
+
+@app.post("/auth/signup")
+async def auth_signup(req: SignUpRequest):
+    """Create a QAMill account with email + password."""
+    try:
+        user = auth.sign_up(req.email, req.password, req.name)
+        return {"success": True, "user": user}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/auth/signin")
+async def auth_signin(req: SignInRequest):
+    """Sign in with email + password."""
+    try:
+        user = auth.sign_in(req.email, req.password)
+        return {"success": True, "user": user}
+    except ValueError as e:
+        raise HTTPException(401, str(e))
+
+
+@app.post("/auth/signout")
+async def auth_signout(everywhere: bool = False):
+    """Sign out the current session. ?everywhere=true also disconnects OAuth tokens."""
+    if everywhere:
+        auth.sign_out_full()
+    else:
+        auth.sign_out()
+    return {"success": True}
+
+
+@app.get("/auth/me")
+async def auth_me():
+    """Return the currently signed-in user, or null."""
+    return {"user": auth.get_current_user()}
 
 
 @app.get("/auth/status/{provider}")

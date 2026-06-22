@@ -11,6 +11,7 @@ import * as fs from "fs";
 
 let backendProcess: cp.ChildProcess | undefined;
 let dashboardPanel: vscode.WebviewPanel | undefined;
+let studioPanel: vscode.WebviewPanel | undefined;       // QAMill Test Studio
 let statusBarItem: vscode.StatusBarItem;
 let llmStatusBarItem: vscode.StatusBarItem;
 let lastFilePath: string | undefined;
@@ -27,7 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Status bar pill
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBarItem.text = "$(beaker) QAMill";
-  statusBarItem.tooltip = "QAMill Mutation Testing — click to run";
+  statusBarItem.tooltip = "QAMill QA Governance — click to analyze test quality";
   statusBarItem.command = "amil.runAnalysis";
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
@@ -53,6 +54,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("amil.stopAnalysis", stopAnalysis),
     vscode.commands.registerCommand("amil.selectLLM", selectLLM),
     vscode.commands.registerCommand("amil.setIdentity", setIdentity),
+    vscode.commands.registerCommand("amil.generateUnitTests",   (uri?: vscode.Uri) => openTestStudio(context, uri, "unit")),
+    vscode.commands.registerCommand("amil.generateManualTests", (uri?: vscode.Uri) => openTestStudio(context, uri, "test_case")),
+    vscode.commands.registerCommand("amil.openTestStudio",      (uri?: vscode.Uri) => openTestStudio(context, uri)),
   );
 }
 
@@ -263,7 +267,7 @@ function openDashboard(context: vscode.ExtensionContext, port: number) {
 
   dashboardPanel = vscode.window.createWebviewPanel(
     "amilDashboard",
-    "QAMill Dashboard",
+    "QAMill QA Governance — Test Quality",
     vscode.ViewColumn.Beside,
     {
       enableScripts: true,
@@ -296,6 +300,14 @@ function openDashboard(context: vscode.ExtensionContext, port: number) {
 
   // Handle messages from webview
   dashboardPanel.webview.onDidReceiveMessage(async (msg) => {
+    // Shared header messages (sign in / set LLM / sign out)
+    if (msg.type?.startsWith("sh_")) {
+      const cfg = vscode.workspace.getConfiguration("amil");
+      const backendPort: number = cfg.get("backendPort", 8765);
+      await handleSharedHeaderMessage(dashboardPanel, msg, context, backendPort);
+      return;
+    }
+
     if (msg.type === "webview_ready") {
       // Webview just (re)loaded — deliver any pending job immediately
       if (lastFilePath) {
@@ -582,13 +594,71 @@ function openDashboard(context: vscode.ExtensionContext, port: number) {
     }
 
     if (msg.type === "open_auth_modal") {
+      // Fallback path (command palette). The dashboard now opens its own popup.
       await vscode.commands.executeCommand("amil.setIdentity");
+      return;
+    }
+
+    if (msg.type === "auth_submit") {
+      // Email sign in / sign up from the dashboard popup
+      const endpoint = msg.mode === "signup" ? "/auth/signup" : "/auth/signin";
+      const body = msg.mode === "signup"
+        ? { email: msg.email, password: msg.password, name: msg.name }
+        : { email: msg.email, password: msg.password };
+      try {
+        const resp = await postJson(`http://127.0.0.1:${port}${endpoint}`, body);
+        const user = resp.user;
+        const cfg = vscode.workspace.getConfiguration("amil");
+        const t   = vscode.ConfigurationTarget.Workspace;
+        try {
+          await cfg.update("userEmail",    user.email, t);
+          await cfg.update("email.sender", user.email, t);
+        } catch { /* no workspace */ }
+        lastIdentityEmail = user.email;
+        dashboardPanel?.webview.postMessage({ type: "auth_result", success: true, name: user.name });
+        dashboardPanel?.webview.postMessage({ type: "apply_identity",
+          identity: { email: user.email, name: user.name, can_email: user.can_email, type: "work" } });
+      } catch (err) {
+        const m = String(err).replace(/^Error: HTTP \d+: /, "");
+        dashboardPanel?.webview.postMessage({ type: "auth_result", success: false, error: m });
+      }
+      return;
+    }
+
+    if (msg.type === "auth_oauth") {
+      // Social sign-in: open the provider in the system browser, then poll for the session
+      await vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}/auth/login/${msg.provider}`));
+      const started = Date.now();
+      const poll = async (): Promise<void> => {
+        if (Date.now() - started > 300_000) { return; }
+        try {
+          const me = await getJson(`http://127.0.0.1:${port}/auth/me`);
+          if (me.user) {
+            const u = me.user;
+            const cfg = vscode.workspace.getConfiguration("amil");
+            const t   = vscode.ConfigurationTarget.Workspace;
+            try {
+              await cfg.update("userEmail",    u.email, t);
+              await cfg.update("email.sender", u.email, t);
+            } catch { /* no workspace */ }
+            lastIdentityEmail = u.email;
+            dashboardPanel?.webview.postMessage({ type: "auth_result", success: true, name: u.name });
+            dashboardPanel?.webview.postMessage({ type: "apply_identity",
+              identity: { email: u.email, name: u.name, provider: msg.provider,
+                          can_email: u.can_email, type: "work" } });
+            return;
+          }
+        } catch { /* keep polling */ }
+        setTimeout(poll, 1500);
+      };
+      setTimeout(poll, 1500);
       return;
     }
 
     if (msg.type === "sign_out") {
       try {
-        await deleteRequest(`http://127.0.0.1:${port}/auth/logout-all`);
+        // End QAMill session + disconnect OAuth tokens
+        await postJson(`http://127.0.0.1:${port}/auth/signout?everywhere=true`, {});
       } catch { /* best-effort */ }
       // Clear saved identity from settings
       const cfg = vscode.workspace.getConfiguration("amil");
@@ -650,32 +720,59 @@ async function setIdentity() {
 
   const choice = await vscode.window.showQuickPick(
     [
-      { label: "$(account) Google",           value: "google",    group: "social" },
-      { label: "$(window) Microsoft",         value: "microsoft", group: "social" },
-      { label: "$(person) LinkedIn",          value: "linkedin",  group: "social" },
-      { label: "$(github) GitHub",            value: "github",    group: "dev"    },
-      { label: "$(globe) Atlassian (Jira)",   value: "atlassian", group: "dev"    },
-      { label: "$(comment) Slack workspace",  value: "slack",     group: "dev"    },
-      { label: "$(mail) Work / Personal email (manual)", value: "__manual__", group: "manual" },
+      { label: "$(account) Continue with Google",        value: "google",    group: "social" },
+      { label: "$(window) Continue with Microsoft",      value: "microsoft", group: "social" },
+      { label: "$(globe) Continue with Atlassian (Jira)", value: "atlassian", group: "social" },
+      { label: "$(github) Continue with GitHub",         value: "github",    group: "social" },
+      { label: "$(person) LinkedIn",                     value: "linkedin",  group: "dev"    },
+      { label: "$(comment) Slack workspace",             value: "slack",     group: "dev"    },
+      { label: "$(mail) Sign in with email",             value: "__signin__", group: "email" },
+      { label: "$(person-add) Create account with email", value: "__signup__", group: "email" },
     ],
-    { placeHolder: "Sign in with…", title: "QAMill — Connect your account" }
+    { placeHolder: "Sign in or sign up…", title: "QAMill — Sign in" }
   );
   if (!choice) { return; }
 
-  if (choice.value === "__manual__") {
-    // Manual email entry (kept as fallback)
+  // ── Email sign in / sign up ──────────────────────────────────────────────
+  if (choice.value === "__signin__" || choice.value === "__signup__") {
+    const isSignup = choice.value === "__signup__";
+    let name = "";
+    if (isSignup) {
+      name = await vscode.window.showInputBox({
+        prompt: "Your name", placeHolder: "Jane Developer",
+      }) ?? "";
+    }
     const email = await vscode.window.showInputBox({
-      prompt: "Enter your email address",
-      placeHolder: "you@company.com",
+      prompt: "Email address", placeHolder: "you@company.com",
       validateInput: (v) => (v && v.includes("@") ? null : "Enter a valid email address"),
     });
     if (!email) { return; }
-    const cfg = vscode.workspace.getConfiguration("amil");
-    const t   = vscode.ConfigurationTarget.Workspace;
-    await cfg.update("userEmail",    email, t);
-    await cfg.update("email.sender", email, t);
-    dashboardPanel?.webview.postMessage(buildSyncPayload());
-    vscode.window.showInformationMessage(`QAMill: Sender email set to ${email}`);
+    const password = await vscode.window.showInputBox({
+      prompt: isSignup ? "Choose a password (min 8 chars)" : "Password",
+      password: true,
+      validateInput: (v) => (isSignup && (!v || v.length < 8) ? "At least 8 characters" : null),
+    });
+    if (!password) { return; }
+
+    try {
+      const endpoint = isSignup ? "/auth/signup" : "/auth/signin";
+      const resp = await postJson(`http://localhost:${port}${endpoint}`,
+        isSignup ? { email, password, name } : { email, password });
+      const user = resp.user;
+      const cfg = vscode.workspace.getConfiguration("amil");
+      const t   = vscode.ConfigurationTarget.Workspace;
+      await cfg.update("userEmail",    user.email, t);
+      await cfg.update("email.sender", user.email, t);
+      lastIdentityEmail = user.email;
+      dashboardPanel?.webview.postMessage(buildSyncPayload());
+      dashboardPanel?.webview.postMessage({ type: "apply_identity",
+        identity: { email: user.email, name: user.name, type: "work" } });
+      vscode.window.showInformationMessage(
+        `QAMill: ${isSignup ? "Account created" : "Signed in"} as ${user.email}`);
+    } catch (err) {
+      const m = String(err).replace(/^Error: HTTP \d+: /, "");
+      vscode.window.showErrorMessage(`QAMill: ${m}`);
+    }
     return;
   }
 
@@ -717,6 +814,118 @@ async function setIdentity() {
     setTimeout(poll, 1500);
   };
   setTimeout(poll, 1500);
+}
+
+// ── QAMill Test Studio (webview: select LLM + format, Generate, live progress) ─
+
+let studioTarget: { filePath: string; presetFormat?: string } | undefined;
+
+function openTestStudio(context: vscode.ExtensionContext,
+                        uri: vscode.Uri | undefined,
+                        presetFormat?: string) {
+  // Resolve the target .py file
+  let filePath = uri?.fsPath;
+  if (!filePath) {
+    const ed = vscode.window.activeTextEditor;
+    if (ed && ed.document.languageId === "python") { filePath = ed.document.uri.fsPath; }
+  }
+  if (!filePath || !filePath.endsWith(".py")) {
+    vscode.window.showErrorMessage("QAMill: Open or right-click a Python (.py) file to open Test Studio.");
+    return;
+  }
+  studioTarget = { filePath, presetFormat };
+
+  if (studioPanel) {
+    studioPanel.reveal(vscode.ViewColumn.Active);
+    studioPanel.webview.postMessage({ type: "studio_init", ...buildStudioInit() });
+    return;
+  }
+
+  const logoUri = vscode.Uri.joinPath(context.extensionUri, "media", "qamill-logo.png");
+  studioPanel = vscode.window.createWebviewPanel(
+    "amilTestStudio", "QAMill QA Governance — Test Authoring", vscode.ViewColumn.Active,
+    { enableScripts: true, retainContextWhenHidden: true,
+      localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "media")] });
+  studioPanel.iconPath = logoUri;
+  const webLogo = studioPanel.webview.asWebviewUri(logoUri).toString();
+  studioPanel.webview.html = getTestStudioHtml(studioPanel.webview.cspSource, webLogo);
+
+  studioPanel.webview.onDidReceiveMessage(async (msg) => {
+    // Shared header messages (sign in / set LLM / sign out)
+    if (msg.type?.startsWith("sh_")) {
+      const cfg = vscode.workspace.getConfiguration("amil");
+      const port: number = cfg.get("backendPort", 8765);
+      await handleSharedHeaderMessage(studioPanel, msg, context, port);
+      return;
+    }
+    if (msg.type === "studio_ready") {
+      studioPanel?.webview.postMessage({ type: "studio_init", ...buildStudioInit() });
+      return;
+    }
+    if (msg.type === "studio_generate") { await runStudioGeneration(context, msg); return; }
+    if (msg.type === "studio_save")     { await saveStudioResult(msg); return; }
+  });
+
+  studioPanel.onDidDispose(() => { studioPanel = undefined; });
+}
+
+function buildStudioInit() {
+  const cfg = vscode.workspace.getConfiguration("amil");
+  return {
+    file:     studioTarget ? path.basename(studioTarget.filePath) : "",
+    provider: cfg.get<string>("llmProvider", "inhouse"),
+    preset:   studioTarget?.presetFormat || "test_case",
+  };
+}
+
+async function runStudioGeneration(context: vscode.ExtensionContext, msg: any) {
+  const cfg  = vscode.workspace.getConfiguration("amil");
+  const port: number = cfg.get("backendPort", 8765);
+  const filePath = studioTarget?.filePath;
+  if (!filePath) { return; }
+
+  const provider = msg.provider || "inhouse";
+  const fmt      = msg.format   || "test_case";
+  const folder   = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || path.dirname(filePath);
+  const prog = (m: string) => studioPanel?.webview.postMessage({ type: "studio_progress", message: m });
+
+  prog("Starting analysis engine…");
+  const ready = await ensureBackendRunning(context, port);
+  if (!ready) { studioPanel?.webview.postMessage({ type: "studio_error", message: "Could not start the backend." }); return; }
+
+  prog(`Reading ${path.basename(filePath)} and building the ${fmt} prompt…`);
+  prog(`Asking ${provider.toUpperCase()} to generate the suite… (this can take a while on local Ollama)`);
+  if (fmt === "unit") { prog("Will verify the suite against your original code after generation…"); }
+
+  try {
+    const resp = await postJson(`http://localhost:${port}/generate/test-suite`, {
+      file_path: filePath, project_root: folder,
+      llm_provider: provider, llm_api_key: getApiKey(cfg, provider),
+      format: fmt, verify: true,
+    });
+    if (!resp.success) {
+      studioPanel?.webview.postMessage({ type: "studio_error", message: resp.message || "Generation failed." });
+      return;
+    }
+    if (fmt === "unit" && resp.verified !== undefined) {
+      prog(resp.verified ? `Verified — ${resp.passed} test(s) passed against the original.`
+                         : `Generated, but ${resp.failed} test(s) did not pass — review before committing.`);
+    }
+    prog("Done.");
+    studioPanel?.webview.postMessage({ type: "studio_result", result: resp });
+  } catch (err) {
+    studioPanel?.webview.postMessage({ type: "studio_error",
+      message: String(err).replace(/^Error: HTTP \d+: /, "") });
+  }
+}
+
+async function saveStudioResult(msg: any) {
+  const filePath = studioTarget?.filePath;
+  if (!filePath || !msg.content) { return; }
+  const dest = vscode.Uri.file(path.join(path.dirname(filePath), msg.filename || "qamill-suite.txt"));
+  await vscode.workspace.fs.writeFile(dest, Buffer.from(msg.content, "utf8"));
+  await vscode.window.showTextDocument(dest, { preview: false });
+  vscode.window.showInformationMessage(`QAMill: Saved ${msg.filename}`);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -762,16 +971,19 @@ async function refreshIdentity(port: number): Promise<void> {
   } catch {
     return; // backend not up yet — nothing to sync
   }
+  // Prefer the signed-in QAMill user; fall back to first OAuth identity.
+  const user    = status?.user || null;
   const primary = status?.primary || null;
-  const email   = primary?.email || "";
+  const id      = user || primary;
+  const email   = id?.email || "";
 
   // Always update the dashboard badge (silent — no notification)
   dashboardPanel?.webview.postMessage({
     type: "apply_identity",
-    identity: primary
-      ? { email, provider: primary.provider, label: primary.label,
-          name: primary.name, picture: primary.picture,
-          can_email: primary.can_email, type: "work" }
+    identity: id
+      ? { email, provider: (id.providers && id.providers[0]) || id.provider,
+          label: id.label, name: id.name, picture: id.picture,
+          can_email: id.can_email, type: "work" }
       : null,
   });
   if (email) { statusBarItem.tooltip = `QAMill — signed in as ${email}`; }
@@ -785,10 +997,10 @@ async function refreshIdentity(port: number): Promise<void> {
 
   if (isNewSignIn && !signInNotified) {
     signInNotified = true;   // one toast per session, full stop
-    const label = primary.label || primary.provider || "account";
+    const label = id.label || (id.providers && id.providers[0]) || id.provider || "QAMill";
     vscode.window.showInformationMessage(
-      `QAMill: Signed in to ${label} as ${email}` +
-      (primary.can_email ? " — reports will send from this address." : "")
+      `QAMill: Signed in as ${email}` +
+      (id.can_email ? " — reports will send from this address." : "")
     );
   }
 
@@ -986,7 +1198,9 @@ async function startExtensionStream(rawUrl: string): Promise<void> {
         res.on("error", () => resolve(false));
       });
       req.on("error", () => resolve(false));
-      req.setTimeout(35000, () => { req.destroy(); resolve(false); });
+      // Backend pings every 10s; only give up after 90s of true silence so a
+      // slow mutant phase (Ollama equivalence checks) never triggers a reconnect.
+      req.setTimeout(90000, () => { req.destroy(); resolve(false); });
       activeStreamReq = req;
     });
 
@@ -1012,6 +1226,367 @@ function friendlyConnError(err: any, port: number): string {
   return `QAMill: Failed to start analysis — ${msg}`;
 }
 
+// ── Shared header message handler (used by both dashboard + studio) ────────────
+
+async function handleSharedHeaderMessage(panel: vscode.WebviewPanel | undefined, msg: any,
+                                         context: vscode.ExtensionContext, port: number) {
+  if (msg.type === "sh_ready") {
+    // Header JS loaded — send current LLM provider
+    const cfg = vscode.workspace.getConfiguration("amil");
+    const provider = cfg.get<string>("llmProvider", "inhouse");
+    panel?.webview.postMessage({ type: "sh_llm_list", provider });
+    // Send current identity if available
+    const identity = lastIdentityEmail ? { email: lastIdentityEmail } : null;
+    panel?.webview.postMessage({ type: "sh_set_identity", identity });
+    return;
+  }
+  if (msg.type === "sh_set_llm") {
+    // User changed LLM in header — update config
+    const cfg = vscode.workspace.getConfiguration("amil");
+    try {
+      await cfg.update("llmProvider", msg.provider, vscode.ConfigurationTarget.Global);
+      updateLlmStatusBar();
+      // Broadcast the new value to the panel
+      panel?.webview.postMessage({ type: "sh_llm_list", provider: msg.provider });
+    } catch (e) { /* no workspace */ }
+    return;
+  }
+  if (msg.type === "sh_open_auth") {
+    // User clicked Sign in — run the identity command
+    await vscode.commands.executeCommand("amil.setIdentity");
+    return;
+  }
+  if (msg.type === "sh_sign_out") {
+    // User clicked the identity chip to sign out
+    try {
+      const ready = await ensureBackendRunning(context, port);
+      if (ready) { await postJson(`http://127.0.0.1:${port}/auth/signout?everywhere=true`, {}); }
+    } catch { /* best-effort */ }
+    const cfg = vscode.workspace.getConfiguration("amil");
+    try {
+      await cfg.update("userEmail", "", vscode.ConfigurationTarget.Workspace);
+      await cfg.update("email.sender", "", vscode.ConfigurationTarget.Workspace);
+    } catch { /* no workspace */ }
+    lastIdentityEmail = "";
+    signInNotified = false;
+    panel?.webview.postMessage({ type: "sh_set_identity", identity: null });
+    vscode.window.showInformationMessage("QAMill: Signed out.");
+    return;
+  }
+}
+
+// ── Shared header (both tabs) ──────────────────────────────────────────────────
+
+function getSharedHeaderHtml(tabType: "mutation" | "generation", logoUri: string): string {
+  const subtitles = {
+    mutation:   "Test Quality Metrics · coverage analysis · mutation detection · test weakness discovery",
+    generation: "Test Authoring & Auto-Healing · unit tests · BDD scenarios · manual cases · traceability",
+  };
+  const subtitle = subtitles[tabType] || subtitles.mutation;
+  return `
+<div class="shared-header">
+  <div class="sh-left">
+    <img src="${logoUri}" alt="QAMill" class="sh-logo">
+    <div class="sh-brand">
+      <h1 class="sh-title">QAMill QA Governance</h1>
+      <div class="sh-subtitle">${subtitle}</div>
+    </div>
+  </div>
+  <div class="sh-right">
+    <select id="sh-llm-selector" class="sh-llm" onchange="shChangeLLM()">
+      <option value="inhouse">Ollama (local)</option>
+      <option value="claude">Claude</option>
+      <option value="gpt">GPT-4o</option>
+      <option value="grok">Grok</option>
+    </select>
+    <div id="sh-identity" class="sh-identity"></div>
+  </div>
+</div>`;
+}
+
+function getSharedHeaderCSS(): string {
+  return `
+.shared-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--vscode-widget-border);
+  background: linear-gradient(to right, var(--vscode-editor-background), var(--vscode-editor-background) 95%, rgba(14,99,156,.04));
+  gap: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+.sh-left { display: flex; align-items: center; gap: 16px; flex: 1; }
+.sh-logo {
+  height: 52px; width: 52px; border-radius: 10px; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(14,99,156,.15); object-fit: contain; padding: 2px;
+  background: rgba(14,99,156,.06);
+}
+.sh-brand h1 {
+  font-size: 17px; font-weight: 800; margin: 0; line-height: 1.2;
+  color: var(--vscode-editor-foreground); letter-spacing: -.3px;
+}
+.sh-subtitle {
+  font-size: 10.5px; opacity: .62; margin-top: 3px; font-weight: 500;
+  letter-spacing: .4px;
+}
+.sh-right { display: flex; align-items: center; gap: 14px; }
+.sh-llm {
+  background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground);
+  border: 1px solid var(--vscode-dropdown-border, #555); border-radius: 6px;
+  padding: 6px 10px; font-size: 12px; cursor: pointer; font-weight: 500;
+  transition: all .15s ease;
+}
+.sh-llm:hover { opacity: .85; background: var(--vscode-list-hoverBackground); }
+.sh-identity { font-size: 11px; }
+.sh-auth-chip {
+  background: #0e639c; color: #fff; padding: 4px 12px; border-radius: 14px;
+  font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(14,99,156,.2); transition: all .15s ease;
+  font-size: 11px;
+}
+.sh-auth-chip:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(14,99,156,.3); }
+.sh-signin-btn {
+  background: #0e639c; color: #fff; border: none; border-radius: 6px;
+  padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(14,99,156,.2); transition: all .15s ease;
+}
+.sh-signin-btn:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(14,99,156,.3); }
+`;
+}
+
+function getSharedHeaderJS(): string {
+  return `
+function shChangeLLM() {
+  const sel = document.getElementById('sh-llm-selector');
+  if (sel) { vscode.postMessage({ type: 'sh_set_llm', provider: sel.value }); }
+}
+function shSetIdentity(identity) {
+  const div = document.getElementById('sh-identity');
+  if (!div) return;
+  if (!identity || !identity.email) {
+    div.innerHTML = '<button class="sh-signin-btn" onclick="shOpenAuth()">Sign in</button>';
+  } else {
+    const initials = (identity.name || identity.email).split(' ')[0][0].toUpperCase();
+    div.innerHTML = '<div class="sh-auth-chip" title="Signed in: ' + identity.email + '" onclick="shSignOut()">' +
+      '<span>' + initials + '</span><span>' + (identity.email || 'Account').split('@')[0] + '</span>' +
+      '</div>';
+  }
+}
+function shOpenAuth() { vscode.postMessage({ type: 'sh_open_auth' }); }
+function shSignOut() {
+  if (confirm('Sign out from QAMill?')) {
+    vscode.postMessage({ type: 'sh_sign_out' });
+  }
+}
+window.addEventListener('message', e => {
+  const m = e.data;
+  if (m.type === 'sh_set_identity') { shSetIdentity(m.identity); }
+  if (m.type === 'sh_llm_list') {
+    const sel = document.getElementById('sh-llm-selector');
+    if (sel && m.provider) { sel.value = m.provider; }
+  }
+});
+vscode.postMessage({ type: 'sh_ready' });
+`;
+}
+
+// ── Test Studio HTML ───────────────────────────────────────────────────────────
+
+function getTestStudioHtml(cspSource: string, logoUri: string): string {
+  return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src ${cspSource} data:;">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--vscode-font-family);background:var(--vscode-editor-background);
+       color:var(--vscode-editor-foreground);font-size:13px;padding:0;line-height:1.5}
+  ${getSharedHeaderCSS()}
+  .content{padding:16px;}
+  .target{font-family:var(--vscode-editor-font-family,monospace);font-size:12px;
+          background:var(--vscode-input-background);border:1px solid var(--vscode-widget-border);
+          border-radius:6px;padding:8px 12px;margin-bottom:16px;display:inline-block}
+  .controls{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px}
+  .ctl{display:flex;flex-direction:column;gap:4px}
+  .ctl label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.6}
+  select{background:var(--vscode-dropdown-background);color:var(--vscode-dropdown-foreground);
+         border:1px solid var(--vscode-dropdown-border,#555);border-radius:5px;padding:7px 10px;
+         font-family:var(--vscode-font-family);font-size:13px;min-width:190px;cursor:pointer}
+  .gen-btn{background:#0e639c;color:#fff;border:none;border-radius:6px;padding:9px 22px;
+           font-size:13px;font-weight:600;cursor:pointer}
+  .gen-btn:hover{opacity:.88}
+  .gen-btn:disabled{opacity:.4;cursor:not-allowed}
+  .fmt-hint{font-size:11px;opacity:.55;margin:6px 0 16px}
+  /* Progress log */
+  .progress{background:var(--vscode-input-background);border:1px solid var(--vscode-widget-border);
+            border-radius:8px;padding:12px 14px;margin-bottom:16px;display:none}
+  .progress.show{display:block}
+  .progress-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.6;margin-bottom:8px}
+  .plog{font-family:var(--vscode-editor-font-family,monospace);font-size:12px;line-height:1.8}
+  .plog .step{opacity:.85}
+  .plog .step::before{content:'▸ ';color:#4ec9a0}
+  .plog .done::before{content:'✓ ';color:#4ec9a0}
+  .plog .err{color:#f48771}
+  .plog .err::before{content:'✗ ';}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--vscode-widget-border);
+        border-top-color:#4ec9a0;border-radius:50%;animation:sp .8s linear infinite;vertical-align:middle;margin-left:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  /* Result */
+  .result{display:none}
+  .result.show{display:block}
+  .result-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .result-title{font-size:14px;font-weight:700}
+  .verdict{font-size:11px;padding:2px 10px;border-radius:20px;font-weight:600}
+  .verdict.ok{background:#1e3a2f;color:#4ec9a0}
+  .verdict.warn{background:#3a2f1e;color:#dcdcaa}
+  .result-actions{display:flex;gap:8px}
+  .act{background:var(--vscode-button-secondaryBackground,#3a3d41);color:var(--vscode-button-secondaryForeground,#ccc);
+       border:none;border-radius:5px;padding:6px 14px;font-size:12px;cursor:pointer}
+  .act.primary{background:#0e639c;color:#fff}
+  .act:hover{opacity:.85}
+  pre.code{background:var(--vscode-textCodeBlock-background,#1e1e1e);border:1px solid var(--vscode-widget-border);
+           border-radius:8px;padding:14px;overflow:auto;font-family:var(--vscode-editor-font-family,monospace);
+           font-size:12px;white-space:pre;max-height:60vh}
+  table.qt{border-collapse:collapse;width:100%;font-size:12px;margin-top:4px}
+  table.qt th,table.qt td{border:1px solid var(--vscode-widget-border);padding:7px 10px;text-align:left;vertical-align:top}
+  table.qt th{background:var(--vscode-input-background);font-weight:700}
+  table.qt tr:nth-child(even){background:rgba(127,127,127,.05)}
+</style></head>
+<body>
+  ${getSharedHeaderHtml("generation", logoUri)}
+  <div class="content">
+    <div class="sub">AI-powered test authoring & generation in multiple formats (unit tests, BDD, manual QA cases, traceability matrices).</div>
+
+    <div class="target" id="target">No file selected</div>
+
+    <div class="controls">
+    <div class="ctl">
+      <label>Output Format</label>
+      <select id="sel-fmt">
+        <option value="unit">Unit Tests (pytest)</option>
+        <option value="test_case">Test Case format</option>
+        <option value="table">Table format</option>
+        <option value="gherkin">Gherkin (BDD)</option>
+        <option value="traceability">Traceability matrix</option>
+      </select>
+    </div>
+    <button class="gen-btn" id="gen-btn" onclick="generate()">⚡ Generate</button>
+  </div>
+  <div class="fmt-hint" id="fmt-hint"></div>
+
+  <div class="progress" id="progress">
+    <div class="progress-title">Progress <span class="spin" id="spin"></span></div>
+    <div class="plog" id="plog"></div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="result-bar">
+      <span class="result-title" id="result-title">Result</span>
+      <span class="result-actions">
+        <span class="verdict" id="verdict" style="display:none"></span>
+        <button class="act" onclick="copyResult()">Copy</button>
+        <button class="act primary" id="save-btn" onclick="saveResult()">Save to file</button>
+      </span>
+    </div>
+    <div id="result-body"></div>
+  </div>
+  </div>
+
+<script>
+  const vscode = acquireVsCodeApi();
+  let lastResult = null;
+
+  ${getSharedHeaderJS()}
+
+  const FMT_HINTS = {
+    unit: "Runnable pytest suite — generated then VERIFIED against your original code.",
+    test_case: "Detailed manual cases: ID, preconditions, steps, expected result.",
+    table: "Manual cases laid out as a compact table for spreadsheets/reviews.",
+    gherkin: "Given/When/Then scenarios for BDD tools (Cucumber, behave).",
+    traceability: "Requirements → Test Case mapping matrix for audits/coverage.",
+  };
+
+  function updateHint() {
+    document.getElementById('fmt-hint').textContent = FMT_HINTS[document.getElementById('sel-fmt').value] || '';
+  }
+  document.getElementById('sel-fmt').addEventListener('change', updateHint);
+
+  function generate() {
+    const provider = document.getElementById('sh-llm-selector').value;
+    const format   = document.getElementById('sel-fmt').value;
+    document.getElementById('gen-btn').disabled = true;
+    document.getElementById('progress').classList.add('show');
+    document.getElementById('spin').style.display = 'inline-block';
+    document.getElementById('plog').innerHTML = '';
+    document.getElementById('result').classList.remove('show');
+    vscode.postMessage({ type: 'studio_generate', provider, format });
+  }
+
+  function addStep(msg, cls) {
+    const d = document.createElement('div');
+    d.className = 'step ' + (cls||'');
+    d.textContent = msg;
+    document.getElementById('plog').appendChild(d);
+  }
+
+  function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+  // Render a markdown table into a real HTML table; else preformatted text.
+  function renderContent(fmt, content) {
+    const body = document.getElementById('result-body');
+    if (fmt === 'table' || fmt === 'traceability') {
+      const lines = content.split('\\n').filter(l => l.trim().startsWith('|'));
+      if (lines.length >= 2) {
+        const cells = l => l.split('|').slice(1,-1).map(c => c.trim());
+        const head = cells(lines[0]);
+        const rows = lines.slice(2).map(cells);
+        let html = '<table class="qt"><thead><tr>' + head.map(h=>'<th>'+esc(h)+'</th>').join('') + '</tr></thead><tbody>';
+        html += rows.map(r => '<tr>' + r.map(c=>'<td>'+esc(c.replace(/<br>/g,'\\n')).replace(/\\n/g,'<br>')+'</td>').join('') + '</tr>').join('');
+        html += '</tbody></table>';
+        body.innerHTML = html;
+        return;
+      }
+    }
+    body.innerHTML = '<pre class="code">' + esc(content) + '</pre>';
+  }
+
+  window.addEventListener('message', e => {
+    const m = e.data;
+    if (m.type === 'studio_init') {
+      document.getElementById('target').textContent = '📄 ' + (m.file || 'No file');
+      if (m.provider) document.getElementById('sel-llm').value = m.provider;
+      if (m.preset)   document.getElementById('sel-fmt').value = m.preset;
+      updateHint();
+    }
+    if (m.type === 'studio_progress') { addStep(m.message); }
+    if (m.type === 'studio_error') {
+      document.getElementById('spin').style.display = 'none';
+      addStep(m.message, 'err');
+      document.getElementById('gen-btn').disabled = false;
+    }
+    if (m.type === 'studio_result') {
+      document.getElementById('spin').style.display = 'none';
+      const last = document.querySelector('#plog .step:last-child');
+      if (last) last.className = 'step done';
+      document.getElementById('gen-btn').disabled = false;
+      lastResult = m.result;
+      const r = m.result;
+      document.getElementById('result').classList.add('show');
+      document.getElementById('result-title').textContent = (r.module || 'Suite') + ' — ' + r.format;
+      const v = document.getElementById('verdict');
+      if (r.format === 'unit') {
+        v.style.display = 'inline-block';
+        v.className = 'verdict ' + (r.verified ? 'ok' : 'warn');
+        v.textContent = r.verified ? '✓ Verified · ' + r.passed + ' passed' : '⚠ Review needed';
+      } else { v.style.display = 'none'; }
+      renderContent(r.format, r.content);
+    }
+  });
+
+  function copyResult(){ if(lastResult){ navigator.clipboard.writeText(lastResult.content); } }
+  function saveResult(){ if(lastResult){ vscode.postMessage({ type:'studio_save', content:lastResult.content, filename:lastResult.filename }); } }
+
+  vscode.postMessage({ type: 'studio_ready' });
+</script>
+</body></html>`;
+}
+
 // ── Dashboard HTML (inlined) ──────────────────────────────────────────────────
 
 function getDashboardHtml(port: number, logoUri: string = "", cspSource: string = ""): string {
@@ -1027,14 +1602,22 @@ function getDashboardHtml(port: number, logoUri: string = "", cspSource: string 
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
        background:var(--vscode-editor-background);color:var(--vscode-editor-foreground);
-       font-size:13px;line-height:1.5;padding:16px}
+       font-size:13px;line-height:1.5;padding:0}
   h2{font-size:15px;font-weight:600;opacity:.9}
+
+  ${getSharedHeaderCSS()}
+
+  .dashboard-content{padding:16px}
 
   /* ── Provider badge ── */
   .title-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
   .title-logo{height:26px;width:26px;object-fit:contain;flex-shrink:0;border-radius:4px}
-  .title-logo-wrap{display:flex;align-items:center;gap:7px;flex-shrink:0}
-  .title-logo-wrap h2{font-size:15px;font-weight:600;opacity:.9}
+  .title-logo-wrap{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .title-logo{height:38px!important;width:38px!important}
+  .title-brand h2{font-size:16px;font-weight:700;opacity:.95;line-height:1.1}
+  .title-purpose{font-size:10.5px;opacity:.6;margin-top:2px;display:flex;align-items:center;gap:6px}
+  .title-tag{background:#0e639c;color:#fff;font-weight:700;font-size:9px;
+             text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border-radius:20px;opacity:1}
   .provider-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
                   letter-spacing:.06em;text-transform:uppercase}
   /* ── Identity chip + sign-out dropdown ── */
@@ -1065,6 +1648,22 @@ function getDashboardHtml(port: number, logoUri: string = "", cspSource: string 
             cursor:pointer;font-family:var(--vscode-font-family)}
   .dim-item:hover{background:var(--vscode-list-hoverBackground)}
   .dim-signout{color:#f48771!important}
+  /* ── Auth modal (sign in / sign up) ── */
+  .auth-seg{display:flex;background:var(--vscode-input-background);border-radius:8px;
+            padding:3px;margin-bottom:14px;border:1px solid var(--vscode-widget-border)}
+  .auth-seg-btn{flex:1;padding:7px 0;border:none;background:none;cursor:pointer;
+                font-family:var(--vscode-font-family);font-size:12px;font-weight:600;
+                color:var(--vscode-descriptionForeground);border-radius:6px}
+  .auth-seg-btn.active{background:#0e639c;color:#fff}
+  .auth-social{display:flex;flex-direction:column;gap:7px}
+  .auth-social-btn{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;
+                   border-radius:7px;cursor:pointer;background:var(--vscode-input-background);
+                   border:1px solid var(--vscode-widget-border);color:var(--vscode-foreground);
+                   font-family:var(--vscode-font-family);font-size:12px;text-align:left}
+  .auth-social-btn:hover{border-color:#4ec9a0}
+  .auth-or{display:flex;align-items:center;gap:10px;margin:14px 0 12px;
+           color:var(--vscode-descriptionForeground);font-size:11px;opacity:.7}
+  .auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:var(--vscode-widget-border)}
   /* Log in button (signed out) */
   .dash-id-btn{background:none;border:1px dashed var(--vscode-widget-border);
                color:var(--vscode-descriptionForeground);border-radius:4px;
@@ -1361,11 +1960,17 @@ function getDashboardHtml(port: number, logoUri: string = "", cspSource: string 
 </head>
 <body>
 
+${getSharedHeaderHtml("mutation", logoUri)}
+
+<div class="dashboard-content">
 <!-- ── Title row with provider badge + identity ── -->
 <div class="title-row">
   <div class="title-logo-wrap">
     ${logoUri ? `<img src="${logoUri}" class="title-logo" alt="QAMill">` : ""}
-    <h2>QAMill &mdash; Mutation Analysis</h2>
+    <div class="title-brand">
+      <h2>QAMill Test Studio</h2>
+      <div class="title-purpose"><span class="title-tag">Mutation Analysis</span>find test gaps · scoring · survived mutants</div>
+    </div>
   </div>
   <span class="file-label" id="run-file"></span>
   <span class="provider-badge pb-inhouse" id="provider-badge">OLLAMA</span>
@@ -1381,12 +1986,12 @@ function getDashboardHtml(port: number, logoUri: string = "", cspSource: string 
           <div class="dim-email" id="dim-email"></div>
           <div class="dim-via" id="dim-via"></div>
         </div>
-        <button class="dim-item" onclick="event.stopPropagation();vscode.postMessage({type:'open_auth_modal'});closeDashIdMenu()">Manage accounts</button>
+        <button class="dim-item" onclick="event.stopPropagation();openDashAuthModal();closeDashIdMenu()">Manage accounts</button>
         <button class="dim-item dim-signout" onclick="event.stopPropagation();vscode.postMessage({type:'sign_out'});closeDashIdMenu()">Sign out</button>
       </div>
     </div>
     <!-- Log in button (signed out) -->
-    <button class="dash-id-btn" id="dash-id-btn" onclick="vscode.postMessage({type:'open_auth_modal'})">Log in</button>
+    <button class="dash-id-btn" id="dash-id-btn" onclick="openDashAuthModal()">Log in</button>
   </div>
 </div>
 
@@ -1461,7 +2066,7 @@ function getDashboardHtml(port: number, logoUri: string = "", cspSource: string 
           <div class="em-via-addr" id="em-via-addr">user@gmail.com</div>
         </div>
         <button class="email-btn email-btn-secondary" style="padding:4px 10px;font-size:11px"
-                onclick="vscode.postMessage({type:'open_auth_modal'});closeEmailModal()">Change</button>
+                onclick="closeEmailModal();openDashAuthModal()">Change</button>
       </div>
 
       <!-- No account: connect CTA + SMTP fallback -->
@@ -1469,7 +2074,7 @@ function getDashboardHtml(port: number, logoUri: string = "", cspSource: string 
         <div class="em-no-account">
           <p>Connect Google or Microsoft to send without App Password</p>
           <button class="em-connect-btn"
-                  onclick="vscode.postMessage({type:'open_auth_modal'});closeEmailModal()">
+                  onclick="closeEmailModal();openDashAuthModal()">
             Connect account &#8594;
           </button>
         </div>
@@ -1504,6 +2109,45 @@ function getDashboardHtml(port: number, logoUri: string = "", cspSource: string 
       <div class="email-actions">
         <button class="email-btn email-btn-secondary" id="email-test-btn">&#9889; Test</button>
         <button class="email-btn email-btn-primary"   id="email-send-btn">&#128231; Send Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Auth modal (sign in / sign up popup) ── -->
+<div class="email-overlay" id="auth-overlay">
+  <div class="email-modal" id="auth-modal-card" style="width:min(400px,100%)">
+    <div class="email-modal-hdr">
+      <span>&#128274; Sign in to QAMill</span>
+      <button class="email-close-btn" id="auth-close-btn">&#215;</button>
+    </div>
+    <div class="email-body">
+      <div class="auth-seg">
+        <button class="auth-seg-btn active" id="auth-seg-signin" onclick="dashSetAuthMode('signin')">Sign in</button>
+        <button class="auth-seg-btn"        id="auth-seg-signup" onclick="dashSetAuthMode('signup')">Sign up</button>
+      </div>
+      <div class="auth-social">
+        <button class="auth-social-btn" onclick="dashOAuth('google')">&#128272; Continue with Google</button>
+        <button class="auth-social-btn" onclick="dashOAuth('microsoft')">&#128273; Continue with Microsoft</button>
+        <button class="auth-social-btn" onclick="dashOAuth('atlassian')">&#129513; Continue with Atlassian (Jira)</button>
+        <button class="auth-social-btn" onclick="dashOAuth('github')">&#128025; Continue with GitHub</button>
+      </div>
+      <div class="auth-or"><span>or</span></div>
+      <div id="auth-name-row" style="display:none">
+        <label class="email-label">Name</label>
+        <input type="text" id="auth-name" class="email-field" placeholder="Your name">
+      </div>
+      <label class="email-label">Email</label>
+      <input type="email" id="auth-email" class="email-field" placeholder="you@company.com" autocomplete="email">
+      <label class="email-label">Password</label>
+      <input type="password" id="auth-pass" class="email-field" placeholder="At least 8 characters">
+      <div class="email-modal-status" id="auth-status"></div>
+      <div class="email-actions">
+        <button class="email-btn email-btn-primary" id="auth-submit-btn" style="width:100%;text-align:center"
+                onclick="dashSubmitAuth()">Sign in</button>
+      </div>
+      <div style="font-size:10px;opacity:.5;text-align:center;margin-top:10px">
+        Password is hashed and stored only on this machine.
       </div>
     </div>
   </div>
@@ -1715,6 +2359,20 @@ window.addEventListener('message', e => {
   if (msg.type === 'apply_identity') {
     // Live identity pushed from backend (catches sign-ins done in the browser popup)
     applyIdentity(msg.identity);
+    // If the auth modal is open and we just signed in, close it
+    if (msg.identity && document.getElementById('auth-overlay').style.display === 'flex') {
+      closeDashAuthModal();
+    }
+    return;
+  }
+  if (msg.type === 'auth_result') {
+    var st = document.getElementById('auth-status');
+    if (msg.success) {
+      if (st) { st.textContent = '\\u2713 Welcome' + (msg.name ? ', ' + msg.name : '') + '!'; st.className = 'email-modal-status ems-ok'; }
+      setTimeout(closeDashAuthModal, 800);
+    } else if (st) {
+      st.textContent = '\\u2717 ' + (msg.error || 'Failed'); st.className = 'email-modal-status ems-error';
+    }
     return;
   }
   if (msg.type === 'auth_connected') {
@@ -2351,6 +3009,42 @@ function closeEmailModal() {
   if (overlay) overlay.style.display = 'none';
 }
 
+// ── Auth modal (sign in / sign up popup in the dashboard) ──────────────────
+var dashAuthMode = 'signin';
+function openDashAuthModal() {
+  var ov = document.getElementById('auth-overlay');
+  if (ov) ov.style.display = 'flex';
+  dashSetAuthMode('signin');
+  var st = document.getElementById('auth-status');
+  if (st) { st.textContent = ''; st.className = 'email-modal-status'; }
+}
+function closeDashAuthModal() {
+  var ov = document.getElementById('auth-overlay');
+  if (ov) ov.style.display = 'none';
+}
+function dashSetAuthMode(mode) {
+  dashAuthMode = mode;
+  var inSign = mode === 'signin';
+  document.getElementById('auth-seg-signin').classList.toggle('active', inSign);
+  document.getElementById('auth-seg-signup').classList.toggle('active', !inSign);
+  document.getElementById('auth-name-row').style.display = inSign ? 'none' : '';
+  document.getElementById('auth-submit-btn').textContent = inSign ? 'Sign in' : 'Create account';
+}
+function dashSubmitAuth() {
+  var email = document.getElementById('auth-email').value || '';
+  var pass  = document.getElementById('auth-pass').value || '';
+  var name  = (document.getElementById('auth-name')||{}).value || '';
+  var st = document.getElementById('auth-status');
+  st.textContent = 'Please wait…'; st.className = 'email-modal-status ems-info';
+  vscode.postMessage({ type: 'auth_submit', mode: dashAuthMode, email: email, password: pass, name: name });
+}
+function dashOAuth(provider) {
+  var st = document.getElementById('auth-status');
+  st.textContent = 'Opening ' + provider + ' sign-in in your browser…';
+  st.className = 'email-modal-status ems-info';
+  vscode.postMessage({ type: 'auth_oauth', provider: provider });
+}
+
 function updateEmailProviderUI() {
   var sel = document.getElementById('email-provider');
   if (!sel) return;
@@ -2384,7 +3078,13 @@ function updateEmailProviderUI() {
       vscode.postMessage({type:'open_external',url:'https://account.microsoft.com/security'});
     };
   } else {
-    note.style.display = 'none';
+    // Custom SMTP — typically corporate. Guide them to OAuth or their real relay.
+    note.style.display = 'block';
+    note.innerHTML =
+      '<strong>Work / corporate email:</strong> enter your organisation&rsquo;s SMTP server ' +
+      '(ask IT — it is NOT smtp.gmail.com). If your company uses Google&nbsp;Workspace or ' +
+      'Microsoft&nbsp;365, the easiest path is <strong>Connect account</strong> above — ' +
+      'OAuth works for work accounts and needs no password.';
   }
 }
 
@@ -2461,6 +3161,14 @@ document.getElementById('email-close-btn').addEventListener('click', closeEmailM
 document.getElementById('email-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeEmailModal();
 });
+// Auth modal controls
+document.getElementById('auth-close-btn').addEventListener('click', closeDashAuthModal);
+document.getElementById('auth-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeDashAuthModal();
+});
+document.getElementById('auth-pass').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') dashSubmitAuth();
+});
 document.getElementById('email-provider').addEventListener('change', updateEmailProviderUI);
 document.getElementById('email-test-btn').addEventListener('click', sendTestEmail);
 document.getElementById('email-send-btn').addEventListener('click', sendEmailReport);
@@ -2487,7 +3195,10 @@ vscode.postMessage({ type: 'webview_ready' });
 setInterval(function() {
   if (!streamActive) { vscode.postMessage({ type: 'request_current_job' }); }
 }, 1000);
+
+${getSharedHeaderJS()}
 </script>
+</div>
 </body>
 </html>`;
 }
