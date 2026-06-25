@@ -2,8 +2,8 @@
   "name": "qamill-mutation-testing",
   "displayName": "QAMill — AI QA Governance",
   "description": "AI-Driven Test Excellence",
-  "version": "1.0.10",
-  "publisher": "amil",
+  "version": "1.0.14",
+  "publisher": "achieverthoughts",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -13,6 +13,13 @@
   ],
   "icon": "media/qamill-logo.png",
   "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:python",
+    "onCommand:amil.runAnalysis",
+    "onCommand:amil.openTestStudio",
+    "onCommand:amil.selectLLM"
+  ],
   "contributes": {
     "commands": [
       {

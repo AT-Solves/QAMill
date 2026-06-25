@@ -183,9 +183,42 @@ function findPythonSourceFile(dir) {
 }
 // ── Backend lifecycle ─────────────────────────────────────────────────────────
 async function ensureBackendRunning(context, port) {
-    // Check if already running
-    if (await isPortOpen(port))
-        return true;
+    // Check if already running and healthy
+    if (await isPortOpen(port)) {
+        try {
+            const ctrl = new AbortController();
+            const timeoutId = setTimeout(() => ctrl.abort(), 2000);
+            const resp = await fetch(`http://localhost:${port}/health`, { signal: ctrl.signal });
+            clearTimeout(timeoutId);
+            if (resp.ok)
+                return true;
+        }
+        catch { /* port might be stuck, continue to restart */ }
+    }
+    // Port is in use but not responding — kill stuck process
+    if (await isPortOpen(port)) {
+        try {
+            const { exec } = require("child_process");
+            if (process.platform === "win32") {
+                exec(`netstat -ano | find ":${port}"`, (err, stdout) => {
+                    const lines = stdout.split("\n");
+                    for (const line of lines) {
+                        const parts = line.trim().split(/\s+/);
+                        if (parts.length > 0 && parts[parts.length - 1] !== "0") {
+                            const pid = parts[parts.length - 1];
+                            try {
+                                process.kill(parseInt(pid));
+                            }
+                            catch { /* ignore */ }
+                        }
+                    }
+                });
+            }
+            await sleep(1000);
+        }
+        catch { /* ignore cleanup errors */ }
+    }
+    // Spawn fresh backend
     const backendDir = path.join(context.extensionPath, "..", "backend");
     backendProcess = cp.spawn("python", ["main.py"], {
         cwd: backendDir,
@@ -211,6 +244,10 @@ async function ensureBackendRunning(context, port) {
         if (await isPortOpen(port))
             return true;
     }
+    // Failed to start backend
+    vscode.window.showErrorMessage("QAMill: Backend failed to start. " +
+        "Port 8765 may be in use. " +
+        "Try: Restart VS Code or check 'netstat -ano | find \":8765\"' to find blocking processes.");
     return false;
 }
 function stopAnalysis() {
@@ -1584,9 +1621,6 @@ function getDashboardHtml(port, logoUri = "", cspSource = "") {
 
   /* ── Provider badge ── */
   .title-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-  .title-logo{height:26px;width:26px;object-fit:contain;flex-shrink:0;border-radius:4px}
-  .title-logo-wrap{display:flex;align-items:center;gap:10px;flex-shrink:0}
-  .title-logo{height:38px!important;width:38px!important}
   .title-brand h2{font-size:16px;font-weight:700;opacity:.95;line-height:1.1}
   .title-purpose{font-size:10.5px;opacity:.6;margin-top:2px;display:flex;align-items:center;gap:6px}
   .title-tag{background:#0e639c;color:#fff;font-weight:700;font-size:9px;
@@ -1938,12 +1972,9 @@ ${getSharedHeaderHtml("mutation", logoUri)}
 <div class="dashboard-content">
 <!-- ── Title row with provider badge + identity ── -->
 <div class="title-row">
-  <div class="title-logo-wrap">
-    ${logoUri ? `<img src="${logoUri}" class="title-logo" alt="QAMill">` : ""}
-    <div class="title-brand">
-      <h2>QAMill Test Studio</h2>
-      <div class="title-purpose"><span class="title-tag">Mutation Analysis</span>find test gaps · scoring · survived mutants</div>
-    </div>
+  <div class="title-brand">
+    <h2>QAMill Test Studio</h2>
+    <div class="title-purpose"><span class="title-tag">Mutation Analysis</span>find test gaps · scoring · survived mutants</div>
   </div>
   <span class="file-label" id="run-file"></span>
   <span class="provider-badge pb-inhouse" id="provider-badge">OLLAMA</span>

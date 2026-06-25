@@ -1,19 +1,27 @@
 # QAMill — AI QA Governance Platform
 
-**Complete test quality intelligence for Python projects.** Mutation testing, test gap analysis, auto-healing tests, and AI-powered test generation — all in your IDE.
+**Enterprise-grade QA governance with AI-powered test quality intelligence.** Comprehensive test analysis, coverage mapping, auto-healing tests, and automated test generation — all in your IDE.
 
 ## What is QAMill?
 
-QAMill is an enterprise-grade **QA Governance Platform** that transforms how teams measure and improve test quality. Instead of guessing whether your tests are catching real bugs, QAMill **mutates your code** to find gaps, **analyzes coverage deeply**, and **auto-heals weak tests** using AI.
+QAMill is a **complete QA Governance Platform** that empowers teams to establish and maintain test excellence standards. It provides comprehensive test quality metrics, intelligent test gap identification, AI-powered test generation, and automated test improvement — transforming manual QA processes into data-driven governance.
 
-### Core Capabilities
+### Core QA Governance Capabilities
 
-#### 🧬 **Mutation Testing & Test Quality Analysis**
+#### 📊 **Complete Test Quality Governance**
+- **Test quality intelligence** — understand exactly what your tests are catching
+- **Coverage analysis** — both code execution and mutation coverage metrics
+- **Test effectiveness scoring** — comprehensive metrics for test suite health
+- **Test weakness mapping** — identify which code areas lack sufficient testing
+- **Compliance reporting** — traceability matrices for regulated environments
+- **Real-time dashboards** — live test quality metrics and insights
+
+#### 🧬 **Mutation-Based Quality Analysis** *(Secondary Method)*
 - **Intelligent mutation engine** with 17+ operators (arithmetic, logic, boundary, string, list mutations)
 - **Equivalent mutant detection** — filters out noise that doesn't matter
-- **Survived mutant identification** — shows exactly which code changes your tests *don't* catch
-- **Auto-healing** — AI writes new tests to kill survived mutants
-- **Live dashboard** — real-time mutation analysis with elite scoring and insights
+- **Survived mutant identification** — shows exactly which code changes your tests don't catch
+- **Auto-healing** — AI automatically writes and validates tests to fix quality gaps
+- **Live streaming analysis** — real-time mutation testing with progress tracking
 
 #### 🎯 **Test Authoring & Generation**
 - **Unit test generation** — AI writes complete pytest suites with edge cases
@@ -22,21 +30,22 @@ QAMill is an enterprise-grade **QA Governance Platform** that transforms how tea
 - **Traceability matrices** — requirements → test case mapping for compliance
 - **Multi-format output** — pytest, plain text, markdown tables, Gherkin, JSON
 
-#### 📊 **Live Analytics & Reporting**
+#### 📈 **Elite Analytics & Reporting**
 - **Elite HTML reports** — self-contained dashboards with zero external dependencies
-- **Test quality scoring** — mutation score, coverage, test effectiveness
-- **Performance graphs** — mutation phase breakdown, analysis speed insights
-- **Email reports** — OAuth-powered (Gmail, Office 365, custom SMTP)
-- **Detailed mutant tables** — searchable, sortable, with side-by-side diffs
+- **Test quality scoring** — comprehensive test effectiveness metrics
+- **Performance analytics** — phase breakdown, analysis speed, trend analysis
+- **Email distribution** — OAuth-powered (Gmail, Office 365, custom SMTP)
+- **Executive dashboards** — high-level QA governance metrics
 
-#### 🔐 **Enterprise Authentication**
-- **OAuth 2.0 PKCE** for Google, Microsoft, GitHub, LinkedIn, Atlassian, Slack
-- **Email + password accounts** — local account creation with scrypt hashing
+#### 🔐 **Enterprise Features**
+- **OAuth 2.0 PKCE** — Google, Microsoft, GitHub, LinkedIn, Atlassian, Slack authentication
+- **Email + password accounts** — local account creation with enterprise security
 - **Session management** — 30-day TTL, HMAC-signed tokens
-- **Identity tracking** — synchronized across both dashboards
+- **Identity & role tracking** — synchronized across all dashboards
+- **Team collaboration** — shared reports and metrics
 
 #### 🤖 **AI Integration**
-- **Claude (Anthropic)** — most capable, recommended
+- **Claude (Anthropic)** — most capable, recommended for complex analysis
 - **GPT-4o (OpenAI)** — fast, excellent quality
 - **Grok (xAI)** — cutting-edge reasoning
 - **Ollama (local)** — private, fully offline
@@ -46,16 +55,16 @@ QAMill is an enterprise-grade **QA Governance Platform** that transforms how tea
 
 ## Quick Start
 
-### 1. **Analyze Test Quality**
+### 1. **Analyze Test Quality & Coverage**
 ```
 Right-click any .py file → "QAMill: Analyze Test Quality"
 ```
-- Mutations are generated and tested in real-time
-- Dashboard streams results as they complete
-- Live mutation counter, phase breakdown, survived mutants table
+- Comprehensive test quality analysis with mutation-based insights
+- Dashboard streams real-time results
+- Live metrics: coverage, test effectiveness, quality score
 - One-click email report or save as HTML
 
-### 2. **Generate Tests**
+### 2. **Generate Missing Tests**
 ```
 Right-click any .py file → "QAMill: Open Test Authoring Studio"
 ```
@@ -74,30 +83,31 @@ Ctrl+Shift+P → "QAMill: Select AI Model"
 ```
 Pick Claude, GPT-4o, Grok, or local Ollama.
 
-### 4. **Sign In with QAMill**
+### 4. **Sign In for Full Governance**
 ```
 Click "Sign in" in dashboard or Test Studio header
 ```
 - OAuth: Google, Microsoft, GitHub, LinkedIn, Atlassian, Slack
 - Email/password: create a local account
-- Identity syncs across both dashboards
+- Identity syncs across all dashboards
 - Reports sent from your connected account
 
 ---
 
 ## Features in Detail
 
-### Test Quality Metrics
-- **Mutation Score** — % of mutants killed by your tests
-- **Coverage Analysis** — code execution coverage + mutation coverage
-- **Equivalent Mutants** — AI-detected mutations that don't matter
-- **Survived Mutants** — code changes your tests missed
-- **Test Weakness Map** — function-by-function breakdown
+### QA Governance Metrics
+- **Test Quality Score** — overall test suite health and effectiveness
+- **Code Coverage** — % of code lines executed by tests
+- **Mutation Coverage** — % of code behavior changes caught by tests
+- **Test Weakness Areas** — functions/modules needing stronger tests
+- **Compliance Readiness** — traceability and documentation metrics
+- **Trend Analysis** — test quality improvement over time
 
-### Auto-Healing Workflow
-1. Run analysis → identify survived mutants
-2. Select mutant → AI writes a test to kill it
-3. Test verified against original code
+### Test Auto-Healing Workflow
+1. Run quality analysis → identify test gaps
+2. AI suggests improvements → generates test code
+3. Tests verified against original code
 4. Copy to your test suite (one-click save)
 
 ### Report Types
@@ -110,10 +120,10 @@ Click "Sign in" in dashboard or Test Studio header
 
 | Panel | Purpose |
 |-------|---------|
-| **Mutant Results** | Real-time streaming, searchable table, line diffs |
-| **Suggested Tests** | AI-generated tests for survived mutants |
-| **QAMill Assistant** | Ask questions about your results ("worst survived mutant?") |
-| **Output Terminal** | Job progress, phase breakdown, logs |
+| **Test Quality Analysis** | Real-time quality metrics, coverage, effectiveness |
+| **Test Gap Identification** | AI-suggested tests for uncovered scenarios |
+| **QAMill Assistant** | Ask questions about test quality ("worst test gap?") |
+| **Output Terminal** | Job progress, analysis phases, logs |
 
 ---
 
@@ -123,7 +133,7 @@ Click "Sign in" in dashboard or Test Studio header
 - **Backend:** FastAPI (Python) on port 8765
 - **Frontend:** VS Code webview + standalone HTML
 - **LLM Pipeline:** Async prompt streaming with retry logic
-- **Mutation Engine:** AST-based mutation with incremental generation
+- **Analysis Engine:** AST-based code analysis with incremental processing
 - **Report Generation:** Self-contained HTML (no CDN, fully offline)
 - **Auth:** OAuth 2.0 PKCE + local session tokens (HMAC-SHA256)
 
@@ -132,10 +142,10 @@ Click "Sign in" in dashboard or Test Studio header
 - Extensible to JavaScript, Java, Go (roadmap)
 
 ### Performance
-- Incremental mutation generation (don't re-mutate unchanged code)
-- Streaming results (mutations appear as they're tested)
+- Incremental analysis (don't re-analyze unchanged code)
+- Streaming results (insights appear as they're computed)
 - Parallel test execution (pytest-xdist ready)
-- Equivalent mutant filtering (AI-powered, reduces noise 30-50%)
+- Smart analysis optimization (reduce noise 30-50%)
 
 ### Data & Privacy
 - All auth tokens stored locally (`~/.qamill/auth.json`, user-locked)
@@ -151,27 +161,28 @@ Click "Sign in" in dashboard or Test Studio header
 ```bash
 qamill analyze src/mymodule.py --threshold 80
 ```
-Fail the build if mutation score < 80%.
+Enforce test quality standards in your build pipeline.
 
 ### 2. **Legacy Code Testing**
 - Run QAMill on old modules
-- Auto-heal weak tests
+- Identify test gaps systematically
+- Auto-generate missing tests
 - Gradually improve coverage
 
-### 3. **Code Review Checkpoints**
+### 3. **Code Review & Quality Assurance**
 - Reviewer runs QAMill on PR
-- "Does this PR's test suite catch the changes?"
-- Comments on survived mutants
+- "Are tests adequate for these changes?"
+- Comments on test gaps with suggestions
 
-### 4. **Test Authoring (Zero to Hero)**
+### 4. **Test Authoring (Zero to Complete)**
 - New function written
-- QAMill generates unit tests
+- QAMill generates comprehensive tests
 - Review + integrate in 5 minutes
 
 ### 5. **Compliance & Traceability**
 - Generate traceability matrix
 - Map requirements → test cases
-- Export for audits
+- Export for audits and compliance reports
 
 ---
 
@@ -186,8 +197,8 @@ Open VS Code Settings (`Ctrl+,`), search `qamill`:
 | `amil.openaiApiKey` | — | OpenAI API key |
 | `amil.xaiApiKey` | — | Grok API key |
 | `amil.ollamaModel` | `llama3` | Local Ollama model |
-| `amil.autoHeal` | `true` | Auto-generate tests for mutants |
-| `amil.detectEquivalents` | `true` | Filter equivalent mutants |
+| `amil.autoHeal` | `true` | Auto-generate tests for gaps |
+| `amil.detectEquivalents` | `true` | Smart analysis filtering |
 | `amil.backendPort` | `8765` | Backend API port |
 | `amil.email.provider` | `gmail` | SMTP provider (gmail/outlook/custom) |
 
@@ -208,17 +219,17 @@ Open VS Code Settings (`Ctrl+,`), search `qamill`:
 
 ✨ **For Best Results:**
 - Use **Claude** for test generation (most reliable)
-- Run **Analyze** on small modules first (< 1000 LOC)
-- Review **auto-healed tests** before committing (verify they're correct)
+- Run **Quality Analysis** on small modules first (< 1000 LOC)
+- Review **auto-generated tests** before committing (verify they're correct)
 - Export **HTML reports** for stakeholders (zero dependencies, professional)
-- Set **mutation threshold** in CI to enforce quality gates
+- Set **quality threshold** in CI to enforce governance standards
 
 🚀 **Getting Started:**
 1. Right-click a test file → "Analyze Test Quality"
-2. Watch the live dashboard stream results
-3. Click a survived mutant → see what your tests missed
-4. Open "Test Studio" → generate a test to cover it
-5. Save the new test to your suite
+2. Watch the live dashboard show quality metrics
+3. Click on gaps → see what your tests missed
+4. Open "Test Studio" → generate tests to cover gaps
+5. Save the new tests to your suite
 
 ---
 
@@ -230,6 +241,6 @@ Open VS Code Settings (`Ctrl+,`), search `qamill`:
 
 ---
 
-**QAMill: Because Great Tests Don't Guess.**
+**QAMill: Enterprise QA Governance, Powered by AI**
 
-*Powered by AI. Owned by You. Zero Cloud Lock-in.*
+*Comprehensive test quality intelligence. Automated gap identification. Complete test excellence.*
