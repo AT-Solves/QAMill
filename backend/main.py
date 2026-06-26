@@ -33,6 +33,13 @@ from cross_method_mutator import CrossMethodMutator
 from ai_mutant_generator import AIMutantGenerator
 from report_generator import build_html_report, build_login_page
 from auth_manager import auth, OAUTH_PROVIDERS, LLM_PROVIDERS
+from language_adapters import (
+    detect_language,
+    detect_test_framework,
+    check_runtime_available,
+    get_language_display_name,
+)
+from language_adapters.javascript_adapter import JavaScriptAdapter
 
 app = FastAPI(title="AMIL Mutation Testing Server", version="1.0.0")
 
@@ -146,6 +153,103 @@ async def _broadcast(job_id: str, event: dict) -> None:
 
 
 # ── Core analysis pipeline ─────────────────────────────────────────────────
+
+async def _run_javascript_analysis(
+    job_id: str, req: AnalyzeRequest, framework: str
+):
+    """Analyze JavaScript/TypeScript file using JS-specific adapter"""
+    try:
+        # Initialize JavaScript adapter
+        adapter = JavaScriptAdapter(req.project_root, framework)
+
+        await _broadcast(
+            job_id,
+            {
+                "type": "status",
+                "message": f"Analyzing JavaScript file with {adapter._get_framework_name()}...",
+            },
+        )
+
+        # Generate mutants
+        await _broadcast(
+            job_id, {"type": "status", "message": "Generating mutations (5 operators)..."}
+        )
+        mutants = adapter.generate_mutants(req.file_path)
+        total = len(mutants)
+
+        await _broadcast(
+            job_id,
+            {
+                "type": "start",
+                "total": total,
+                "file": Path(req.file_path).name,
+                "language": "JavaScript",
+                "framework": adapter._get_framework_name(),
+                "operators": [
+                    "AOR",
+                    "ROR",
+                    "LCR",
+                    "BCR",
+                    "STR",
+                ],
+            },
+        )
+
+        killed = 0
+        survived = 0
+        index = 0
+
+        for mutant in mutants:
+            index += 1
+            result = await adapter.run_test_against_mutant(mutant, [])
+
+            if result["status"] == "killed":
+                killed += 1
+                status = "killed"
+            elif result["status"] == "survived":
+                survived += 1
+                status = "survived"
+            else:
+                status = "error"
+
+            await _broadcast(
+                job_id,
+                {
+                    "type": "mutant",
+                    "index": index,
+                    "total": total,
+                    "id": mutant.id,
+                    "operator": mutant.operator,
+                    "description": mutant.description,
+                    "line": mutant.line_no,
+                    "status": status,
+                    "progress": round((index / total) * 100, 1),
+                },
+            )
+
+        score = round((killed / total) * 100, 1) if total > 0 else 0
+
+        await _broadcast(
+            job_id,
+            {
+                "type": "complete",
+                "killed": killed,
+                "survived": survived,
+                "total": total,
+                "score": score,
+                "language": "JavaScript",
+            },
+        )
+
+    except Exception as e:
+        await _broadcast(
+            job_id,
+            {
+                "type": "error",
+                "message": f"JavaScript analysis failed: {str(e)}",
+            },
+        )
+
 
 async def _run_analysis(job_id: str, req: AnalyzeRequest):
     runner: TestRunner | None = None
@@ -379,6 +483,92 @@ def _raw_score(killed: int, survived: int, equivalent: int) -> float:
 
 
 # ── API Endpoints ──────────────────────────────────────────────────────────
+
+# ── Multi-Language Support ─────────────────────────────────────────────────
+
+
+@app.get("/detect/language")
+async def detect_file_language(file_path: str):
+    """Detect programming language from file extension"""
+    language = detect_language(file_path)
+    if not language:
+        raise HTTPException(400, f"Unsupported file type: {file_path}")
+
+    available, error = check_runtime_available(language)
+    return {
+        "file_path": file_path,
+        "language": language,
+        "display_name": get_language_display_name(language),
+        "runtime_available": available,
+        "runtime_error": error,
+    }
+
+
+@app.get("/detect/framework")
+async def detect_framework(project_path: str, language: str = None):
+    """Detect test framework (Jest, Vitest, Mocha for JS; pytest for Python)"""
+    project = Path(project_path)
+    if not project.exists():
+        raise HTTPException(400, f"Project not found: {project_path}")
+
+    # Auto-detect language if not provided
+    if not language:
+        # Check for package.json (JS) or setup.py/pyproject.toml (Python)
+        if (project / "package.json").exists():
+            language = "javascript"
+        elif (project / "setup.py").exists() or (project / "pyproject.toml").exists():
+            language = "python"
+        else:
+            language = "python"  # Default
+
+    framework = detect_test_framework(str(project), language)
+    return {
+        "project_path": project_path,
+        "language": language,
+        "framework": framework,
+        "display_name": get_language_display_name(language),
+    }
+
+
+@app.post("/analyze/javascript", response_model=JobResponse)
+async def start_javascript_analysis(req: AnalyzeRequest):
+    """Analyze JavaScript/TypeScript file for mutation testing"""
+    file_path = Path(req.file_path)
+    project_root = Path(req.project_root)
+
+    if not file_path.exists():
+        raise HTTPException(400, f"File not found: {req.file_path}")
+    if not project_root.exists():
+        raise HTTPException(400, f"Project root not found: {req.project_root}")
+
+    language = detect_language(str(file_path))
+    if language != "javascript":
+        raise HTTPException(
+            400, f"File is {language}, not JavaScript. Use /analyze instead."
+        )
+
+    # Check Node.js available
+    available, error = check_runtime_available("javascript")
+    if not available:
+        raise HTTPException(400, f"Node.js runtime error: {error}")
+
+    job_id = str(uuid.uuid4())
+    _job_events[job_id] = []
+    _job_subs[job_id] = []
+    _jobs[job_id] = None
+
+    # Detect test framework
+    framework = detect_test_framework(str(project_root), "javascript")
+
+    asyncio.create_task(
+        _run_javascript_analysis(job_id, req, framework)
+    )
+
+    return JobResponse(
+        job_id=job_id,
+        stream_url=f"http://localhost:8765/stream/{job_id}"
+    )
+
 
 @app.post("/analyze", response_model=JobResponse)
 async def start_analysis(req: AnalyzeRequest):
