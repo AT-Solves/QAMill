@@ -16,12 +16,12 @@ QAMill is a **complete QA Governance Platform** that empowers teams to establish
 - **Compliance reporting** — traceability matrices for regulated environments
 - **Real-time dashboards** — live test quality metrics and insights
 
-#### 🧬 **Mutation-Based Quality Analysis** *(Secondary Method)*
-- **Intelligent mutation engine** with 17+ operators (arithmetic, logic, boundary, string, list mutations)
-- **Equivalent mutant detection** — filters out noise that doesn't matter
-- **Survived mutant identification** — shows exactly which code changes your tests don't catch
-- **Auto-healing** — AI automatically writes and validates tests to fix quality gaps
-- **Live streaming analysis** — real-time mutation testing with progress tracking
+#### 🧬 **Intelligent Test Quality Analysis**
+- **Advanced mutation engine** — 17+ mutation operators (arithmetic, logic, boundary, string, list operations)
+- **Survived mutant detection** — pinpoint exactly which code variations your tests miss
+- **Equivalent mutant filtering** — eliminate noise for accurate quality metrics
+- **Automated test gap fixing** — AI-powered test generation to eliminate quality gaps
+- **Real-time streaming** — live mutation analysis with progress tracking and detailed insights
 
 #### 🎯 **Test Authoring & Generation**
 - **Unit test generation** — AI writes complete pytest suites with edge cases
@@ -44,12 +44,18 @@ QAMill is a **complete QA Governance Platform** that empowers teams to establish
 - **Identity & role tracking** — synchronized across all dashboards
 - **Team collaboration** — shared reports and metrics
 
-#### 🤖 **AI Integration**
-- **Claude (Anthropic)** — most capable, recommended for complex analysis
-- **GPT-4o (OpenAI)** — fast, excellent quality
-- **Grok (xAI)** — cutting-edge reasoning
-- **Ollama (local)** — private, fully offline
-- **Multi-LLM support** — switch providers per task
+#### 🤖 **Multi-Provider AI Engine** 
+**8 world-class LLM providers with instant switching:**
+- **Claude (Anthropic)** — most capable for complex analysis and edge cases
+- **GPT-4o (OpenAI)** — fast, reliable, industry-standard quality
+- **Gemini (Google)** — advanced reasoning with latest capabilities
+- **Grok (xAI)** — cutting-edge reasoning for complex test scenarios
+- **OpenRouter** — access to 200+ models with load balancing
+- **DeepSeek** — cost-effective high-quality reasoning
+- **Mistral** — European AI with excellent performance
+- **Ollama (Local)** — 100% private, fully offline, zero cloud dependency
+
+**Smart provider management:** Connect multiple providers, select by task, automatic fallback to local Ollama if cloud provider unavailable
 
 ---
 

@@ -100,9 +100,61 @@ class UnitTestResult:
 
 
 class TestGenerator:
-    def __init__(self, llm_adapter, project_root: str):
+    def __init__(self, llm_adapter, project_root: str, user_email: str = "", fallback_llm=None):
         self.llm = llm_adapter
+        self.fallback_llm = fallback_llm  # Ollama as fallback if primary fails
         self.project_root = Path(project_root)
+        self.user_email = user_email
+
+    async def _call_llm_with_fallback(self, prompt: str, max_tokens: int = 500) -> str:
+        """Try primary LLM, fall back to Ollama if it fails or returns garbage."""
+        import sys
+        import asyncio
+        print(f"[DEBUG] Calling {self.llm.name} with {len(prompt)} char prompt...", file=sys.stderr, flush=True)
+
+        try:
+            # Timeout varies by provider: cloud (30s), local Ollama (300s)
+            timeout_seconds = 300.0 if self.llm.name == "inhouse" else 30.0
+            try:
+                result = await asyncio.wait_for(self.llm.call_async(prompt, max_tokens=max_tokens), timeout=timeout_seconds)
+            except asyncio.TimeoutError:
+                print(f"[DEBUG] {self.llm.name} TIMEOUT ({timeout_seconds}s) - falling back to Ollama", file=sys.stderr, flush=True)
+                raise Exception(f"{self.llm.name} timed out after {timeout_seconds} seconds")
+            print(f"[DEBUG] {self.llm.name} returned {len(result)} chars", file=sys.stderr, flush=True)
+
+            # Validate response has actual code/test content
+            result_clean = result.strip() if result else ""
+            has_code_indicators = any(indicator in result for indicator in ["def ", "```", "import ", "class ", "async def"])
+            has_minimum_length = len(result_clean) > 50
+
+            print(f"[DEBUG] Response validation: clean={bool(result_clean)}, code={has_code_indicators}, len={len(result_clean)}", file=sys.stderr, flush=True)
+
+            if result_clean and has_code_indicators and has_minimum_length:
+                print(f"[DEBUG] Response valid, returning from {self.llm.name}", file=sys.stderr, flush=True)
+                return result
+
+            # Invalid response - try fallback
+            if self.fallback_llm and self.fallback_llm.name != self.llm.name:
+                print(f"[DEBUG] Response invalid! Falling back to Ollama...", file=sys.stderr, flush=True)
+                fallback_result = await self.fallback_llm.call_async(prompt, max_tokens=max_tokens)
+                print(f"[DEBUG] Ollama returned {len(fallback_result)} chars", file=sys.stderr, flush=True)
+                return fallback_result
+
+            print(f"[DEBUG] No fallback available, returning invalid response", file=sys.stderr, flush=True)
+            return result
+        except Exception as e:
+            print(f"[DEBUG] {self.llm.name} exception: {type(e).__name__}: {str(e)[:100]}", file=sys.stderr, flush=True)
+            if self.fallback_llm and self.fallback_llm.name != self.llm.name:
+                print(f"[DEBUG] Trying fallback Ollama...", file=sys.stderr, flush=True)
+                try:
+                    fallback_result = await self.fallback_llm.call_async(prompt, max_tokens=max_tokens)
+                    print(f"[DEBUG] Ollama fallback returned {len(fallback_result)} chars", file=sys.stderr, flush=True)
+                    return fallback_result
+                except Exception as fallback_e:
+                    error_msg = f"Primary ({self.llm.name}) and fallback (Ollama) both failed. Primary: {str(e)[:50]}... Ollama: {str(fallback_e)[:50]}..."
+                    print(f"[DEBUG] BOTH FAILED: {error_msg}", file=sys.stderr, flush=True)
+                    raise Exception(error_msg)
+            raise
 
     # ── Unit tests ───────────────────────────────────────────────────────
     async def generate_unit_tests(self, file_path: str, verify: bool = True) -> UnitTestResult:
@@ -125,7 +177,10 @@ class TestGenerator:
             functions=", ".join(functions),
         )
         try:
-            raw = await self.llm.call_async(prompt, max_tokens=2000)
+            raw = await self._call_llm_with_fallback(prompt)
+            if self.user_email:
+                from usage_tracker import tracker
+                tracker.track_usage(self.user_email, self.llm.name, tokens_used=len(prompt.split()), task="unit_tests")
         except Exception as e:
             return UnitTestResult(False, "", False,
                 message=(_llm_err_msg(e, self.llm.name)), module_name=module_name)
@@ -188,7 +243,10 @@ class TestGenerator:
 
         prompt = MANUAL_PROMPT.format(module_name=module_name, source=source)
         try:
-            raw = await self.llm.call_async(prompt, max_tokens=2000)
+            raw = await self._call_llm_with_fallback(prompt)
+            if self.user_email:
+                from usage_tracker import tracker
+                tracker.track_usage(self.user_email, self.llm.name, tokens_used=len(prompt.split()), task="manual_tests")
         except Exception as e:
             return {"success": False, "cases": [], "message": _llm_err_msg(e, self.llm.name)}
 
@@ -213,8 +271,11 @@ class TestGenerator:
         if self.llm.name == "none":
             return {"success": False, "content": "", "message": "Select an LLM provider first."}
         try:
-            raw = await self.llm.call_async(
-                GHERKIN_PROMPT.format(module_name=module_name, source=source), max_tokens=2000)
+            prompt = GHERKIN_PROMPT.format(module_name=module_name, source=source)
+            raw = await self._call_llm_with_fallback(prompt)
+            if self.user_email:
+                from usage_tracker import tracker
+                tracker.track_usage(self.user_email, self.llm.name, tokens_used=len(prompt.split()), task="gherkin")
         except Exception as e:
             return {"success": False, "content": "", "message": _llm_err_msg(e, self.llm.name)}
         m = re.search(r"```(?:gherkin)?\s*(.*?)```", raw, re.DOTALL)
@@ -231,8 +292,11 @@ class TestGenerator:
         if self.llm.name == "none":
             return {"success": False, "rows": [], "message": "Select an LLM provider first."}
         try:
-            raw = await self.llm.call_async(
-                TRACEABILITY_PROMPT.format(module_name=module_name, source=source), max_tokens=2000)
+            prompt = TRACEABILITY_PROMPT.format(module_name=module_name, source=source)
+            raw = await self._call_llm_with_fallback(prompt)
+            if self.user_email:
+                from usage_tracker import tracker
+                tracker.track_usage(self.user_email, self.llm.name, tokens_used=len(prompt.split()), task="traceability")
         except Exception as e:
             return {"success": False, "rows": [], "message": _llm_err_msg(e, self.llm.name)}
         rows = self._extract_json_cases(raw)

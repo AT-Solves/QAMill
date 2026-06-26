@@ -21,6 +21,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from mutation_engine import MutationEngine, OPERATOR_METADATA
@@ -41,6 +42,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Static files (favicon, logos) ──────────────────────────────────────────
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # ── Job state ──────────────────────────────────────────────────────────────
 # _job_events  : full ordered history of every event (for replay on reconnect)
@@ -554,12 +560,37 @@ async def ask_assistant(req: AskRequest):
 # ── Test generation: unit tests + manual test suite ────────────────────────
 
 def _make_test_generator(req: GenerateTestsRequest) -> TestGenerator:
+    import sys
+    print(f"[BACKEND] _make_test_generator called", file=sys.stderr, flush=True)
+    print(f"[BACKEND] Provider: {req.llm_provider}", file=sys.stderr, flush=True)
+    print(f"[BACKEND] API Key received: {req.llm_api_key if req.llm_api_key else 'NONE/EMPTY'}", file=sys.stderr, flush=True)
+    print(f"[BACKEND] API Key length: {len(req.llm_api_key or '')}", file=sys.stderr, flush=True)
+
     kwargs = {}
     if req.llm_api_key:
+        print(f"[BACKEND] API Key found, adding to kwargs", file=sys.stderr, flush=True)
         kwargs["api_key"] = req.llm_api_key
+    else:
+        print(f"[BACKEND] WARNING: API Key is empty/None, NOT added to kwargs", file=sys.stderr, flush=True)
+
+    # Get user-selected model for this provider (if stored)
+    stored_model = auth.get_llm_model(req.llm_provider)
+    if stored_model:
+        print(f"[BACKEND] Stored model for {req.llm_provider}: {stored_model}", file=sys.stderr, flush=True)
+        kwargs["model"] = stored_model
+    else:
+        print(f"[BACKEND] No stored model, will use adapter default", file=sys.stderr, flush=True)
+
+    print(f"[BACKEND] Creating adapter with kwargs: {list(kwargs.keys())}", file=sys.stderr, flush=True)
     llm = create_adapter(req.llm_provider, **kwargs)
+    print(f"[BACKEND] Adapter created: {llm.__class__.__name__}", file=sys.stderr, flush=True)
+
+    # Ollama as fallback provider (always available locally)
+    fallback_llm = create_adapter("ollama") if req.llm_provider != "ollama" else None
+
     root = req.project_root or str(Path(req.file_path).parent)
-    return TestGenerator(llm, root)
+    user_email = auth.get_current_user().get("email", "") if auth.get_current_user() else ""
+    return TestGenerator(llm, root, user_email=user_email, fallback_llm=fallback_llm)
 
 
 @app.post("/generate/unit-tests")
@@ -612,6 +643,7 @@ async def generate_test_suite(req: GenerateTestsRequest):
     """
     Unified generator: pick the output format (unit | test_case | table |
     gherkin | traceability). Returns normalised {content, lang, ...} for the UI.
+    Streams results one-by-one for manual test formats (test_case, table).
     """
     if not Path(req.file_path).exists():
         raise HTTPException(400, f"File not found: {req.file_path}")
@@ -619,7 +651,29 @@ async def generate_test_suite(req: GenerateTestsRequest):
         gen = _make_test_generator(req)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    return await gen.generate_suite(req.file_path, req.format, verify=req.verify)
+
+    # For manual test formats, stream results one-by-one; else return complete result
+    if req.format in ("test_case", "table"):
+        async def stream_tests():
+            yield 'data: {"type":"start","format":"' + req.format + '"}\n\n'
+            try:
+                result = await gen.generate_manual_tests(req.file_path)
+                if not result.get("success"):
+                    yield f'data: {{"type":"error","message":"{result.get("message","Generation failed")}"}}\n\n'
+                    return
+
+                # Stream each test case one-by-one
+                for i, case in enumerate(result.get("cases", []), 1):
+                    yield f'data: {{"type":"test","index":{i},"case":{json.dumps(case)}}}\n\n'
+                    await asyncio.sleep(0.05)  # Small delay to show streaming effect
+
+                yield f'data: {{"type":"complete","count":{len(result.get("cases",[]))},"module":"{result.get("module","")}", "message":"{result.get("message","")}"}}\n\n'
+            except Exception as e:
+                yield f'data: {{"type":"error","message":"{str(e)}"}}\n\n'
+
+        return StreamingResponse(stream_tests(), media_type="text/event-stream")
+    else:
+        return await gen.generate_suite(req.file_path, req.format, verify=req.verify)
 
 
 def _validate_and_sanitise(answer: str, context: str) -> str:
@@ -670,6 +724,30 @@ async def list_providers():
             {"name": "inhouse", "label": "Ollama (local)",        "configured": True,  "model": "llama3"},
         ]
     }
+
+
+# ── Usage tracking & quotas ──────────────────────────────────────────────────
+
+@app.get("/usage/today")
+async def get_today_usage():
+    """Get today's usage and quota for current user."""
+    user = auth.get_current_user()
+    if not user or not user.get("email"):
+        return {"tier": "free", "total_calls": 0, "quota_limit": 50, "quota_remaining": 50, "quota_exceeded": False}
+
+    from usage_tracker import tracker
+    return tracker.get_today_usage(user["email"])
+
+
+@app.get("/usage/summary")
+async def get_usage_summary(days: int = 30):
+    """Get usage summary over N days."""
+    user = auth.get_current_user()
+    if not user or not user.get("email"):
+        return {"tier": "free", "total_calls": 0, "by_provider": {}}
+
+    from usage_tracker import tracker
+    return tracker.get_usage_summary(user["email"], days=min(days, 365))
 
 
 @app.get("/health")
@@ -1104,6 +1182,15 @@ async def email_report_direct(req: EmailReportRequest):
 class LLMConnectRequest(BaseModel):
     provider: str
     api_key:  str = ""
+    model:    str = ""  # Optional: user-selected model for this provider
+
+
+class CustomProviderRequest(BaseModel):
+    name: str
+    api_endpoint: str
+    api_key: str
+    auth_type: str = "bearer"
+    model: str = ""
 
 
 class OAuthConfigRequest(BaseModel):
@@ -1288,9 +1375,12 @@ async def login_page():
 @app.get("/auth/status")
 async def auth_status():
     """Return all connected OAuth providers, LLM keys, and the signed-in user."""
+    connected = auth.get_connected_llm_providers()
     return {
         "oauth":   auth.get_connected_providers(),
-        "llm":     auth.get_connected_llm_providers(),
+        "llm":     auth.get_all_llm_providers(),
+        "connected_llm": [p["provider"] for p in connected],
+        "active_llm": auth.get_active_llm(),
         "primary": auth.get_primary_identity(),
         "user":    auth.get_current_user(),
     }
@@ -1368,8 +1458,9 @@ async def auth_configure(provider: str, req: OAuthConfigRequest):
             "configured": True, "label": OAUTH_PROVIDERS[provider]["label"]}
 
 
-@app.post("/auth/llm/connect")
-async def auth_llm_connect(req: LLMConnectRequest):
+@app.post("/auth/llm/validate")
+async def auth_llm_validate(req: LLMConnectRequest):
+    """Validate an LLM API key without storing it."""
     try:
         result = await auth.validate_and_store_llm_key(req.provider, req.api_key)
         return result
@@ -1377,10 +1468,138 @@ async def auth_llm_connect(req: LLMConnectRequest):
         raise HTTPException(400, str(e))
 
 
-@app.delete("/auth/llm/disconnect/{provider}")
-async def auth_llm_disconnect(provider: str):
-    auth.disconnect_llm(provider)
-    return {"success": True, "provider": provider}
+@app.post("/auth/llm/connect")
+async def auth_llm_connect(req: LLMConnectRequest):
+    try:
+        # Check if this is a custom provider
+        data = auth._load()
+        custom_providers = data.get("custom_llm", {})
+
+        if req.provider in custom_providers:
+            # For custom providers, just set as active (already validated during add)
+            auth.set_active_llm(req.provider)
+            return {"provider": req.provider, "label": custom_providers[req.provider].get("name"), "valid": True}
+        else:
+            # For built-in providers, validate and store the API key + model
+            result = await auth.validate_and_store_llm_key(req.provider, req.api_key, req.model)
+            # Set as active provider (only one at a time)
+            auth.set_active_llm(req.provider)
+            return result
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Server error: {str(e)}")
+
+
+@app.post("/auth/llm/set-active")
+async def auth_llm_set_active(req: LLMConnectRequest):
+    """Set the active LLM provider."""
+    auth.set_active_llm(req.provider)
+    return {"success": True, "active": req.provider}
+
+
+@app.post("/auth/llm/disconnect")
+async def auth_llm_disconnect(req: LLMConnectRequest):
+    """Disconnect an LLM provider."""
+    auth.disconnect_llm(req.provider)
+    return {"success": True, "provider": req.provider}
+
+
+@app.get("/auth/llm/get-key/{provider}")
+async def auth_llm_get_key(provider: str):
+    """Get the stored API key for a provider."""
+    key = auth.get_llm_key(provider)
+    return {"provider": provider, "api_key": key or ""}
+
+
+@app.get("/auth/llm/models/{provider}")
+async def auth_llm_get_models(provider: str):
+    """Get available models for a provider."""
+    # Define available models per provider
+    models = {
+        "claude": [
+            {"name": "claude-opus-4", "label": "Claude 4 Opus (latest)"},
+            {"name": "claude-sonnet-4-5", "label": "Claude 4.5 Sonnet (recommended)"},
+            {"name": "claude-haiku-4-5", "label": "Claude 4.5 Haiku (fast)"},
+        ],
+        "gpt": [
+            {"name": "gpt-4o", "label": "GPT-4o (recommended)"},
+            {"name": "gpt-4-turbo", "label": "GPT-4 Turbo"},
+            {"name": "gpt-3.5-turbo", "label": "GPT-3.5 Turbo (fast)"},
+        ],
+        "gemini": [
+            {"name": "gemini-2.0-flash", "label": "Gemini 2.0 Flash (recommended - stable)"},
+            {"name": "gemini-2.5-flash", "label": "Gemini 2.5 Flash (fast)"},
+            {"name": "gemini-2.5-pro", "label": "Gemini 2.5 Pro (high quality)"},
+            {"name": "gemini-3.5-flash", "label": "Gemini 3.5 Flash (latest - may be busy)"},
+            {"name": "gemini-flash-latest", "label": "Gemini Flash (always latest)"},
+            {"name": "gemini-pro-latest", "label": "Gemini Pro (always latest)"},
+        ],
+        "openrouter": [
+            {"name": "auto", "label": "Auto (best value)"},
+            {"name": "gpt-4o", "label": "GPT-4o via OpenRouter"},
+            {"name": "claude-3-opus", "label": "Claude 3 Opus via OpenRouter"},
+        ],
+        "deepseek": [
+            {"name": "deepseek-chat", "label": "DeepSeek Chat (recommended)"},
+            {"name": "deepseek-coder", "label": "DeepSeek Coder"},
+        ],
+        "mistral": [
+            {"name": "mistral-large-latest", "label": "Mistral Large (recommended)"},
+            {"name": "mistral-medium-latest", "label": "Mistral Medium"},
+            {"name": "mistral-small-latest", "label": "Mistral Small (fast)"},
+        ],
+        "grok": [
+            {"name": "grok-3", "label": "Grok 3 (recommended)"},
+            {"name": "grok-2", "label": "Grok 2"},
+        ],
+        "ollama": [
+            {"name": "llama3", "label": "Llama 3 (default)"},
+            {"name": "llama2", "label": "Llama 2"},
+            {"name": "mistral", "label": "Mistral (local)"},
+            {"name": "neural-chat", "label": "Neural Chat"},
+        ],
+    }
+    provider_models = models.get(provider, [])
+    stored_model = auth.get_llm_model(provider)
+    return {
+        "provider": provider,
+        "models": provider_models,
+        "stored_model": stored_model,
+        "default_model": provider_models[0]["name"] if provider_models else ""
+    }
+
+
+@app.post("/auth/llm/custom/add")
+async def auth_llm_custom_add(req: CustomProviderRequest):
+    """Add a custom LLM provider."""
+    try:
+        if not req.name or not req.name.strip():
+            raise ValueError("Provider name is required")
+        if not req.api_endpoint or not req.api_endpoint.strip():
+            raise ValueError("API endpoint is required")
+        if not req.api_key or not req.api_key.strip():
+            raise ValueError("API key is required")
+
+        config = {
+            "api_endpoint": req.api_endpoint.strip(),
+            "auth_type": req.auth_type,
+            "model": req.model.strip() if req.model else "",
+            "api_key": req.api_key.strip(),
+        }
+        result = auth.add_custom_provider(req.name.strip(), config)
+        return {"success": True, **result}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/auth/llm/custom/{provider_id}")
+async def auth_llm_custom_delete(provider_id: str):
+    """Delete a custom LLM provider."""
+    auth.delete_custom_provider(provider_id)
+    return {"success": True, "provider_id": provider_id}
 
 
 @app.get("/auth/providers")

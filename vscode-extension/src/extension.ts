@@ -934,21 +934,102 @@ async function runStudioGeneration(context: vscode.ExtensionContext, msg: any) {
   if (fmt === "unit") { prog("Will verify the suite against your original code after generation…"); }
 
   try {
-    const resp = await postJson(`http://localhost:${port}/generate/test-suite`, {
-      file_path: filePath, project_root: folder,
-      llm_provider: provider, llm_api_key: getApiKey(cfg, provider),
-      format: fmt, verify: true,
-    });
-    if (!resp.success) {
-      studioPanel?.webview.postMessage({ type: "studio_error", message: resp.message || "Generation failed." });
-      return;
+    const isStreamFormat = fmt === "test_case" || fmt === "table";
+
+    // Fetch the stored API key from backend auth vault
+    let apiKey = "";
+    try {
+      const keyResp = await fetch(`http://localhost:${port}/auth/llm/get-key/${provider}`);
+      if (keyResp.ok) {
+        const keyData = (await keyResp.json()) as any;
+        apiKey = keyData?.api_key || "";
+      }
+    } catch (e) {
+      // Silently continue - key will be empty and backend will handle
     }
-    if (fmt === "unit" && resp.verified !== undefined) {
-      prog(resp.verified ? `Verified — ${resp.passed} test(s) passed against the original.`
-                         : `Generated, but ${resp.failed} test(s) did not pass — review before committing.`);
+
+    prog(`[DEBUG-FRONTEND] Provider: ${provider}`);
+    prog(`[DEBUG-FRONTEND] API Key from backend vault: ${apiKey ? apiKey.substring(0, 10) + '***' : 'NOT_FOUND'}`);
+
+    if (isStreamFormat) {
+      // Stream results for manual test formats
+      const requestBody = {
+        file_path: filePath, project_root: folder,
+        llm_provider: provider, llm_api_key: apiKey,
+        format: fmt, verify: true,
+      };
+      prog(`[DEBUG-FRONTEND] Sending request with llm_api_key: ${apiKey ? 'YES' : 'NO'}`);
+
+      const resp = await fetch(`http://localhost:${port}/generate/test-suite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!resp.ok) {
+        studioPanel?.webview.postMessage({ type: "studio_error", message: `HTTP ${resp.status}` });
+        return;
+      }
+
+      const reader = resp.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let testCount = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value);
+        const lines = text.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const json_str = line.slice(6).trim();
+            if (!json_str) continue;
+            try {
+              const evt = JSON.parse(json_str);
+              if (evt.type === "start") {
+                prog("Generating tests… streaming results:");
+              } else if (evt.type === "test") {
+                testCount++;
+                prog(`✓ Test ${evt.index}: ${evt.case.id || evt.case.name || "Test " + evt.index}`);
+              } else if (evt.type === "complete") {
+                prog(`Done: ${evt.count || testCount} test(s) generated.`);
+              } else if (evt.type === "error") {
+                studioPanel?.webview.postMessage({ type: "studio_error", message: evt.message });
+                return;
+              }
+            } catch (e) {
+              /* ignore parse errors */
+            }
+          }
+        }
+      }
+
+      // Fetch the final result (streaming doesn't include complete content)
+      const finalResp = await postJson(`http://localhost:${port}/generate/test-suite`, {
+        file_path: filePath, project_root: folder,
+        llm_provider: provider, llm_api_key: getApiKey(cfg, provider),
+        format: fmt, verify: true,
+      });
+      studioPanel?.webview.postMessage({ type: "studio_result", result: finalResp });
+    } else {
+      // Non-streaming formats (unit, gherkin, traceability)
+      const resp = await postJson(`http://localhost:${port}/generate/test-suite`, {
+        file_path: filePath, project_root: folder,
+        llm_provider: provider, llm_api_key: getApiKey(cfg, provider),
+        format: fmt, verify: true,
+      });
+      if (!resp.success) {
+        studioPanel?.webview.postMessage({ type: "studio_error", message: resp.message || "Generation failed." });
+        return;
+      }
+      if (fmt === "unit" && resp.verified !== undefined) {
+        prog(resp.verified ? `Verified — ${resp.passed} test(s) passed against the original.`
+                           : `Generated, but ${resp.failed} test(s) did not pass — review before committing.`);
+      }
+      prog("Done.");
+      studioPanel?.webview.postMessage({ type: "studio_result", result: resp });
     }
-    prog("Done.");
-    studioPanel?.webview.postMessage({ type: "studio_result", result: resp });
   } catch (err) {
     studioPanel?.webview.postMessage({ type: "studio_error",
       message: String(err).replace(/^Error: HTTP \d+: /, "") });
@@ -1083,12 +1164,49 @@ function deliverPendingJob() {
 }
 
 function getApiKey(config: vscode.WorkspaceConfiguration, provider: string): string {
-  const keys: Record<string, string> = {
-    claude: config.get("anthropicApiKey", ""),
-    gpt:    config.get("openaiApiKey", ""),
-    grok:   config.get("xaiApiKey", ""),
+  // Map provider names to their setting keys
+  const settingKeys: Record<string, string> = {
+    claude:     "anthropicApiKey",
+    gpt:        "openaiApiKey",
+    grok:       "xaiApiKey",
+    gemini:     "geminiApiKey",
+    openrouter: "openrouterApiKey",
+    deepseek:   "deepseekApiKey",
+    mistral:    "mistralApiKey",
   };
-  return keys[provider] || "";
+
+  const settingKey = settingKeys[provider];
+  if (!settingKey) return "";
+
+  // Try to get the key using the setting name
+  let key = config.get(settingKey, "");
+
+  console.log(`[getApiKey] Provider: ${provider}`);
+  console.log(`[getApiKey] Setting key: amil.${settingKey}`);
+  console.log(`[getApiKey] Value found: ${key ? `YES (length: ${key.length})` : "NO"}`);
+
+  // If not found, try reading directly from VS Code settings using inspect
+  if (!key) {
+    try {
+      const inspected = config.inspect(settingKey);
+      console.log(`[getApiKey] Inspect result:`, inspected);
+
+      if (inspected?.globalValue) {
+        key = inspected.globalValue as string;
+        console.log(`[getApiKey] Found in GLOBAL settings`);
+      } else if (inspected?.workspaceValue) {
+        key = inspected.workspaceValue as string;
+        console.log(`[getApiKey] Found in WORKSPACE settings`);
+      } else if (inspected?.workspaceFolderValue) {
+        key = inspected.workspaceFolderValue as string;
+        console.log(`[getApiKey] Found in FOLDER settings`);
+      }
+    } catch (e) {
+      console.log(`[getApiKey] Inspect failed:`, e);
+    }
+  }
+
+  return key;
 }
 
 /**
@@ -1309,6 +1427,85 @@ async function handleSharedHeaderMessage(panel: vscode.WebviewPanel | undefined,
     vscode.window.showInformationMessage("QAMill: Signed out.");
     return;
   }
+  if (msg.type === "sh_connect_provider") {
+    const { provider, api_key, model } = msg;
+    if (!api_key) return;
+    try {
+      const ready = await ensureBackendRunning(context, port);
+      if (!ready) return;
+      const result = await postJson(`http://127.0.0.1:${port}/auth/llm/validate`, { provider, api_key });
+      if (result.valid) {
+        // Now store it with selected model
+        const connectPayload: any = { provider, api_key };
+        if (model) { connectPayload.model = model; }
+        await postJson(`http://127.0.0.1:${port}/auth/llm/connect`, connectPayload);
+        const modelStr = model ? ` (${model})` : '';
+        vscode.window.showInformationMessage(`QAMill: ${provider.toUpperCase()} connected!${modelStr}`);
+        panel?.webview.postMessage({ type: "sh_refresh_providers" });
+      } else {
+        vscode.window.showErrorMessage(`QAMill: Invalid ${provider.toUpperCase()} API key.`);
+      }
+    } catch (e) {
+      vscode.window.showErrorMessage(`QAMill: Failed to connect ${provider.toUpperCase()}: ${e}`);
+    }
+    return;
+  }
+  if (msg.type === "sh_disconnect_provider") {
+    const { provider } = msg;
+    try {
+      const ready = await ensureBackendRunning(context, port);
+      if (ready) { await postJson(`http://127.0.0.1:${port}/auth/llm/disconnect`, { provider }); }
+      vscode.window.showInformationMessage(`QAMill: ${provider.toUpperCase()} disconnected.`);
+      panel?.webview.postMessage({ type: "sh_refresh_providers" });
+    } catch (e) {
+      vscode.window.showErrorMessage(`QAMill: Failed to disconnect ${provider.toUpperCase()}.`);
+    }
+    return;
+  }
+  if (msg.type === "sh_set_active_provider") {
+    const { provider } = msg;
+    try {
+      const ready = await ensureBackendRunning(context, port);
+      if (ready) { await postJson(`http://127.0.0.1:${port}/auth/llm/set-active`, { provider }); }
+      panel?.webview.postMessage({ type: "sh_refresh_providers" });
+    } catch (e) {
+      vscode.window.showErrorMessage(`QAMill: Failed to switch provider.`);
+    }
+    return;
+  }
+  if (msg.type === "sh_add_custom_provider") {
+    const { name, endpoint, api_key } = msg;
+    try {
+      const ready = await ensureBackendRunning(context, port);
+      if (!ready) return;
+      const result = await postJson(`http://127.0.0.1:${port}/auth/llm/custom/add`, {
+        name, api_endpoint: endpoint, api_key
+      });
+      if (result.success) {
+        vscode.window.showInformationMessage(`QAMill: Custom provider "${name}" added!`);
+        panel?.webview.postMessage({ type: "sh_refresh_providers" });
+      }
+    } catch (e) {
+      vscode.window.showErrorMessage(`QAMill: Failed to add custom provider: ${e}`);
+    }
+    return;
+  }
+  if (msg.type === "sh_delete_custom_provider") {
+    const { provider_id } = msg;
+    try {
+      const ready = await ensureBackendRunning(context, port);
+      if (ready) {
+        await fetch(`http://127.0.0.1:${port}/auth/llm/custom/${provider_id}`, {
+          method: "DELETE"
+        });
+        vscode.window.showInformationMessage("QAMill: Custom provider deleted.");
+        panel?.webview.postMessage({ type: "sh_refresh_providers" });
+      }
+    } catch (e) {
+      vscode.window.showErrorMessage("QAMill: Failed to delete custom provider.");
+    }
+    return;
+  }
 }
 
 // ── Shared header (both tabs) ──────────────────────────────────────────────────
@@ -1329,12 +1526,13 @@ function getSharedHeaderHtml(tabType: "mutation" | "generation", logoUri: string
     </div>
   </div>
   <div class="sh-right">
-    <select id="sh-llm-selector" class="sh-llm" onchange="shChangeLLM()">
-      <option value="inhouse">Ollama (local)</option>
-      <option value="claude">Claude</option>
-      <option value="gpt">GPT-4o</option>
-      <option value="grok">Grok</option>
-    </select>
+    <div id="sh-usage" class="sh-usage" title="Daily LLM usage quota"></div>
+    <div id="sh-llm-badge" class="sh-llm-badge" onclick="shOpenProviderSwitcher()" title="Click to switch LLM provider">
+      <span id="sh-llm-icon">🏠</span>
+      <span id="sh-llm-name">Ollama</span>
+      <span class="sh-llm-indicator">✓</span>
+    </div>
+    <button id="sh-providers-btn" class="sh-providers-btn" onclick="shOpenProviderModal()" title="Configure LLM providers">⚙️ Preferences</button>
     <div id="sh-identity" class="sh-identity"></div>
   </div>
 </div>`;
@@ -1362,14 +1560,26 @@ function getSharedHeaderCSS(): string {
   font-size: 10.5px; opacity: .62; margin-top: 3px; font-weight: 500;
   letter-spacing: .4px;
 }
-.sh-right { display: flex; align-items: center; gap: 14px; }
-.sh-llm {
-  background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground);
-  border: 1px solid var(--vscode-dropdown-border, #555); border-radius: 6px;
-  padding: 6px 10px; font-size: 12px; cursor: pointer; font-weight: 500;
-  transition: all .15s ease;
+.sh-right { display: flex; align-items: center; gap: 12px; }
+.sh-llm-badge {
+  display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+  background: rgba(14,99,156,.08); border: 1px solid rgba(14,99,156,.15);
+  border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+  color: #0e639c; transition: all .15s ease; user-select: none;
+  position: relative;
 }
-.sh-llm:hover { opacity: .85; background: var(--vscode-list-hoverBackground); }
+.sh-llm-badge:hover {
+  background: rgba(14,99,156,.12);
+  border-color: rgba(14,99,156,.25);
+  box-shadow: 0 2px 6px rgba(14,99,156,.12);
+}
+.sh-llm-icon { font-size: 13px; }
+.sh-llm-name { font-weight: 700; }
+.sh-llm-indicator {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; background: #4ec9a0; color: #000;
+  border-radius: 50%; font-size: 9px; font-weight: 800; margin-left: 2px;
+}
 .sh-identity { font-size: 11px; }
 .sh-auth-chip {
   background: #0e639c; color: #fff; padding: 4px 12px; border-radius: 14px;
@@ -1384,15 +1594,164 @@ function getSharedHeaderCSS(): string {
   box-shadow: 0 2px 6px rgba(14,99,156,.2); transition: all .15s ease;
 }
 .sh-signin-btn:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(14,99,156,.3); }
+.sh-usage {
+  font-size: 11px; font-weight: 600; color: #666;
+  background: rgba(14,99,156,.08); padding: 4px 10px; border-radius: 12px;
+  min-width: 90px; text-align: center;
+}
+.sh-usage.quota-warning { background: rgba(255,152,0,.12); color: #ff9800; }
+.sh-usage.quota-exceeded { background: rgba(244,67,54,.12); color: #f44336; }
+.sh-providers-btn {
+  background: transparent; border: none; color: var(--vscode-editor-foreground);
+  font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 4px;
+  transition: all .15s ease;
+}
+.sh-providers-btn:hover { background: rgba(14,99,156,.1); }
+.sh-switcher-modal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,.2); display: none; z-index: 9999;
+  align-items: flex-start; justify-content: center; padding-top: 70px;
+}
+.sh-switcher-modal.show { display: flex; }
+.sh-switcher-content {
+  background: var(--vscode-editor-background); border: 1px solid var(--vscode-widget-border);
+  border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,.3); width: 260px;
+  animation: slideDown .15s ease;
+}
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.sh-switcher-header {
+  padding: 12px 14px; border-bottom: 1px solid var(--vscode-widget-border);
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  opacity: .6;
+}
+.sh-switcher-list { max-height: 320px; overflow-y: auto; }
+.sh-provider-item {
+  padding: 10px 14px; cursor: pointer; font-size: 12px; display: flex;
+  align-items: center; gap: 8px; transition: background .1s ease;
+  border-left: 2px solid transparent;
+}
+.sh-provider-item:hover { background: rgba(14,99,156,.08); }
+.sh-provider-item.active {
+  background: rgba(14,99,156,.12); border-left-color: #0e639c; font-weight: 700;
+}
+.sh-provider-item-icon { font-size: 13px; flex-shrink: 0; }
+.sh-provider-item-name { flex: 1; }
+.sh-provider-item-check {
+  display: none; width: 14px; height: 14px; background: #4ec9a0;
+  color: #000; border-radius: 50%; font-size: 9px; font-weight: 800;
+  align-items: center; justify-content: center;
+}
+.sh-provider-item.active .sh-provider-item-check { display: flex; }
+.provider-modal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center;
+  z-index: 10000;
+}
+.provider-modal.show { display: flex; }
+.provider-modal-content {
+  background: var(--vscode-editor-background); border: 1px solid var(--vscode-widget-border);
+  border-radius: 8px; padding: 20px; min-width: 500px; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0,0,0,.3);
+}
+.provider-modal-header { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.provider-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.provider-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--vscode-input-background); border: 1px solid var(--vscode-widget-border);
+  border-radius: 6px; padding: 12px 14px;
+}
+.provider-info { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.provider-label { font-weight: 600; font-size: 12px; }
+.provider-status { font-size: 10px; opacity: .6; }
+.provider-status.connected { color: #4ec9a0; }
+.provider-actions { display: flex; gap: 8px; }
+.provider-btn {
+  background: #0e639c; color: #fff; border: none; border-radius: 4px;
+  padding: 5px 12px; font-size: 11px; cursor: pointer; font-weight: 600;
+}
+.provider-btn:hover { opacity: .85; }
+.provider-btn.disconnect {
+  background: rgba(244,67,54,.2); color: #f44336;
+}
+.provider-modal-footer {
+  display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--vscode-widget-border);
+  padding-top: 16px;
+}
+.modal-btn {
+  background: #0e639c; color: #fff; border: none; border-radius: 4px;
+  padding: 7px 16px; font-size: 12px; cursor: pointer; font-weight: 600;
+}
+.modal-btn:hover { opacity: .85; }
+.modal-btn.close { background: var(--vscode-button-secondaryBackground); color: var(--vscode-editor-foreground); }
+.provider-section {
+  margin-bottom: 20px;
+}
+.provider-section-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  opacity: .6; margin-bottom: 10px;
+}
+.provider-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;
+}
+.provider-card {
+  background: var(--vscode-input-background); border: 2px solid var(--vscode-widget-border);
+  border-radius: 8px; padding: 16px; text-align: center; cursor: pointer;
+  transition: all .15s ease; user-select: none;
+}
+.provider-card:hover {
+  border-color: #0e639c;
+  background: rgba(14,99,156,.05);
+  box-shadow: 0 2px 8px rgba(14,99,156,.2);
+}
+.provider-card.connected {
+  border-color: #4ec9a0;
+  background: rgba(78,201,160,.05);
+}
+.provider-icon {
+  font-size: 36px; margin-bottom: 12px; display: block;
+}
+.provider-name {
+  font-weight: 700; font-size: 13px;
+  color: var(--vscode-editor-foreground);
+}
+.provider-connected-badge {
+  display: inline-block; font-size: 9px; padding: 3px 8px; border-radius: 12px;
+  background: #4ec9a0; color: #000; margin-top: 8px; font-weight: 700;
+}
 `;
 }
 
 function getSharedHeaderJS(): string {
   return `
-function shChangeLLM() {
-  const sel = document.getElementById('sh-llm-selector');
-  if (sel) { vscode.postMessage({ type: 'sh_set_llm', provider: sel.value }); }
+async function shFetchUsage() {
+  try {
+    const resp = await fetch('http://localhost:8765/usage/today');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const usageDiv = document.getElementById('sh-usage');
+    if (!usageDiv) return;
+
+    const remaining = data.quota_remaining || 0;
+    const limit = data.quota_limit || 50;
+    const used = limit - remaining;
+    const text = used + '/' + limit;
+    usageDiv.textContent = text;
+
+    if (data.quota_exceeded) {
+      usageDiv.className = 'sh-usage quota-exceeded';
+      usageDiv.title = 'Daily quota exceeded. Upgrade or try again tomorrow.';
+    } else if (remaining <= 5) {
+      usageDiv.className = 'sh-usage quota-warning';
+      usageDiv.title = remaining + ' requests remaining today';
+    } else {
+      usageDiv.className = 'sh-usage';
+    }
+  } catch (e) {
+    document.getElementById('sh-usage').textContent = '—';
+  }
 }
+
+
 function shSetIdentity(identity) {
   const div = document.getElementById('sh-identity');
   if (!div) return;
@@ -1405,12 +1764,14 @@ function shSetIdentity(identity) {
       '</div>';
   }
 }
+
 function shOpenAuth() { vscode.postMessage({ type: 'sh_open_auth' }); }
 function shSignOut() {
   if (confirm('Sign out from QAMill?')) {
     vscode.postMessage({ type: 'sh_sign_out' });
   }
 }
+
 window.addEventListener('message', e => {
   const m = e.data;
   if (m.type === 'sh_set_identity') { shSetIdentity(m.identity); }
@@ -1418,6 +1779,292 @@ window.addEventListener('message', e => {
     const sel = document.getElementById('sh-llm-selector');
     if (sel && m.provider) { sel.value = m.provider; }
   }
+});
+
+async function shOpenProviderSwitcher() {
+  const modal = document.getElementById('sh-switcher-modal');
+  const list = document.getElementById('sh-switcher-list');
+
+  try {
+    const resp = await fetch('http://localhost:8765/auth/status');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const allProviders = data.llm || [];
+    const activeProvider = data.active_llm;
+
+    const icons = {
+      claude: '🤖', gpt: '🟢', gemini: '🔵', grok: '⚡', github: '🐙',
+      openrouter: '📡', deepseek: '🔮', mistral: '🌟', ollama: '🏠'
+    };
+
+    // Show ONLY connected providers in the switcher
+    const connectedProviders = allProviders.filter(p => p.connected);
+
+    if (connectedProviders.length === 0) {
+      list.innerHTML = '<div style="padding: 12px; opacity: 0.6;">No providers configured. Click ⚙️ Preferences to add.</div>';
+    } else {
+      list.innerHTML = connectedProviders.map(p => {
+        const icon = icons[p.provider] || '🔧';
+        const isActive = p.provider === activeProvider;
+        return \`
+          <div class="sh-provider-item \${isActive ? 'active' : ''}"
+            onclick="shSwitchProvider('\${p.provider}', '\${p.label}', '\${icon}')">
+            <span class="sh-provider-item-icon">\${icon}</span>
+            <span class="sh-provider-item-name">\${p.label}</span>
+            <span class="sh-provider-item-check">\${isActive ? '✓' : ''}</span>
+          </div>
+        \`;
+      }).join('');
+    }
+
+    if (modal) { modal.classList.add('show'); }
+  } catch (e) {
+    console.log('Failed to load providers:', e);
+  }
+}
+
+function shCloseProviderSwitcher() {
+  const modal = document.getElementById('sh-switcher-modal');
+  if (modal) { modal.classList.remove('show'); }
+}
+
+function shSwitchProvider(provider, label, icon) {
+  // If already active, just close
+  const badge = document.getElementById('sh-llm-badge');
+  const currentName = document.getElementById('sh-llm-name').textContent;
+  if (currentName === label) {
+    shCloseProviderSwitcher();
+    return;
+  }
+
+  // If disconnected provider, open connect modal
+  const connected = true; // Assuming all shown are connected
+  if (!connected) {
+    shCloseProviderSwitcher();
+    shConnectProvider(provider, '');
+    return;
+  }
+
+  // Switch to provider
+  vscode.postMessage({ type: 'sh_set_active_provider', provider });
+
+  // Update UI immediately for snappy feel
+  document.getElementById('sh-llm-icon').textContent = icon;
+  document.getElementById('sh-llm-name').textContent = label;
+
+  shCloseProviderSwitcher();
+  setTimeout(() => shLoadProviders(), 200);
+}
+
+function updateLLMBadge(provider, label, icon) {
+  document.getElementById('sh-llm-icon').textContent = icon;
+  document.getElementById('sh-llm-name').textContent = label;
+}
+
+function shOpenProviderModal() {
+  const modal = document.getElementById('sh-provider-modal');
+  if (modal) { modal.classList.add('show'); }
+  shLoadProviders();
+}
+
+window.addEventListener('message', e => {
+  const m = e.data;
+  if (m.type === 'sh_refresh_providers') {
+    shLoadProviders();
+  }
+});
+
+function shCloseProviderModal() {
+  const modal = document.getElementById('sh-provider-modal');
+  if (modal) { modal.classList.remove('show'); }
+}
+
+async function shLoadProviders() {
+  try {
+    const resp = await fetch('http://localhost:8765/auth/status');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const allProviders = data.llm || [];
+    const list = document.getElementById('sh-provider-list');
+    if (!list) return;
+
+    // Just show all providers in a simple grid
+    const html = \`
+      <div class="provider-grid">
+        \${allProviders.map(p => {
+          const icon = shGetProviderIcon(p.provider);
+          const badgeHtml = p.connected ? '<div class="provider-connected-badge">✓ Connected</div>' : '';
+          return \`
+            <div class="provider-card \${p.connected ? 'connected' : ''}"
+              onclick="\${p.connected ? \`shOpenDisconnectModal('\${p.provider}')\` : \`shConnectProvider('\${p.provider}', '\${p.key_placeholder || ''}')\`}">
+              <div class="provider-icon">\${icon}</div>
+              <div class="provider-name">\${p.label}</div>
+              \${badgeHtml}
+            </div>
+          \`;
+        }).join('')}
+      </div>
+    \`;
+
+    list.innerHTML = html;
+  } catch (e) {
+    console.log('Failed to load providers:', e);
+  }
+}
+
+function shGetProviderIcon(provider) {
+  const icons = {
+    claude: '🤖', gpt: '🟢', gemini: '🔵', grok: '⚡', github: '🐙',
+    openrouter: '📡', deepseek: '🔮', mistral: '🌟', ollama: '🏠'
+  };
+  return icons[provider] || '🔧';
+}
+
+async function shConnectProvider(provider, placeholder) {
+  // Ollama doesn't need an API key - connect directly
+  if (provider === 'ollama') {
+    vscode.postMessage({ type: 'sh_connect_provider', provider: 'ollama', api_key: '' });
+    shCloseProviderModal();
+    setTimeout(shLoadProviders, 300);
+    return;
+  }
+
+  shCurrentProvider = provider;
+  const title = document.getElementById('sh-apikey-title');
+  const hint = document.getElementById('sh-apikey-hint');
+  const input = document.getElementById('sh-apikey-input');
+  const modelSelect = document.getElementById('sh-model-select');
+  const modelHint = document.getElementById('sh-model-hint');
+
+  title.textContent = \`Connect \${provider.toUpperCase()}\`;
+  hint.textContent = \`(\${placeholder})\`;
+  input.value = '';
+
+  // Fetch available models for this provider
+  try {
+    const resp = await fetch(\`http://localhost:8765/auth/llm/models/\${provider}\`);
+    if (resp.ok) {
+      const data = await resp.json();
+      const models = data.models || [];
+      const defaultModel = data.default_model || '';
+
+      // Populate model dropdown
+      modelSelect.innerHTML = '';
+      models.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m.name;
+        option.textContent = m.label;
+        if (m.name === defaultModel) { option.selected = true; }
+        modelSelect.appendChild(option);
+      });
+      modelHint.textContent = \`Recommended: \${models[0]?.label || ''}\`;
+    }
+  } catch (e) {
+    modelSelect.innerHTML = '<option value="">Could not load models</option>';
+  }
+
+  input.focus();
+  const modal = document.getElementById('sh-apikey-modal');
+  if (modal) { modal.classList.add('show'); }
+}
+
+function shDisconnectProvider(provider) {
+  vscode.postMessage({ type: 'sh_disconnect_provider', provider });
+  setTimeout(shLoadProviders, 500);
+}
+
+function shCloseApiKeyModal() {
+  const modal = document.getElementById('sh-apikey-modal');
+  if (modal) { modal.classList.remove('show'); }
+  shCurrentProvider = null;
+}
+
+function shConfirmApiKey() {
+  const input = document.getElementById('sh-apikey-input');
+  const modelSelect = document.getElementById('sh-model-select');
+  const key = (input.value || '').trim();
+  const model = (modelSelect.value || '').trim();
+
+  if (!key) { alert('Please enter an API key'); return; }
+  if (shCurrentProvider) {
+    vscode.postMessage({
+      type: 'sh_connect_provider',
+      provider: shCurrentProvider,
+      api_key: key,
+      model: model
+    });
+    shCloseApiKeyModal();
+    setTimeout(shLoadProviders, 1000);
+  }
+}
+
+function shOpenDisconnectModal(provider) {
+  shCurrentDisconnectProvider = provider;
+  shCurrentDisconnectIsCustom = false;
+  const modal = document.getElementById('sh-disconnect-modal');
+  const title = document.getElementById('sh-disconnect-title');
+  title.textContent = 'Disconnect Provider?';
+  const msg = document.getElementById('sh-disconnect-msg');
+  msg.textContent = 'You can reconnect anytime.';
+  if (modal) { modal.classList.add('show'); }
+}
+
+function shCloseDisconnectModal() {
+  const modal = document.getElementById('sh-disconnect-modal');
+  if (modal) { modal.classList.remove('show'); }
+  shCurrentDisconnectProvider = null;
+  shCurrentDisconnectIsCustom = false;
+}
+
+function shConfirmDisconnect() {
+  if (!shCurrentDisconnectProvider) return;
+
+  if (shCurrentDisconnectIsCustom) {
+    vscode.postMessage({ type: 'sh_delete_custom_provider', provider_id: shCurrentDisconnectProvider });
+  } else {
+    vscode.postMessage({ type: 'sh_disconnect_provider', provider: shCurrentDisconnectProvider });
+  }
+
+  shCloseDisconnectModal();
+  setTimeout(shLoadProviders, 500);
+}
+
+let shCurrentProvider = null;
+let shCurrentDisconnectProvider = null;
+let shCurrentDisconnectIsCustom = false;
+
+setInterval(shFetchUsage, 5000);
+shFetchUsage();
+
+async function initBadge() {
+  try {
+    const resp = await fetch('http://localhost:8765/auth/status');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const active = data.active_llm || 'ollama';
+    const providers = data.llm || [];
+    const activeProvider = providers.find(p => p.provider === active);
+
+    if (activeProvider) {
+      const icons = {
+        claude: '🤖', gpt: '🟢', gemini: '🔵', grok: '⚡', github: '🐙',
+        openrouter: '📡', deepseek: '🔮', mistral: '🌟', ollama: '🏠'
+      };
+      const icon = icons[active] || '🔧';
+      updateLLMBadge(active, activeProvider.label, icon);
+    }
+  } catch (e) {
+    console.log('Failed to init badge:', e);
+  }
+}
+
+initBadge();
+
+document.addEventListener('click', e => {
+  const modal = document.getElementById('sh-provider-modal');
+  const switcher = document.getElementById('sh-switcher-modal');
+  if (modal && e.target === modal) { shCloseProviderModal(); }
+  if (switcher && e.target === switcher) { shCloseProviderSwitcher(); }
 });
 vscode.postMessage({ type: 'sh_ready' });
 `;
@@ -1428,7 +2075,7 @@ vscode.postMessage({ type: 'sh_ready' });
 function getTestStudioHtml(cspSource: string, logoUri: string): string {
   return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src ${cspSource} data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src http://localhost:8765 http://127.0.0.1:8765; img-src ${cspSource} data:;">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:var(--vscode-font-family);background:var(--vscode-editor-background);
@@ -1451,13 +2098,15 @@ function getTestStudioHtml(cspSource: string, logoUri: string): string {
   .fmt-hint{font-size:11px;opacity:.55;margin:6px 0 16px}
   /* Progress log */
   .progress{background:var(--vscode-input-background);border:1px solid var(--vscode-widget-border);
-            border-radius:8px;padding:12px 14px;margin-bottom:16px;display:none}
-  .progress.show{display:block}
-  .progress-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.6;margin-bottom:8px}
-  .plog{font-family:var(--vscode-editor-font-family,monospace);font-size:12px;line-height:1.8}
-  .plog .step{opacity:.85}
-  .plog .step::before{content:'▸ ';color:#4ec9a0}
-  .plog .done::before{content:'✓ ';color:#4ec9a0}
+            border-radius:8px;padding:0;margin-bottom:16px;display:none;max-height:500px;overflow:hidden;display:flex;flex-direction:column}
+  .progress.show{display:flex}
+  .progress-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.6;padding:12px 14px;border-bottom:1px solid var(--vscode-widget-border)}
+  .plog{font-family:var(--vscode-editor-font-family,monospace);font-size:11px;line-height:1.5;flex:1;overflow-y:auto;padding:10px 14px;background:rgba(0,0,0,.3)}
+  .plog .step{opacity:.9;margin:1px 0;word-break:break-word;padding:2px 0}
+  .plog .step.info::before{content:'ℹ ';color:#4ec9a0;font-weight:700}
+  .plog .step.success::before{content:'✓ ';color:#4ec9a0;font-weight:700}
+  .plog .step.error::before{content:'✕ ';color:#ff6b6b;font-weight:700}
+  .plog .step.warning::before{content:'⚠ ';color:#ffd700;font-weight:700}
   .plog .err{color:#f48771}
   .plog .err::before{content:'✗ ';}
   .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--vscode-widget-border);
@@ -1543,22 +2192,48 @@ function getTestStudioHtml(cspSource: string, logoUri: string): string {
   }
   document.getElementById('sel-fmt').addEventListener('change', updateHint);
 
-  function generate() {
-    const provider = document.getElementById('sh-llm-selector').value;
-    const format   = document.getElementById('sel-fmt').value;
-    document.getElementById('gen-btn').disabled = true;
-    document.getElementById('progress').classList.add('show');
-    document.getElementById('spin').style.display = 'inline-block';
-    document.getElementById('plog').innerHTML = '';
-    document.getElementById('result').classList.remove('show');
-    vscode.postMessage({ type: 'studio_generate', provider, format });
+  async function generate() {
+    try {
+      // Get active provider from backend
+      const resp = await fetch('http://localhost:8765/auth/status');
+      if (!resp.ok) {
+        alert('Failed to get active provider');
+        return;
+      }
+      const data = await resp.json();
+      const provider = data.active_llm || 'ollama';
+      const format = document.getElementById('sel-fmt').value;
+      const file = document.getElementById('target').textContent.replace('📄 ', '').trim();
+
+      document.getElementById('gen-btn').disabled = true;
+      document.getElementById('progress').classList.add('show');
+      document.getElementById('spin').style.display = 'inline-block';
+      document.getElementById('plog').innerHTML = '';
+      document.getElementById('result').classList.remove('show');
+
+      // Log generation details
+      addStep('═══ QAMill Test Generation ═══', '', 'info');
+      addStep('Provider: ' + provider.toUpperCase(), '', 'info');
+      addStep('Format: ' + format, '', 'info');
+      addStep('File: ' + file, '', 'info');
+      addStep('─────────────────────────────', '', 'info');
+
+      vscode.postMessage({ type: 'studio_generate', provider, format });
+    } catch (e) {
+      addStep('FATAL ERROR: ' + e.message, 'err', 'error');
+      document.getElementById('gen-btn').disabled = false;
+    }
   }
 
-  function addStep(msg, cls) {
+  function addStep(msg, cls, type = 'info') {
     const d = document.createElement('div');
-    d.className = 'step ' + (cls||'');
-    d.textContent = msg;
-    document.getElementById('plog').appendChild(d);
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+    d.className = 'step ' + (cls||'') + ' ' + type;
+    d.textContent = '[' + time + '] ' + msg;
+    const plog = document.getElementById('plog');
+    plog.appendChild(d);
+    // Auto-scroll to bottom
+    plog.scrollTop = plog.scrollHeight;
   }
 
   function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -1586,14 +2261,18 @@ function getTestStudioHtml(cspSource: string, logoUri: string): string {
     const m = e.data;
     if (m.type === 'studio_init') {
       document.getElementById('target').textContent = '📄 ' + (m.file || 'No file');
-      if (m.provider) document.getElementById('sel-llm').value = m.provider;
-      if (m.preset)   document.getElementById('sel-fmt').value = m.preset;
+      // Provider is now managed via badge, not dropdown
+      if (m.preset) document.getElementById('sel-fmt').value = m.preset;
       updateHint();
     }
     if (m.type === 'studio_progress') { addStep(m.message); }
     if (m.type === 'studio_error') {
       document.getElementById('spin').style.display = 'none';
-      addStep(m.message, 'err');
+      addStep('ERROR: ' + m.message, 'err', 'error');
+      if (m.details) {
+        addStep('Details: ' + m.details, '', 'debug');
+      }
+      addStep('Generation failed. Try a different provider or check logs.', '', 'warning');
       document.getElementById('gen-btn').disabled = false;
     }
     if (m.type === 'studio_result') {
@@ -1620,6 +2299,69 @@ function getTestStudioHtml(cspSource: string, logoUri: string): string {
 
   vscode.postMessage({ type: 'studio_ready' });
 </script>
+
+<!-- Provider Management Modal -->
+<div id="sh-provider-modal" class="provider-modal" onclick="shCloseProviderModal()">
+  <div class="provider-modal-content" onclick="event.stopPropagation()">
+    <div class="provider-modal-header">🔑 Manage LLM Providers</div>
+    <div class="provider-list" id="sh-provider-list">
+      <!-- Populated by JavaScript -->
+    </div>
+    <div class="provider-modal-footer">
+      <button class="modal-btn close" onclick="shCloseProviderModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- API Key Input Modal -->
+<div id="sh-apikey-modal" class="provider-modal" onclick="shCloseApiKeyModal()">
+  <div class="provider-modal-content" style="min-width: 450px;" onclick="event.stopPropagation()">
+    <div class="provider-modal-header" id="sh-apikey-title">Enter API Key</div>
+    <div style="margin: 16px 0;">
+      <label style="display: block; font-size: 12px; margin-bottom: 8px; opacity: 0.7;">API Key</label>
+      <input type="password" id="sh-apikey-input" placeholder="Paste your API key here..."
+        style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-editor-foreground); border: 1px solid var(--vscode-widget-border); border-radius: 4px; font-family: monospace; font-size: 12px;">
+      <div id="sh-apikey-hint" style="font-size: 10px; opacity: 0.6; margin-top: 6px;"></div>
+    </div>
+    <div style="margin: 16px 0;">
+      <label style="display: block; font-size: 12px; margin-bottom: 8px; opacity: 0.7;">Model</label>
+      <select id="sh-model-select"
+        style="width: 100%; padding: 8px; background: var(--vscode-input-background); color: var(--vscode-editor-foreground); border: 1px solid var(--vscode-widget-border); border-radius: 4px; font-size: 12px;">
+        <option value="">Loading models...</option>
+      </select>
+      <div id="sh-model-hint" style="font-size: 10px; opacity: 0.6; margin-top: 6px;"></div>
+    </div>
+    <div class="provider-modal-footer">
+      <button class="modal-btn close" onclick="shCloseApiKeyModal()">Cancel</button>
+      <button class="modal-btn" onclick="shConfirmApiKey()">Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- Provider Switcher Modal -->
+<div id="sh-switcher-modal" class="sh-switcher-modal" onclick="shCloseProviderSwitcher()">
+  <div class="sh-switcher-content" onclick="event.stopPropagation()">
+    <div class="sh-switcher-header">Active LLM Provider</div>
+    <div class="sh-switcher-list" id="sh-switcher-list">
+      <!-- Populated by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<!-- Disconnect Confirmation Modal -->
+<div id="sh-disconnect-modal" class="provider-modal" onclick="shCloseDisconnectModal()">
+  <div class="provider-modal-content" style="min-width: 400px;" onclick="event.stopPropagation()">
+    <div class="provider-modal-header" id="sh-disconnect-title">Disconnect Provider?</div>
+    <div style="margin: 16px 0; font-size: 13px; line-height: 1.6;" id="sh-disconnect-msg">
+      You can reconnect anytime.
+    </div>
+    <div class="provider-modal-footer">
+      <button class="modal-btn close" onclick="shCloseDisconnectModal()">Cancel</button>
+      <button class="modal-btn disconnect" style="background: #f44336; color: #fff;" onclick="shConfirmDisconnect()">Disconnect</button>
+    </div>
+  </div>
+</div>
+
 </body></html>`;
 }
 
@@ -3225,6 +3967,22 @@ vscode.postMessage({ type: 'webview_ready' });
 setInterval(function() {
   if (!streamActive) { vscode.postMessage({ type: 'request_current_job' }); }
 }, 1000);
+
+
+<!-- Provider Management Modal -->
+<div id="sh-provider-modal" class="provider-modal" onclick="shCloseProviderModal()">
+  <div class="provider-modal-content" onclick="event.stopPropagation()">
+    <div class="provider-modal-header">🔑 Manage LLM Providers</div>
+
+    <div class="provider-list" id="sh-provider-list">
+      <!-- Populated by JavaScript -->
+    </div>
+
+    <div class="provider-modal-footer">
+      <button class="modal-btn close" onclick="shCloseProviderModal()">Close</button>
+    </div>
+  </div>
+</div>
 
 ${getSharedHeaderJS()}
 </script>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 110" width="470" height="110">
+  <defs>
+    
+  </defs>
+  <g transform="translate(5 8)">
+    <circle cx="47" cy="47" r="42" fill="none" stroke="#16A34A" stroke-width="11" stroke-linecap="butt" stroke-dasharray="214.0 49.9" transform="rotate(-90 47 47)"></circle>
+    <circle cx="47" cy="47" r="14" fill="#16A34A"></circle>
+  </g>
+  <text x="118" y="56" font-family="Manrope, sans-serif" font-size="52" letter-spacing="-1.2" fill="#14241B"><tspan font-weight="800">QA</tspan><tspan font-weight="300">Mill</tspan></text>
+  <text x="120" y="84" font-family="&#39;Space Grotesk&#39;, monospace" font-weight="500" font-size="12.5" letter-spacing="3.1" fill="#16A34A">QA GOVERNANCE PLATFORM</text>
+</svg>

@@ -2,7 +2,7 @@
   "name": "qamill-mutation-testing",
   "displayName": "QAMill — AI QA Governance",
   "description": "AI-Driven Test Excellence",
-  "version": "1.0.14",
+  "version": "1.1.0",
   "publisher": "achieverthoughts",
   "engines": {
     "vscode": "^1.85.0"
@@ -124,6 +124,26 @@
           "type": "string",
           "default": "",
           "description": "xAI API key"
+        },
+        "amil.geminiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Google Gemini API key"
+        },
+        "amil.openrouterApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenRouter API key"
+        },
+        "amil.deepseekApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "DeepSeek API key"
+        },
+        "amil.mistralApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Mistral API key"
         },
         "amil.ollamaModel": {
           "type": "string",
