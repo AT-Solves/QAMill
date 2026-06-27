@@ -275,7 +275,7 @@ console.log(JSON.stringify(ast, null, 2));
         """LIR - Loop Increment Removal"""
         mutants = []
         # Remove i++, i--, ++i, --i in for loops
-        for match in re.finditer(r"for\s*\([^;]+;[^;]+;([i\w]+\+\+|[i\w]+--|++[i\w]+|--[i\w]+)\)", source):
+        for match in re.finditer(r"for\s*\([^;]+;[^;]+;([a-z_]\w*(?:\+\+|--|$)|\+\+[a-z_]\w*|--[a-z_]\w*)\)", source):
             line_no = source[:match.start()].count("\n") + 1
             mutant = Mutant(
                 id=f"LIR_{self.mutant_id_counter}",
@@ -284,7 +284,7 @@ console.log(JSON.stringify(ast, null, 2));
                 line_no=line_no,
                 operator="LIR",
                 description="Remove loop increment",
-                original_src=match.group(1),
+                original_src=match.group(1) if match.group(1) else "",
                 mutant_src="",
             )
             mutants.append(mutant)
