@@ -33,6 +33,8 @@ from schemas import (
 from services.project_service import ProjectService
 from services.analysis_service import AnalysisService
 from services.report_service import ReportService
+from services.storage_service import StorageService
+from services.llm_service import LLMService
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -66,6 +68,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Service Instances ──
+storage_service = StorageService()
+llm_service = LLMService()
 
 
 # Dependency: Get DB session
@@ -146,7 +153,7 @@ async def start_analysis(
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Create analysis
-    analysis_service = AnalysisService(db, llm_service=None, storage_service=None)
+    analysis_service = AnalysisService(db, llm_service=llm_service, storage_service=storage_service)
     analysis = await analysis_service.start_analysis(
         project_id=project_id,
         file_path=data.file_path,
@@ -169,7 +176,7 @@ async def list_analyses(
     db: Session = Depends(get_db),
 ):
     """List analyses for a project"""
-    analysis_service = AnalysisService(db, llm_service=None, storage_service=None)
+    analysis_service = AnalysisService(db, llm_service=llm_service, storage_service=storage_service)
     analyses = analysis_service.list_analyses(
         project_id, skip=skip, limit=limit
     )
@@ -183,7 +190,7 @@ async def get_analysis(
     db: Session = Depends(get_db),
 ):
     """Get analysis details"""
-    analysis_service = AnalysisService(db, llm_service=None, storage_service=None)
+    analysis_service = AnalysisService(db, llm_service=llm_service, storage_service=storage_service)
     analysis = analysis_service.get_analysis(analysis_id)
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
@@ -196,7 +203,7 @@ async def get_project_stats(
     db: Session = Depends(get_db),
 ):
     """Get project quality governance stats"""
-    analysis_service = AnalysisService(db, llm_service=None, storage_service=None)
+    analysis_service = AnalysisService(db, llm_service=llm_service, storage_service=storage_service)
     stats = analysis_service.get_project_stats(project_id)
     return stats
 
@@ -210,10 +217,11 @@ async def generate_report(
     db: Session = Depends(get_db),
 ):
     """Generate elite HTML/PDF report"""
-    service = ReportService(db)
+    service = ReportService(db, storage_service=storage_service)
     report = await service.generate_report(
         analysis_id=analysis_id,
         format=format,
+        project_id=project_id,
     )
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")

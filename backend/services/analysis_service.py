@@ -49,7 +49,15 @@ class AnalysisService:
             analysis.started_at = datetime.utcnow()
 
             # Read source file
-            source_code = self.storage.read_file(analysis.file_path)
+            if self.storage:
+                source_code = self.storage.read_file(analysis.file_path)
+            else:
+                # Fallback: read from filesystem
+                try:
+                    with open(analysis.file_path, 'r') as f:
+                        source_code = f.read()
+                except:
+                    source_code = ""
 
             # Generate mutations based on language
             mutations = self._generate_mutations(
