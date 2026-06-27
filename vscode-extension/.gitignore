@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+out/
+*.vsix
+
+# IDE
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+*.log
+*.tmp
+.env
+.env.local
