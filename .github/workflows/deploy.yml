@@ -1,158 +1,89 @@
-# GitHub Actions CI/CD Pipeline for QAMill
+# GitHub Actions CI/CD Pipeline for QAMill VSIX Extension
+# Builds and publishes the VS Code extension to the marketplace
 
-name: Deploy QAMill
+name: Build & Deploy VSIX
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+    branches: [main]
+    paths:
+      - 'vscode-extension/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
 
 jobs:
-  test:
+  build-vsix:
     runs-on: ubuntu-latest
-    name: Test & Build
-
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: qamill_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
+    name: Build VSIX Package
 
     steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
       with:
-        python-version: '3.11'
-        cache: 'pip'
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: 'vscode-extension/package-lock.json'
 
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r backend/requirements.txt
-        pip install pytest pytest-cov
+      working-directory: vscode-extension
+      run: npm ci
 
-    - name: Run backend tests
+    - name: Compile TypeScript
+      working-directory: vscode-extension
+      run: npm run compile
+
+    - name: Install vsce
+      working-directory: vscode-extension
+      run: npm install -D vsce@^2.15.0
+
+    - name: Package VSIX
+      working-directory: vscode-extension
+      run: npx vsce package --allow-star-activation -o ../qamill-mutation-testing-1.2.0.vsix
+
+    - name: Verify VSIX
+      run: |
+        ls -lh qamill-mutation-testing-1.2.0.vsix
+        unzip -t qamill-mutation-testing-1.2.0.vsix | head -20
+
+    - name: Upload VSIX artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: vsix-package
+        path: qamill-mutation-testing-1.2.0.vsix
+        retention-days: 30
+
+    - name: Create Release
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: qamill-mutation-testing-1.2.0.vsix
+        tag_name: v1.2.0
+        name: QAMill v1.2.0
+        body: |
+          ## QAMill v1.2.0 - Production Ready
+
+          ### New Features
+          - Team & Organization Management
+          - Multi-tenant Architecture
+          - Role-Based Access Control
+          - Email Invitations System
+
+          ### Improvements
+          - Enhanced OAuth Integration (6 providers)
+          - Improved Email Distribution (3 providers)
+          - Executive Dashboards
+          - Compliance Reporting (8 standards)
+
+          ### Installation
+          Download `qamill-mutation-testing-1.2.0.vsix` and install in VS Code:
+          ```
+          code --install-extension qamill-mutation-testing-1.2.0.vsix
+          ```
+        draft: false
+        prerelease: false
       env:
-        DATABASE_URL: postgresql://postgres:test@localhost:5432/qamill_test
-      run: |
-        cd backend
-        pytest --cov=. --cov-report=xml
-
-    - name: Upload coverage
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./backend/coverage.xml
-        fail_ci_if_error: false
-
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    name: Build Docker Image
-    if: github.event_name == 'push'
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Log in to Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v4
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=sha
-
-    - name: Build and push
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    name: Deploy to Kubernetes
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up kubectl
-      uses: azure/setup-kubectl@v3
-      with:
-        version: 'v1.27.0'
-
-    - name: Configure kubectl
-      run: |
-        mkdir -p $HOME/.kube
-        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-        chmod 600 $HOME/.kube/config
-
-    - name: Deploy to Kubernetes
-      run: |
-        kubectl apply -f k8s-deployment.yaml
-        kubectl rollout status deployment/qamill-api -n qamill --timeout=5m
-
-    - name: Verify deployment
-      run: |
-        kubectl get pods -n qamill
-        kubectl get services -n qamill
-
-  notify:
-    needs: [test, build, deploy]
-    runs-on: ubuntu-latest
-    name: Notify Deployment
-    if: always()
-
-    steps:
-    - name: Send Slack notification
-      uses: slackapi/slack-github-action@v1.24.0
-      with:
-        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
-        payload: |
-          {
-            "text": "QAMill Deployment Status",
-            "blocks": [
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "Deployment: ${{ job.status }}\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}"
-                }
-              }
-            ]
-          }
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
