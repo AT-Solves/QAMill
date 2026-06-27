@@ -40,6 +40,7 @@ from services.auth_service import AuthService
 # Routes
 from routes_auth import router as auth_router
 from routes_oauth import router as oauth_router
+from routes_websocket import router as ws_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -77,6 +78,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_router)
 app.include_router(oauth_router)
+app.include_router(ws_router)
 
 
 # ── Service Instances ──
