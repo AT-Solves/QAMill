@@ -61,6 +61,22 @@ class StorageSettings(BaseSettings):
         env_prefix = "STORAGE_"
 
 
+class OAuthSettings(BaseSettings):
+    """OAuth Provider configuration"""
+    # GitHub OAuth
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    github_redirect_uri: str = "http://localhost:5173/auth/github/callback"
+
+    # Google OAuth
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:5173/auth/google/callback"
+
+    class Config:
+        env_prefix = "OAUTH_"
+
+
 class APISettings(BaseSettings):
     """API configuration"""
     host: str = "0.0.0.0"
@@ -84,6 +100,7 @@ class AppSettings(BaseSettings):
     auth: AuthSettings = AuthSettings()
     llm: LLMSettings = LLMSettings()
     storage: StorageSettings = StorageSettings()
+    oauth: OAuthSettings = OAuthSettings()
     api: APISettings = APISettings()
 
     class Config:

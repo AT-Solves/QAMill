@@ -32,6 +32,8 @@
         </button>
       </form>
 
+      <OAuthButtons />
+
       <p>Don't have an account? <router-link to="/signup">Sign up</router-link></p>
     </div>
   </div>
@@ -41,6 +43,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import OAuthButtons from '@/components/OAuthButtons.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

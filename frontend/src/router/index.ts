@@ -21,6 +21,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresGuest: true },
   },
   {
+    path: '/auth/:provider/callback',
+    name: 'OAuthCallback',
+    component: () => import('@/views/auth/OAuthCallback.vue'),
+    meta: { requiresGuest: true },
+  },
+  {
     path: '/projects',
     name: 'Projects',
     component: () => import('@/views/projects/ProjectList.vue'),
