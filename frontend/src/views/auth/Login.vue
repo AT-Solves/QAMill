@@ -4,14 +4,32 @@
       <h1>Welcome to QAMill</h1>
       <p>AI-Powered QA Governance Platform</p>
 
-      <form @submit.prevent="login">
+      <form @submit.prevent="handleLogin">
+        <div v-if="error" class="error-message">{{ error }}</div>
+
         <div class="form-group">
-          <input v-model="email" type="email" placeholder="Email" />
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Email"
+            required
+            :disabled="isLoading"
+          />
         </div>
+
         <div class="form-group">
-          <input v-model="password" type="password" placeholder="Password" />
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Password"
+            required
+            :disabled="isLoading"
+          />
         </div>
-        <button type="submit" class="primary-button">Login</button>
+
+        <button type="submit" class="primary-button" :disabled="isLoading">
+          {{ isLoading ? 'Logging in...' : 'Login' }}
+        </button>
       </form>
 
       <p>Don't have an account? <router-link to="/signup">Sign up</router-link></p>
@@ -22,13 +40,28 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
+
 const email = ref('')
 const password = ref('')
+const isLoading = ref(false)
+const error = ref('')
 
-const login = async () => {
-  alert('Login feature coming soon!')
+const handleLogin = async () => {
+  error.value = ''
+  isLoading.value = true
+
+  try {
+    await authStore.login(email.value, password.value)
+    router.push('/')
+  } catch (err) {
+    error.value = 'Invalid email or password'
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 
@@ -62,6 +95,16 @@ const login = async () => {
   margin-bottom: 30px;
 }
 
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  text-align: center;
+}
+
 .form-group {
   margin-bottom: 20px;
 }
@@ -74,6 +117,11 @@ const login = async () => {
   font-size: 14px;
 }
 
+.form-group input:disabled {
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+}
+
 .primary-button {
   width: 100%;
   padding: 12px;
@@ -83,6 +131,16 @@ const login = async () => {
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.primary-button:hover:not(:disabled) {
+  background-color: #764ba2;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .auth-container a {

@@ -20,11 +20,15 @@
     </div>
 
     <div class="nav-user">
-      <div class="user-profile">
+      <div v-if="authStore.user" class="user-profile" @click="showMenu = !showMenu">
         <div class="avatar">👤</div>
         <div class="user-info">
-          <p class="user-name">User</p>
+          <p class="user-name">{{ authStore.user.name }}</p>
           <p class="user-status">Online</p>
+        </div>
+        <div v-if="showMenu" class="user-menu">
+          <router-link to="/settings" class="menu-item">Settings</router-link>
+          <button @click="logout" class="menu-item logout-btn">Logout</button>
         </div>
       </div>
     </div>
@@ -32,7 +36,18 @@
 </template>
 
 <script setup lang="ts">
-// Navigation state would go here
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
+const showMenu = ref(false)
+
+const logout = async () => {
+  authStore.logout()
+  await router.push('/login')
+}
 </script>
 
 <style scoped>
@@ -139,5 +154,44 @@
   margin: 0;
   font-size: 12px;
   opacity: 0.7;
+}
+
+.user-menu {
+  position: absolute;
+  bottom: 60px;
+  left: 20px;
+  right: 20px;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  color: #2c3e50;
+  text-decoration: none;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.menu-item:hover {
+  background-color: #f8f9fa;
+}
+
+.logout-btn {
+  border-top: 1px solid #ecf0f1;
+  color: #e74c3c;
+}
+
+.logout-btn:hover {
+  background-color: #ffe6e6;
 }
 </style>

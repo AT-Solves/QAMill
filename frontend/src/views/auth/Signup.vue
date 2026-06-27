@@ -4,17 +4,43 @@
       <h1>Create Account</h1>
       <p>Join QAMill Today</p>
 
-      <form @submit.prevent="signup">
+      <form @submit.prevent="handleSignup">
+        <div v-if="error" class="error-message">{{ error }}</div>
+
         <div class="form-group">
-          <input v-model="name" type="text" placeholder="Full Name" />
+          <input
+            v-model="name"
+            type="text"
+            placeholder="Full Name"
+            required
+            :disabled="isLoading"
+          />
         </div>
+
         <div class="form-group">
-          <input v-model="email" type="email" placeholder="Email" />
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Email"
+            required
+            :disabled="isLoading"
+          />
         </div>
+
         <div class="form-group">
-          <input v-model="password" type="password" placeholder="Password" />
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Password (min 8 characters)"
+            required
+            minlength="8"
+            :disabled="isLoading"
+          />
         </div>
-        <button type="submit" class="primary-button">Sign Up</button>
+
+        <button type="submit" class="primary-button" :disabled="isLoading">
+          {{ isLoading ? 'Creating account...' : 'Sign Up' }}
+        </button>
       </form>
 
       <p>Already have an account? <router-link to="/login">Login</router-link></p>
@@ -24,13 +50,30 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
 
 const name = ref('')
 const email = ref('')
 const password = ref('')
+const isLoading = ref(false)
+const error = ref('')
 
-const signup = async () => {
-  alert('Signup feature coming soon!')
+const handleSignup = async () => {
+  error.value = ''
+  isLoading.value = true
+
+  try {
+    await authStore.signup(email.value, password.value, name.value)
+    router.push('/')
+  } catch (err) {
+    error.value = 'Signup failed. Please try again.'
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 
@@ -64,6 +107,16 @@ const signup = async () => {
   margin-bottom: 30px;
 }
 
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  text-align: center;
+}
+
 .form-group {
   margin-bottom: 20px;
 }
@@ -76,6 +129,11 @@ const signup = async () => {
   font-size: 14px;
 }
 
+.form-group input:disabled {
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+}
+
 .primary-button {
   width: 100%;
   padding: 12px;
@@ -85,6 +143,16 @@ const signup = async () => {
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.primary-button:hover:not(:disabled) {
+  background-color: #764ba2;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .auth-container a {

@@ -35,6 +35,10 @@ from services.analysis_service import AnalysisService
 from services.report_service import ReportService
 from services.storage_service import StorageService
 from services.llm_service import LLMService
+from services.auth_service import AuthService
+
+# Routes
+from routes_auth import router as auth_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -68,6 +72,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(auth_router)
 
 
 # ── Service Instances ──
