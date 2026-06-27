@@ -1,7 +1,7 @@
 # GitHub Actions CI/CD Pipeline for QAMill VSIX Extension
 # Simple, reliable build and release using bash
 
-name: Build & Deploy VSIX
+name: Build & Deploy VSIX v2
 
 on:
   push:
