@@ -1,0 +1,100 @@
+# QAMill Docker Compose - Production-like environment
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: qamill_postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-qamill}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-securepassword123}
+      POSTGRES_DB: ${DB_NAME:-qamill}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-qamill}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - qamill_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: qamill_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - qamill_network
+
+  # QAMill Backend API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qamill_api
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-qamill}:${DB_PASSWORD:-securepassword123}@postgres:5432/${DB_NAME:-qamill}
+      REDIS_URL: redis://redis:6379
+      AUTH_JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      OAUTH_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      OAUTH_GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      OAUTH_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      ENVIRONMENT: production
+      API_DEBUG: "false"
+    ports:
+      - "8765:8765"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./storage:/app/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - qamill_network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: qamill_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+    networks:
+      - qamill_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  qamill_network:
+    driver: bridge

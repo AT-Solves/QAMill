@@ -1,0 +1,209 @@
+# QAMill Kubernetes Deployment Manifests
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: qamill
+  labels:
+    name: qamill
+
+---
+# ConfigMap for environment variables
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qamill-config
+  namespace: qamill
+data:
+  ENVIRONMENT: "production"
+  API_DEBUG: "false"
+  API_HOST: "0.0.0.0"
+  API_PORT: "8765"
+
+---
+# Secret for sensitive credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: qamill-secrets
+  namespace: qamill
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://qamill:password@postgres:5432/qamill"
+  REDIS_URL: "redis://redis:6379"
+  AUTH_JWT_SECRET: "your-secret-key-change-in-production"
+  OAUTH_GITHUB_CLIENT_ID: "github-client-id"
+  OAUTH_GITHUB_CLIENT_SECRET: "github-client-secret"
+  OAUTH_GOOGLE_CLIENT_ID: "google-client-id"
+  OAUTH_GOOGLE_CLIENT_SECRET: "google-client-secret"
+
+---
+# Deployment: QAMill API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qamill-api
+  namespace: qamill
+  labels:
+    app: qamill-api
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: qamill-api
+  template:
+    metadata:
+      labels:
+        app: qamill-api
+        version: v1
+    spec:
+      containers:
+      - name: qamill-api
+        image: qamill:1.2.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8765
+          protocol: TCP
+
+        # Environment variables
+        envFrom:
+        - configMapRef:
+            name: qamill-config
+        - secretRef:
+            name: qamill-secrets
+
+        # Resource limits
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+
+        # Logging
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/qamill
+
+      volumes:
+      - name: logs
+        emptyDir: {}
+
+---
+# Service: QAMill API
+apiVersion: v1
+kind: Service
+metadata:
+  name: qamill-api
+  namespace: qamill
+  labels:
+    app: qamill-api
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: qamill-api
+
+---
+# HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: qamill-api-hpa
+  namespace: qamill
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: qamill-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qamill-ingress
+  namespace: qamill
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.qamill.io
+    secretName: qamill-tls
+  rules:
+  - host: api.qamill.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: qamill-api
+            port:
+              number: 80
+
+---
+# PersistentVolumeClaim for logs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qamill-logs
+  namespace: qamill
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
