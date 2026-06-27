@@ -4,6 +4,10 @@
   "description": "Enterprise-grade mutation testing for Python and JavaScript. Real-time analysis, elite reports, and team collaboration.",
   "version": "1.2.0",
   "publisher": "achieverthoughts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AT-Solves/QAMill"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
