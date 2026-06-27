@@ -6,9 +6,6 @@ name: Build & Deploy VSIX
 on:
   push:
     branches: [main]
-    paths:
-      - 'vscode-extension/**'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 jobs:
@@ -17,54 +14,42 @@ jobs:
     name: Build VSIX Package
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+    - uses: actions/checkout@v3
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v3
       with:
-        node-version: '22'
-
-    - name: Clean dependencies
-      working-directory: vscode-extension
-      run: rm -rf node_modules package-lock.json
+        node-version: '18'
 
     - name: Install dependencies
       working-directory: vscode-extension
-      run: npm install --prefer-offline --no-audit
+      run: |
+        npm cache clean --force
+        npm install --verbose 2>&1 | tail -50
 
     - name: Compile TypeScript
       working-directory: vscode-extension
       run: npm run compile
 
-    - name: Install vsce
-      working-directory: vscode-extension
-      run: npm install -D vsce@^2.15.0
-
     - name: Package VSIX
       working-directory: vscode-extension
-      run: npx vsce package --allow-star-activation -o ../qamill-mutation-testing-1.2.0.vsix
+      run: |
+        npm install -D vsce
+        npx vsce package --allow-star-activation -o ../qamill-mutation-testing-1.2.0.vsix
 
     - name: Verify VSIX
       run: |
         ls -lh qamill-mutation-testing-1.2.0.vsix
-        unzip -t qamill-mutation-testing-1.2.0.vsix | head -20
-
-    - name: Upload VSIX artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: vsix-package
-        path: qamill-mutation-testing-1.2.0.vsix
-        retention-days: 30
+        unzip -l qamill-mutation-testing-1.2.0.vsix | head -30
 
     - name: Create Release
       if: github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        files: qamill-mutation-testing-1.2.0.vsix
         tag_name: v1.2.0
-        name: QAMill v1.2.0
+        release_name: QAMill v1.2.0
         body: |
           ## QAMill v1.2.0 - Production Ready
 
@@ -87,5 +72,14 @@ jobs:
           ```
         draft: false
         prerelease: false
+
+    - name: Upload Release Asset
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./qamill-mutation-testing-1.2.0.vsix
+        asset_name: qamill-mutation-testing-1.2.0.vsix
+        asset_content_type: application/zip
