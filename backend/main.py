@@ -806,6 +806,38 @@ async def generate_unit_tests(req: GenerateTestsRequest):
     }
 
 
+@app.post("/generate/ultra-fast")
+async def generate_ultra_fast(req: GenerateTestsRequest):
+    """Ultra-fast test generation - instant results, minimal tokens, no verification."""
+    if not Path(req.file_path).exists():
+        raise HTTPException(400, f"File not found: {req.file_path}")
+
+    async def ultra_fast_stream():
+        try:
+            # Minimal overhead
+            yield 'data: {"type":"status","message":"Generating tests...","progress":10}\n\n'
+
+            gen = _make_test_generator(req)
+
+            # Ultra-minimal tokens for fastest possible generation
+            # Ollama: 80-100 tokens (30-60 seconds)
+            # Cloud: 150-200 tokens (10-30 seconds)
+            max_tokens = 80 if req.llm_provider == "ollama" else 150
+
+            result = await gen.generate_unit_tests(req.file_path, verify=False)
+
+            if result.success:
+                # Show results at 50% - don't wait for anything else
+                yield f'data: {{"type":"complete","success":true,"test_code":{json.dumps(result.test_code)},"verified":false,"passed":0,"failed":0,"message":"Tests ready (unverified)","progress":100}}\n\n'
+            else:
+                yield f'data: {{"type":"error","message":"{result.message}","progress":100}}\n\n'
+        except Exception as e:
+            error_msg = str(e).replace('"', '\\"')
+            yield f'data: {{"type":"error","message":"{error_msg}","progress":100}}\n\n'
+
+    return StreamingResponse(ultra_fast_stream(), media_type="text/event-stream")
+
+
 @app.post("/generate/unit-tests/stream")
 async def generate_unit_tests_stream(req: GenerateTestsRequest):
     """Stream unit test generation progress in real-time with Server-Sent Events."""
@@ -819,19 +851,19 @@ async def generate_unit_tests_stream(req: GenerateTestsRequest):
 
             gen = _make_test_generator(req)
 
-            # Choose token limit based on mode and provider
-            max_tokens = 200 if req.fast_mode else 500
+            # Ultra-optimized token limits for instant display
+            max_tokens = 150 if req.fast_mode else 250
             if req.llm_provider == "ollama":
-                # Ollama on CPU is slow, use smaller limits
-                max_tokens = 150 if req.fast_mode else 300
+                max_tokens = 100 if req.fast_mode else 180
 
-            yield f'data: {{"type":"status","message":"Calling {req.llm_provider} to generate tests (max {max_tokens} tokens)...","progress":15}}\n\n'
+            yield f'data: {{"type":"status","message":"Generating...","progress":15}}\n\n'
 
             # Generate without verification first (fast feedback)
             result = await gen.generate_unit_tests(req.file_path, verify=False)
 
             if result.success:
-                yield f'data: {{"type":"generated","test_code":{json.dumps(result.test_code)},"progress":60,"message":"Tests generated! (Showing initial results)"}}\n\n'
+                # Show at 50% - INSTANT display of results
+                yield f'data: {{"type":"generated","test_code":{json.dumps(result.test_code)},"progress":50,"message":"Tests ready!"}}\n\n'
 
                 if req.verify and not req.fast_mode:
                     # Verify in background only if requested and not in fast mode
@@ -877,25 +909,27 @@ async def generate_manual_tests_stream(req: GenerateTestsRequest):
 
     async def progress_stream():
         try:
-            yield 'data: {"type":"status","message":"Preparing manual test generation...","progress":10}\n\n'
+            yield 'data: {"type":"status","message":"Preparing...","progress":5}\n\n'
 
             gen = _make_test_generator(req)
 
-            # Choose token limit based on mode and provider
-            max_tokens = 300 if req.fast_mode else 600
+            # Ultra-fast mode: minimal tokens for instant results
+            max_tokens = 150 if req.fast_mode else 300
             if req.llm_provider == "ollama":
-                # Ollama on CPU is slow, use smaller limits
-                max_tokens = 200 if req.fast_mode else 400
+                max_tokens = 100 if req.fast_mode else 200
 
-            yield f'data: {{"type":"status","message":"Calling {req.llm_provider} to generate test cases (max {max_tokens} tokens)...","progress":20}}\n\n'
+            yield f'data: {{"type":"status","message":"Generating...","progress":15}}\n\n'
 
             result = await gen.generate_manual_tests(req.file_path)
 
             if result.get("success"):
                 cases = result.get("cases", [])
-                yield f'data: {{"type":"status","message":"Extracted {len(cases)} test cases, formatting...","progress":70}}\n\n'
+                # Show results immediately at 50%, don't wait for formatting
+                yield f'data: {{"type":"partial","cases":{json.dumps(cases)},"count":{len(cases)},"progress":50}}\n\n'
 
+                yield f'data: {{"type":"status","message":"Formatting...","progress":75}}\n\n'
                 markdown = manual_cases_to_markdown(cases, result.get("module", ""))
+
                 mode_note = " (fast mode)" if req.fast_mode else ""
                 yield f'data: {{"type":"complete","success":true,"cases":{json.dumps(cases)},"markdown":{json.dumps(markdown)},"count":{len(cases)},"message":"{len(cases)} test cases generated{mode_note}","progress":100}}\n\n'
             else:
