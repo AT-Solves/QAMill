@@ -38,13 +38,13 @@ jobs:
         npm install -D @vscode/vsce
 
         echo "Packaging VSIX..."
-        npx @vscode/vsce package --allow-star-activation -o ../qamill-mutation-testing-1.2.0.vsix
+        npx @vscode/vsce package --allow-star-activation -o ../qamill-mutation-testing-1.2.1.vsix
 
     - name: Verify VSIX
       run: |
         echo "Verifying VSIX..."
-        ls -lh qamill-mutation-testing-1.2.0.vsix
-        unzip -t qamill-mutation-testing-1.2.0.vsix > /dev/null && echo "✅ VSIX integrity verified"
+        ls -lh qamill-mutation-testing-1.2.1.vsix
+        unzip -t qamill-mutation-testing-1.2.1.vsix > /dev/null && echo "✅ VSIX integrity verified"
 
     - name: Create GitHub Release
       if: github.ref == 'refs/heads/main'
@@ -52,7 +52,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cat > /tmp/release_notes.md << 'EOF'
-        # QAMill v1.2.0 - Production Ready
+        # QAMill v1.2.1 - Production Ready
 
         ## New Features
         - Team & Organization Management
@@ -68,14 +68,14 @@ jobs:
 
         ## Installation
         ```
-        code --install-extension qamill-mutation-testing-1.2.0.vsix
+        code --install-extension qamill-mutation-testing-1.2.1.vsix
         ```
         EOF
 
         echo "Creating GitHub release..."
-        gh release create v1.2.0 \
-          qamill-mutation-testing-1.2.0.vsix \
-          --title "QAMill v1.2.0" \
+        gh release create v1.2.1 \
+          qamill-mutation-testing-1.2.1.vsix \
+          --title "QAMill v1.2.1" \
           --notes-file /tmp/release_notes.md \
           --draft=false \
           2>&1 || echo "Release may already exist"

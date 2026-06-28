@@ -2,7 +2,7 @@
   "name": "qamill-mutation-testing",
   "displayName": "QAMill — AI Mutation Testing",
   "description": "Enterprise-grade mutation testing for Python and JavaScript. Real-time analysis, elite reports, and team collaboration.",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "publisher": "achieverthoughts",
   "repository": {
     "type": "git",
