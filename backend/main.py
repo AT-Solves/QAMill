@@ -818,26 +818,37 @@ async def generate_unit_tests_stream(req: GenerateTestsRequest):
             yield 'data: {"type":"status","message":"Initializing test generator...","progress":5}\n\n'
 
             gen = _make_test_generator(req)
-            yield 'data: {"type":"status","message":"Calling LLM to generate tests...","progress":15}\n\n'
 
-            result = await gen.generate_unit_tests(req.file_path, verify=False)  # First pass without verification
+            # Choose token limit based on mode and provider
+            max_tokens = 200 if req.fast_mode else 500
+            if req.llm_provider == "ollama":
+                # Ollama on CPU is slow, use smaller limits
+                max_tokens = 150 if req.fast_mode else 300
+
+            yield f'data: {{"type":"status","message":"Calling {req.llm_provider} to generate tests (max {max_tokens} tokens)...","progress":15}}\n\n'
+
+            # Generate without verification first (fast feedback)
+            result = await gen.generate_unit_tests(req.file_path, verify=False)
 
             if result.success:
-                yield f'data: {{"type":"generated","test_code":{json.dumps(result.test_code)},"progress":60,"message":"Tests generated, verifying..."}}\n\n'
+                yield f'data: {{"type":"generated","test_code":{json.dumps(result.test_code)},"progress":60,"message":"Tests generated! (Showing initial results)"}}\n\n'
 
-                if req.verify:
-                    # Verify in background
+                if req.verify and not req.fast_mode:
+                    # Verify in background only if requested and not in fast mode
+                    yield 'data: {"type":"status","message":"Running verification...","progress":80}\n\n'
                     passed, failed, ok = await gen._verify_against_original(
                         Path(req.file_path), Path(req.file_path).read_text(encoding="utf-8"), result.test_code
                     )
                     msg = f"Verified — {passed} passed" if ok else f"Generated but {failed} failed"
                     yield f'data: {{"type":"complete","success":true,"test_code":{json.dumps(result.test_code)},"verified":{ok},"passed":{passed},"failed":{failed},"message":"{msg}","progress":100}}\n\n'
                 else:
-                    yield f'data: {{"type":"complete","success":true,"test_code":{json.dumps(result.test_code)},"verified":false,"passed":0,"failed":0,"message":"Tests generated (unverified)","progress":100}}\n\n'
+                    mode_note = " (fast mode - no verification)" if req.fast_mode else " (unverified)"
+                    yield f'data: {{"type":"complete","success":true,"test_code":{json.dumps(result.test_code)},"verified":false,"passed":0,"failed":0,"message":"Tests generated{mode_note}","progress":100}}\n\n'
             else:
                 yield f'data: {{"type":"error","message":"{result.message}","progress":100}}\n\n'
         except Exception as e:
-            yield f'data: {{"type":"error","message":"{str(e)}","progress":100}}\n\n'
+            error_msg = str(e).replace('"', '\\"')  # Escape quotes for JSON
+            yield f'data: {{"type":"error","message":"{error_msg}","progress":100}}\n\n'
 
     return StreamingResponse(progress_stream(), media_type="text/event-stream")
 
@@ -869,20 +880,30 @@ async def generate_manual_tests_stream(req: GenerateTestsRequest):
             yield 'data: {"type":"status","message":"Preparing manual test generation...","progress":10}\n\n'
 
             gen = _make_test_generator(req)
-            yield 'data: {"type":"status","message":"Calling LLM to generate test cases...","progress":20}\n\n'
+
+            # Choose token limit based on mode and provider
+            max_tokens = 300 if req.fast_mode else 600
+            if req.llm_provider == "ollama":
+                # Ollama on CPU is slow, use smaller limits
+                max_tokens = 200 if req.fast_mode else 400
+
+            yield f'data: {{"type":"status","message":"Calling {req.llm_provider} to generate test cases (max {max_tokens} tokens)...","progress":20}}\n\n'
 
             result = await gen.generate_manual_tests(req.file_path)
 
             if result.get("success"):
                 cases = result.get("cases", [])
-                yield 'data: {"type":"status","message":f"Extracted {len(cases)} test cases...","progress":70}\n\n'
+                yield f'data: {{"type":"status","message":"Extracted {len(cases)} test cases, formatting...","progress":70}}\n\n'
 
                 markdown = manual_cases_to_markdown(cases, result.get("module", ""))
-                yield f'data: {{"type":"complete","success":true,"cases":{json.dumps(cases)},"markdown":{json.dumps(markdown)},"count":{len(cases)},"message":"{result.get("message")}","progress":100}}\n\n'
+                mode_note = " (fast mode)" if req.fast_mode else ""
+                yield f'data: {{"type":"complete","success":true,"cases":{json.dumps(cases)},"markdown":{json.dumps(markdown)},"count":{len(cases)},"message":"{len(cases)} test cases generated{mode_note}","progress":100}}\n\n'
             else:
-                yield f'data: {{"type":"error","message":"{result.get("message")}","progress":100}}\n\n'
+                error_msg = result.get("message", "Unknown error").replace('"', '\\"')
+                yield f'data: {{"type":"error","message":"{error_msg}","progress":100}}\n\n'
         except Exception as e:
-            yield f'data: {{"type":"error","message":"{str(e)}","progress":100}}\n\n'
+            error_msg = str(e).replace('"', '\\"')
+            yield f'data: {{"type":"error","message":"{error_msg}","progress":100}}\n\n'
 
     return StreamingResponse(progress_stream(), media_type="text/event-stream")
 
