@@ -54,44 +54,42 @@
     "menus": {
       "editor/context": [
         {
-          "command": "amil.runAnalysis",
-          "group": "testing",
-          "when": "resourceExtname == .py"
-        },
-        {
-          "command": "amil.openTestStudio",
-          "group": "testing",
-          "when": "resourceExtname == .py"
-        },
-        {
-          "command": "amil.generateUnitTests",
-          "group": "testing",
-          "when": "resourceExtname == .py"
-        },
-        {
-          "command": "amil.generateManualTests",
+          "submenu": "qamill.main",
           "group": "testing",
           "when": "resourceExtname == .py"
         }
       ],
       "explorer/context": [
         {
-          "command": "amil.runAnalysis",
+          "submenu": "qamill.main",
           "group": "testing",
           "when": "resourceExtname == .py || explorerResourceIsFolder"
+        }
+      ],
+      "qamill.main": [
+        {
+          "command": "amil.runAnalysis",
+          "title": "Test Quality Check",
+          "group": "1_qamill"
         },
         {
           "command": "amil.generateUnitTests",
-          "group": "testing",
-          "when": "resourceExtname == .py"
+          "title": "Unit Tests",
+          "group": "1_qamill"
         },
         {
           "command": "amil.generateManualTests",
-          "group": "testing",
-          "when": "resourceExtname == .py"
+          "title": "QA Tests",
+          "group": "1_qamill"
         }
       ]
     },
+    "submenus": [
+      {
+        "id": "qamill.main",
+        "label": "QAMill"
+      }
+    ],
     "configuration": {
       "title": "QAMill QA Governance",
       "properties": {
@@ -259,6 +257,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.2",
     "typescript": "^5.4.0"
   }
 }
