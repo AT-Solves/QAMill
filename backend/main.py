@@ -102,6 +102,7 @@ class GenerateTestsRequest(BaseModel):
     llm_api_key:  Optional[str] = None
     verify:       bool = True   # unit tests only: run against the original code
     format:       str = "test_case"   # unit | test_case | table | gherkin | traceability
+    fast_mode:    bool = False  # fast_mode=True: reduced tokens, skip verification, instant feedback
 
 
 class EmailRequest(BaseModel):
@@ -805,6 +806,42 @@ async def generate_unit_tests(req: GenerateTestsRequest):
     }
 
 
+@app.post("/generate/unit-tests/stream")
+async def generate_unit_tests_stream(req: GenerateTestsRequest):
+    """Stream unit test generation progress in real-time with Server-Sent Events."""
+    if not Path(req.file_path).exists():
+        raise HTTPException(400, f"File not found: {req.file_path}")
+
+    async def progress_stream():
+        try:
+            import sys
+            yield 'data: {"type":"status","message":"Initializing test generator...","progress":5}\n\n'
+
+            gen = _make_test_generator(req)
+            yield 'data: {"type":"status","message":"Calling LLM to generate tests...","progress":15}\n\n'
+
+            result = await gen.generate_unit_tests(req.file_path, verify=False)  # First pass without verification
+
+            if result.success:
+                yield f'data: {{"type":"generated","test_code":{json.dumps(result.test_code)},"progress":60,"message":"Tests generated, verifying..."}}\n\n'
+
+                if req.verify:
+                    # Verify in background
+                    passed, failed, ok = await gen._verify_against_original(
+                        Path(req.file_path), Path(req.file_path).read_text(encoding="utf-8"), result.test_code
+                    )
+                    msg = f"Verified — {passed} passed" if ok else f"Generated but {failed} failed"
+                    yield f'data: {{"type":"complete","success":true,"test_code":{json.dumps(result.test_code)},"verified":{ok},"passed":{passed},"failed":{failed},"message":"{msg}","progress":100}}\n\n'
+                else:
+                    yield f'data: {{"type":"complete","success":true,"test_code":{json.dumps(result.test_code)},"verified":false,"passed":0,"failed":0,"message":"Tests generated (unverified)","progress":100}}\n\n'
+            else:
+                yield f'data: {{"type":"error","message":"{result.message}","progress":100}}\n\n'
+        except Exception as e:
+            yield f'data: {{"type":"error","message":"{str(e)}","progress":100}}\n\n'
+
+    return StreamingResponse(progress_stream(), media_type="text/event-stream")
+
+
 @app.post("/generate/manual-tests")
 async def generate_manual_tests(req: GenerateTestsRequest):
     """Generate a human-readable manual QA test suite for a source file."""
@@ -819,6 +856,35 @@ async def generate_manual_tests(req: GenerateTestsRequest):
         result["markdown"] = manual_cases_to_markdown(
             result["cases"], result.get("module", ""))
     return result
+
+
+@app.post("/generate/manual-tests/stream")
+async def generate_manual_tests_stream(req: GenerateTestsRequest):
+    """Stream manual test generation progress with Server-Sent Events."""
+    if not Path(req.file_path).exists():
+        raise HTTPException(400, f"File not found: {req.file_path}")
+
+    async def progress_stream():
+        try:
+            yield 'data: {"type":"status","message":"Preparing manual test generation...","progress":10}\n\n'
+
+            gen = _make_test_generator(req)
+            yield 'data: {"type":"status","message":"Calling LLM to generate test cases...","progress":20}\n\n'
+
+            result = await gen.generate_manual_tests(req.file_path)
+
+            if result.get("success"):
+                cases = result.get("cases", [])
+                yield 'data: {"type":"status","message":f"Extracted {len(cases)} test cases...","progress":70}\n\n'
+
+                markdown = manual_cases_to_markdown(cases, result.get("module", ""))
+                yield f'data: {{"type":"complete","success":true,"cases":{json.dumps(cases)},"markdown":{json.dumps(markdown)},"count":{len(cases)},"message":"{result.get("message")}","progress":100}}\n\n'
+            else:
+                yield f'data: {{"type":"error","message":"{result.get("message")}","progress":100}}\n\n'
+        except Exception as e:
+            yield f'data: {{"type":"error","message":"{str(e)}","progress":100}}\n\n'
+
+    return StreamingResponse(progress_stream(), media_type="text/event-stream")
 
 
 @app.get("/generate/formats")

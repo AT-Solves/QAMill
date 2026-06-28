@@ -121,9 +121,18 @@ class OllamaAdapter(BaseLLMAdapter):
     def name(self): return "inhouse"
 
     async def call_async(self, prompt: str, max_tokens: int = 500) -> str:
-        # Local model on CPU can be slow for large generations (e.g. full test
-        # suites). Generous timeout since it's the user's own machine.
-        async with httpx.AsyncClient(timeout=300) as client:
+        # Local model on CPU can be slow. Use adaptive timeout:
+        # - For small tokens (<=500): 60s timeout (fast feedback)
+        # - For medium tokens (500-1000): 120s timeout
+        # - For large tokens (>1000): 300s timeout (full generation)
+        if max_tokens <= 500:
+            timeout = 60
+        elif max_tokens <= 1000:
+            timeout = 120
+        else:
+            timeout = 300
+
+        async with httpx.AsyncClient(timeout=timeout) as client:
             r = await client.post(
                 f"{self.host}/api/generate",
                 json={
