@@ -399,27 +399,52 @@ class TestGenerator:
         import sys
         blob = blob.strip()
 
-        # Remove trailing commas before closing brackets (Ollama adds these)
+        # Step 1: Fix unterminated strings by finding unmatched quotes
+        # Count quotes, accounting for escaped quotes
+        quote_count = 0
+        i = 0
+        last_unclosed_quote_pos = -1
+        while i < len(blob):
+            if i > 0 and blob[i-1] == '\\':
+                # Skip escaped character
+                i += 1
+                continue
+            if blob[i] == '"':
+                quote_count += 1
+                if quote_count % 2 == 1:  # Odd quote = opening
+                    last_unclosed_quote_pos = i
+                else:  # Even quote = closing
+                    last_unclosed_quote_pos = -1
+            i += 1
+
+        # If there's an unclosed string, close it
+        if quote_count % 2 == 1:  # Odd number = unclosed string
+            blob += '"'
+            print(f"[DEBUG] Closed unterminated string at position {last_unclosed_quote_pos}", file=sys.stderr, flush=True)
+
+        # Step 2: Remove trailing commas before closing brackets
         blob = re.sub(r',(\s*[}\]])', r'\1', blob)
 
-        # If JSON is incomplete (no closing ]), add them
+        # Step 3: Close any unclosed brackets
         open_brackets = blob.count('[')
         close_brackets = blob.count(']')
         if open_brackets > close_brackets:
             blob += ']' * (open_brackets - close_brackets)
             print(f"[DEBUG] Added {open_brackets - close_brackets} closing bracket(s)", file=sys.stderr, flush=True)
 
-        # If JSON has unclosed objects { } count
+        # Step 4: Close any unclosed braces
         open_braces = blob.count('{')
         close_braces = blob.count('}')
         if open_braces > close_braces:
             blob += '}' * (open_braces - close_braces)
             print(f"[DEBUG] Added {open_braces - close_braces} closing brace(s)", file=sys.stderr, flush=True)
 
-        # Remove any text after the final ] that might be artifacts
-        last_bracket = blob.rfind(']')
-        if last_bracket != -1:
-            blob = blob[:last_bracket + 1]
+        # Step 5: Ensure we end with ]
+        if not blob.rstrip().endswith(']'):
+            # Find the position after the last }
+            last_brace = blob.rfind('}')
+            if last_brace != -1:
+                blob = blob[:last_brace + 1] + ']'
 
         return blob
 
