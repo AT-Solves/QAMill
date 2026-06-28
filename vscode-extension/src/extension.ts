@@ -77,10 +77,10 @@ async function runAnalysis(context: vscode.ExtensionContext, uri?: vscode.Uri) {
   if (uri) {
     const stat = fs.statSync(uri.fsPath);
     if (stat.isDirectory()) {
-      // Folder right-click — find first Python source file
-      filePath = findPythonSourceFile(uri.fsPath);
+      // Folder right-click — find first source file (Python, JS, TS, etc)
+      filePath = findSourceFile(uri.fsPath);
       if (!filePath) {
-        vscode.window.showErrorMessage("QAMill: No Python source files found in this folder.");
+        vscode.window.showErrorMessage("QAMill: No source files found in this folder. Supported: .py, .js, .ts, .jsx, .tsx");
         return;
       }
       projectRoot = uri.fsPath;
@@ -92,7 +92,7 @@ async function runAnalysis(context: vscode.ExtensionContext, uri?: vscode.Uri) {
     // Fallback: active editor
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-      vscode.window.showErrorMessage("QAMill: Right-click a .py file or folder in the Explorer.");
+      vscode.window.showErrorMessage("QAMill: Open or right-click a Python (.py) file to open Test Studio.");
       return;
     }
     filePath = editor.document.fileName;
@@ -105,9 +105,10 @@ async function runAnalysis(context: vscode.ExtensionContext, uri?: vscode.Uri) {
 
   // Warn if the user selected a test file instead of a source file
   const basename = path.basename(filePath);
-  if (/^test_|_test\.py$/i.test(basename)) {
+  // Support Python (test_*.py, *_test.py) and JS/TS (*.test.js, *.spec.js, etc) test patterns
+  if (/^test_|_test\.(py|js|ts|jsx|tsx)$|\.test\.(js|ts|jsx|tsx)$|\.spec\.(js|ts|jsx|tsx)$/i.test(basename)) {
     const pick = await vscode.window.showWarningMessage(
-      `QAMill: "${basename}" looks like a test file. Select the SOURCE file (e.g. math_utils.py) for meaningful mutation testing.`,
+      `QAMill: "${basename}" looks like a test file. Select the SOURCE file for meaningful mutation testing.`,
       "Analyze Anyway", "Cancel"
     );
     if (pick !== "Analyze Anyway") {
@@ -178,24 +179,28 @@ async function runAnalysis(context: vscode.ExtensionContext, uri?: vscode.Uri) {
   vscode.window.showInformationMessage(`QAMill: Analysing ${path.basename(filePath)}…`);
 }
 
-// ── Python source file discovery ──────────────────────────────────────────────
+// ── Source file discovery (Python, JS, TS, etc) ────────────────────────────────
 
-function findPythonSourceFile(dir: string): string | undefined {
+function findSourceFile(dir: string): string | undefined {
   try {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
-    // Prefer files at the top level first
+    // Prefer files at the top level first (Python, JS, TS, etc)
     for (const e of entries) {
-      if (e.isFile() && e.name.endsWith(".py")) {
+      if (e.isFile()) {
         const n = e.name;
-        if (!n.startsWith("test_") && !n.endsWith("_test.py") && n !== "conftest.py") {
-          return path.join(dir, n);
+        // Support .py, .js, .ts, .jsx, .tsx extensions
+        if (/\.(py|js|ts|jsx|tsx)$/i.test(n)) {
+          // Skip test files: test_*.py, *_test.py, *.test.js, *.spec.js, etc
+          if (!/^test_|_test\.(py|js|ts|jsx|tsx)$|\.test\.(js|ts|jsx|tsx)$|\.spec\.(js|ts|jsx|tsx)$|conftest\.py$/i.test(n)) {
+            return path.join(dir, n);
+          }
         }
       }
     }
-    // Recurse into subdirectories (skip hidden / cache)
+    // Recurse into subdirectories (skip hidden / cache / node_modules)
     for (const e of entries) {
       if (e.isDirectory() && !e.name.startsWith(".") && e.name !== "__pycache__" && e.name !== "node_modules" && e.name !== "tests") {
-        const found = findPythonSourceFile(path.join(dir, e.name));
+        const found = findSourceFile(path.join(dir, e.name));
         if (found) { return found; }
       }
     }
