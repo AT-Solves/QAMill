@@ -349,6 +349,7 @@ class TestGenerator:
     # ── Parsing helpers ──────────────────────────────────────────────────
     @staticmethod
     def _extract_code(raw: str) -> Optional[str]:
+        import sys
         # Prefer a ```python fence, then any ``` fence — keep the block INTACT
         # (never line-filter; that corrupts multi-line constructs like @parametrize).
         m = re.search(r"```python\s*(.*?)```", raw, re.DOTALL)
@@ -359,34 +360,64 @@ class TestGenerator:
             if m2:
                 code = m2.group(1).strip()
             else:
-                # No fence — take from the first import/from/def to the end, verbatim.
+                # No fence — take from the first code line to the end, verbatim.
+                # This handles Ollama and other models that output raw code without fences.
                 lines = raw.split("\n")
-                start = next((i for i, l in enumerate(lines)
-                              if l.lstrip().startswith(("import ", "from ", "def ", "@"))), None)
-                code = "\n".join(lines[start:]).strip() if start is not None else ""
+                code_keywords = ("import ", "from ", "def ", "@", "class ", "async ", "if ", "try ", "with ")
+                # Find first non-comment, non-empty code line
+                start = None
+                for i, l in enumerate(lines):
+                    stripped = l.lstrip()
+                    if stripped and not stripped.startswith(("#", "//")):
+                        if any(stripped.startswith(kw) for kw in code_keywords):
+                            start = i
+                            break
+                if start is not None:
+                    code = "\n".join(lines[start:]).strip()
+                    print(f"[DEBUG] Extracted code from line {start}, length={len(code)}", file=sys.stderr, flush=True)
+                else:
+                    # Last resort: take everything non-comment
+                    code_lines = [l for l in lines if l.strip() and not l.lstrip().startswith("#")]
+                    code = "\n".join(code_lines).strip()
+                    print(f"[DEBUG] No clear code start found, using content-based extraction", file=sys.stderr, flush=True)
         if not code:
+            print(f"[DEBUG] No code extracted from response", file=sys.stderr, flush=True)
             return None
         # Validate it parses as Python; if not, it's unusable — signal failure.
         try:
             ast.parse(code)
-        except SyntaxError:
+            print(f"[DEBUG] Code parsing successful, {len(code)} chars valid Python", file=sys.stderr, flush=True)
+        except SyntaxError as e:
+            print(f"[DEBUG] SyntaxError parsing extracted code: {e}", file=sys.stderr, flush=True)
+            print(f"[DEBUG] Attempted to parse: {code[:300]}...", file=sys.stderr, flush=True)
             return None
         return code
 
     @staticmethod
     def _extract_json_cases(raw: str) -> list[dict]:
+        import sys
         # Prefer a fenced ```json block, else the first [...] array
         m = re.search(r"```json\s*(.*?)```", raw, re.DOTALL)
         blob = m.group(1).strip() if m else None
         if blob is None:
+            # Try any code fence with possible language
+            m_fence = re.search(r"```\s*(?:json)?\s*(.*?)```", raw, re.DOTALL)
+            blob = m_fence.group(1).strip() if m_fence else None
+        if blob is None:
+            # Last resort: find [...] array
             m2 = re.search(r"(\[.*\])", raw, re.DOTALL)
             blob = m2.group(1) if m2 else None
         if not blob:
+            print(f"[DEBUG] No JSON block found in response, raw length={len(raw)}", file=sys.stderr, flush=True)
             return []
         try:
             data = json.loads(blob)
-            return data if isinstance(data, list) else []
-        except Exception:
+            result = data if isinstance(data, list) else []
+            print(f"[DEBUG] Successfully parsed {len(result)} cases from JSON", file=sys.stderr, flush=True)
+            return result
+        except json.JSONDecodeError as e:
+            print(f"[DEBUG] JSON parse error: {e}", file=sys.stderr, flush=True)
+            print(f"[DEBUG] Attempted to parse: {blob[:300]}...", file=sys.stderr, flush=True)
             return []
 
 
