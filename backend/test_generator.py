@@ -394,6 +394,36 @@ class TestGenerator:
         return code
 
     @staticmethod
+    def _repair_json(blob: str) -> str:
+        """Repair incomplete/malformed JSON from Ollama by fixing common issues."""
+        import sys
+        blob = blob.strip()
+
+        # Remove trailing commas before closing brackets (Ollama adds these)
+        blob = re.sub(r',(\s*[}\]])', r'\1', blob)
+
+        # If JSON is incomplete (no closing ]), add them
+        open_brackets = blob.count('[')
+        close_brackets = blob.count(']')
+        if open_brackets > close_brackets:
+            blob += ']' * (open_brackets - close_brackets)
+            print(f"[DEBUG] Added {open_brackets - close_brackets} closing bracket(s)", file=sys.stderr, flush=True)
+
+        # If JSON has unclosed objects { } count
+        open_braces = blob.count('{')
+        close_braces = blob.count('}')
+        if open_braces > close_braces:
+            blob += '}' * (open_braces - close_braces)
+            print(f"[DEBUG] Added {open_braces - close_braces} closing brace(s)", file=sys.stderr, flush=True)
+
+        # Remove any text after the final ] that might be artifacts
+        last_bracket = blob.rfind(']')
+        if last_bracket != -1:
+            blob = blob[:last_bracket + 1]
+
+        return blob
+
+    @staticmethod
     def _extract_json_cases(raw: str) -> list[dict]:
         import sys
         # Prefer a fenced ```json block, else the first [...] array
@@ -405,19 +435,33 @@ class TestGenerator:
             blob = m_fence.group(1).strip() if m_fence else None
         if blob is None:
             # Last resort: find [...] array
-            m2 = re.search(r"(\[.*\])", raw, re.DOTALL)
+            m2 = re.search(r"(\[.*)", raw, re.DOTALL)
             blob = m2.group(1) if m2 else None
         if not blob:
             print(f"[DEBUG] No JSON block found in response, raw length={len(raw)}", file=sys.stderr, flush=True)
             return []
+
+        # Try parsing first
         try:
             data = json.loads(blob)
             result = data if isinstance(data, list) else []
-            print(f"[DEBUG] Successfully parsed {len(result)} cases from JSON", file=sys.stderr, flush=True)
+            print(f"[DEBUG] Successfully parsed {len(result)} cases from JSON (first try)", file=sys.stderr, flush=True)
             return result
         except json.JSONDecodeError as e:
-            print(f"[DEBUG] JSON parse error: {e}", file=sys.stderr, flush=True)
-            print(f"[DEBUG] Attempted to parse: {blob[:300]}...", file=sys.stderr, flush=True)
+            print(f"[DEBUG] JSON parse error (first try): {e}", file=sys.stderr, flush=True)
+
+        # If first try failed, attempt repair
+        print(f"[DEBUG] Attempting JSON repair for Ollama incomplete output...", file=sys.stderr, flush=True)
+        repaired = TestGenerator._repair_json(blob)
+        try:
+            data = json.loads(repaired)
+            result = data if isinstance(data, list) else []
+            print(f"[DEBUG] Successfully parsed {len(result)} cases from repaired JSON", file=sys.stderr, flush=True)
+            return result
+        except json.JSONDecodeError as e:
+            print(f"[DEBUG] JSON parse error (after repair): {e}", file=sys.stderr, flush=True)
+            print(f"[DEBUG] Original: {blob[:300]}...", file=sys.stderr, flush=True)
+            print(f"[DEBUG] Repaired: {repaired[:300]}...", file=sys.stderr, flush=True)
             return []
 
 
