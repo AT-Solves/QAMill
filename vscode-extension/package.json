@@ -56,14 +56,14 @@
         {
           "submenu": "qamill.main",
           "group": "testing",
-          "when": "resourceExtname == .py"
+          "when": "resourceExtname == .py || resourceExtname == .ts || resourceExtname == .js || resourceExtname == .tsx || resourceExtname == .jsx"
         }
       ],
       "explorer/context": [
         {
           "submenu": "qamill.main",
           "group": "testing",
-          "when": "resourceExtname == .py || explorerResourceIsFolder"
+          "when": "resourceExtname == .py || resourceExtname == .ts || resourceExtname == .js || resourceExtname == .tsx || resourceExtname == .jsx || explorerResourceIsFolder"
         }
       ],
       "qamill.main": [
