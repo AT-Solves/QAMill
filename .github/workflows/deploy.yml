@@ -34,11 +34,11 @@ jobs:
         echo "Compiling TypeScript..."
         npm run compile
 
-        echo "Installing vsce..."
-        npm install -D vsce@2.15.0
+        echo "Installing @vscode/vsce (Node 18 compatible)..."
+        npm install -D @vscode/vsce
 
         echo "Packaging VSIX..."
-        npx vsce package --allow-star-activation -o ../qamill-mutation-testing-1.2.0.vsix
+        npx @vscode/vsce package --allow-star-activation -o ../qamill-mutation-testing-1.2.0.vsix
 
     - name: Verify VSIX
       run: |
