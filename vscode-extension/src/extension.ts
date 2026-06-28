@@ -92,7 +92,7 @@ async function runAnalysis(context: vscode.ExtensionContext, uri?: vscode.Uri) {
     // Fallback: active editor
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-      vscode.window.showErrorMessage("QAMill: Open or right-click a Python (.py) file to open Test Studio.");
+      vscode.window.showErrorMessage("QAMill: Open or right-click a source file (Python, JavaScript, TypeScript) to open Test Studio.");
       return;
     }
     filePath = editor.document.fileName;
@@ -871,7 +871,7 @@ function openTestStudio(context: vscode.ExtensionContext,
     if (ed && ed.document.languageId === "python") { filePath = ed.document.uri.fsPath; }
   }
   if (!filePath || !filePath.endsWith(".py")) {
-    vscode.window.showErrorMessage("QAMill: Open or right-click a Python (.py) file to open Test Studio.");
+    vscode.window.showErrorMessage("QAMill: Open or right-click a source file (Python, JavaScript, TypeScript) to open Test Studio.");
     return;
   }
   studioTarget = { filePath, presetFormat };
