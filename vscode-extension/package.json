@@ -20,6 +20,10 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:python",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact",
     "onCommand:amil.runAnalysis",
     "onCommand:amil.openTestStudio",
     "onCommand:amil.selectLLM"
