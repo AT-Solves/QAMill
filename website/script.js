@@ -413,27 +413,27 @@ const investorPitchDeck = [
             <h2 style="color: #00D084; margin-bottom: 15px;">Strategic Advantages</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 15px; line-height: 1.7;">
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p><strong style="color: #00D084;">🎯 Multi-Language DNA</strong></p>
+                    <p><strong style="color: #00D084;">Multi-Language DNA</strong></p>
                     <p style="font-size: 13px; margin-top: 8px;">Built from ground-up for Python + JS + TS + React. Not retrofitted. Unified architecture.</p>
                 </div>
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p><strong style="color: #00D084;">⚡ 10x Speed Advantage</strong></p>
+                    <p><strong style="color: #00D084;">10x Speed Advantage</strong></p>
                     <p style="font-size: 13px; margin-top: 8px;">30-60 seconds vs 5-15 mins. In developer workflow = difference between loved & tolerated.</p>
                 </div>
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p><strong style="color: #00D084;">🧪 AI + Science Combined</strong></p>
+                    <p><strong style="color: #00D084;">AI + Science Combined</strong></p>
                     <p style="font-size: 13px; margin-top: 8px;">Only platform: AI test generation + mutation testing. Verification not just generation.</p>
                 </div>
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p><strong style="color: #00D084;">🔓 No Vendor Lock-in</strong></p>
+                    <p><strong style="color: #00D084;">No Vendor Lock-in</strong></p>
                     <p style="font-size: 13px; margin-top: 8px;">6+ LLM providers (Claude, GPT, Ollama, Grok, Gemini, DeepSeek). Choice is yours.</p>
                 </div>
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p><strong style="color: #00D084;">💰 Freemium Economics</strong></p>
+                    <p><strong style="color: #00D084;">Freemium Economics</strong></p>
                     <p style="font-size: 13px; margin-top: 8px;">Free to millions. \$50 CAC. \$900 LTV. 18x unit economics = venture-scale growth.</p>
                 </div>
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p><strong style="color: #00D084;">🖥️ Enterprise Ready</strong></p>
+                    <p><strong style="color: #00D084;">Enterprise Ready</strong></p>
                     <p style="font-size: 13px; margin-top: 8px;">Offline with Ollama. On-prem. Air-gapped. Zero breaking changes. 92% retention.</p>
                 </div>
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
@@ -618,20 +618,18 @@ function showFullscreenSlide(n) {
             <button class="fullscreen-close-btn" onclick="closeFullscreenSlideshow()">✕</button>
             <div class="fullscreen-slideshow-content">
                 <div class="fullscreen-slide">
-                    <div style="text-align: center; margin-bottom: 12px;">
-                        <p style="color: #999; font-size: 14px; margin: 0;">SLIDE ${fullscreenSlideIndex}</p>
-                        <h1 style="color: #1A1A1A; font-size: 44px; margin: 10px 0;">${slide.title}</h1>
-                        <p style="color: #00D084; font-size: 18px; font-weight: 600;">${slide.subtitle}</p>
-                        <hr style="border: none; border-top: 2px solid #00D084; margin: 20px 0; width: 100px; margin-left: auto; margin-right: auto;">
+                    <div style="text-align: center; margin-bottom: 10px;">
+                        <h1 style="color: #1A1A1A; font-size: 36px; margin: 0 0 8px 0;">${slide.title}</h1>
+                        <p style="color: #00D084; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">${slide.subtitle}</p>
+                        <hr style="border: none; border-top: 2px solid #00D084; margin: 0 auto 15px auto; width: 80px;">
                     </div>
-                    <div style="margin-top: 40px; color: #333;">
+                    <div style="color: #333; overflow-y: auto; height: calc(100% - 160px); padding-right: 5px;">
                         ${slide.content}
                     </div>
                 </div>
                 <div class="fullscreen-controls">
                     <button class="fullscreen-nav-btn" onclick="changeFullscreenSlide(-1)">❮ Previous</button>
                     <div style="text-align: center;">
-                        <p class="slide-counter">${fullscreenSlideIndex} / ${investorPitchDeck.length}</p>
                         <div class="fullscreen-indicators">
                             ${investorPitchDeck.map((_, i) => `
                                 <span class="fullscreen-dot ${i + 1 === fullscreenSlideIndex ? 'active' : ''}" onclick="showFullscreenSlide(${i + 1})"></span>
