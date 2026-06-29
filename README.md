@@ -4,6 +4,15 @@
 
 ---
 
+## 📦 Get Started
+
+[![Install from VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/achieverthoughts.qamill-mutation-testing?style=flat-square&label=VS%20Code%20Extension)](https://marketplace.visualstudio.com/items?itemName=achieverthoughts.qamill-mutation-testing)
+[![GitHub License](https://img.shields.io/github/license/AT-Solves/QAMill?style=flat-square)](https://github.com/AT-Solves/QAMill/blob/main/LICENSE)
+[![Python Support](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://www.python.org)
+[![GitHub Stars](https://img.shields.io/github/stars/AT-Solves/QAMill?style=flat-square)](https://github.com/AT-Solves/QAMill)
+
+---
+
 ## What is QAMill?
 
 QAMill is an AI-powered mutation testing tool that runs inside your IDE.

@@ -2,8 +2,20 @@
 
 **Enterprise-grade mutation testing and AI-powered test generation for Python, JavaScript, TypeScript, and React.**
 
-[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/achieverthoughts.qamill-mutation-testing)](https://marketplace.visualstudio.com/items?itemName=achieverthoughts.qamill-mutation-testing)
-[![Rating](https://img.shields.io/visual-studio-marketplace/r/achieverthoughts.qamill-mutation-testing)](https://marketplace.visualstudio.com/items?itemName=achieverthoughts.qamill-mutation-testing)
+[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/achieverthoughts.qamill-mutation-testing?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=achieverthoughts.qamill-mutation-testing)
+[![Visual Studio Marketplace Downloads](https://img.shields.io/visual-studio-marketplace/d/achieverthoughts.qamill-mutation-testing?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=achieverthoughts.qamill-mutation-testing)
+[![Visual Studio Marketplace Rating](https://img.shields.io/visual-studio-marketplace/r/achieverthoughts.qamill-mutation-testing?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=achieverthoughts.qamill-mutation-testing)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://github.com/AT-Solves/QAMill/blob/main/LICENSE)
+
+---
+
+## 📦 Installation
+
+Install directly from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=achieverthoughts.qamill-mutation-testing)**:
+
+- **Search** for "QAMill" in VS Code Extensions
+- **Click Install** and reload
+- **Right-click** on any supported file to start
 
 ---
 
