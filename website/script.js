@@ -220,53 +220,53 @@ const investorPitchDeck = [
         title: "QAMill",
         subtitle: "Enterprise-Grade AI Mutation Testing",
         content: `
-            <h1 style="color: #00D084; font-size: 48px; margin-bottom: 20px;">🚀 QAMill 🚀</h1>
-            <h2 style="font-size: 36px; margin-bottom: 40px;">Transforming How Teams Build & Test</h2>
-            <p style="font-size: 20px; color: #666; margin: 20px 0;">Series A Funding | 2026</p>
-            <p style="font-size: 18px; color: #999; margin-top: 40px;">"AI-powered mutation testing that transforms how enterprises build, test, and ship software."</p>
+            <h1 style="color: #00D084; font-size: 40px; margin-bottom: 15px;">🚀 QAMill 🚀</h1>
+            <h2 style="font-size: 28px; margin-bottom: 25px;">Transforming How Teams Build & Test</h2>
+            <p style="font-size: 16px; color: #666; margin: 15px 0;">Series A Funding | 2026</p>
+            <p style="font-size: 14px; color: #999; margin-top: 30px;">"AI-powered mutation testing that transforms how enterprises build, test, and ship software."</p>
         `
     },
     {
         title: "The Problem",
         subtitle: "Market Reality",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 30px;">Real Challenges Teams Face</h2>
-            <div style="text-align: left; font-size: 18px; line-height: 2;">
+            <h2 style="color: #00D084; margin-bottom: 20px; font-size: 22px;">Real Challenges Teams Face</h2>
+            <div style="text-align: left; font-size: 14px; line-height: 1.6;">
                 <p><strong>87%</strong> of teams waste 40% of dev time writing tests manually</p>
                 <p><strong>72%</strong> report inadequate test coverage</p>
                 <p><strong>$2.4M</strong> average cost per production bug</p>
                 <p><strong>91%</strong> struggle with test maintenance</p>
                 <p><strong>64%</strong> use 3+ languages with fragmented workflows</p>
             </div>
-            <p style="margin-top: 40px; color: #999; font-size: 14px;">Source: StackOverflow, GitHub, Gartner, Forrester, JetBrains surveys 2024</p>
+            <p style="margin-top: 25px; color: #999; font-size: 12px;">Source: StackOverflow, GitHub, Gartner, Forrester, JetBrains surveys 2024</p>
         `
     },
     {
         title: "Market Opportunity",
         subtitle: "$15B Growing Market",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 40px;">Massive & Growing</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; font-size: 18px;">
+            <h2 style="color: #00D084; margin-bottom: 25px; font-size: 22px;">Massive & Growing</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; font-size: 14px;">
                 <div style="text-align: center;">
-                    <p style="color: #999; font-size: 14px;">Total Addressable Market</p>
-                    <p style="color: #00D084; font-size: 42px; font-weight: bold;">$15B</p>
-                    <p style="color: #666;">Growing 12% annually</p>
+                    <p style="color: #999; font-size: 12px;">Total Addressable Market</p>
+                    <p style="color: #00D084; font-size: 36px; font-weight: bold; margin: 8px 0;">$15B</p>
+                    <p style="color: #666; font-size: 13px;">Growing 12% annually</p>
                 </div>
                 <div style="text-align: center;">
-                    <p style="color: #999; font-size: 14px;">AI-Powered Test Generation</p>
-                    <p style="color: #00D084; font-size: 42px; font-weight: bold;">$3.5B</p>
-                    <p style="color: #666;">Our serviceable market</p>
+                    <p style="color: #999; font-size: 12px;">AI-Powered Test Generation</p>
+                    <p style="color: #00D084; font-size: 36px; font-weight: bold; margin: 8px 0;">$3.5B</p>
+                    <p style="color: #666; font-size: 13px;">Our serviceable market</p>
                 </div>
             </div>
-            <p style="margin-top: 40px; text-align: center; color: #999;">Year 5 realistic capture: <strong style="color: #00D084; font-size: 20px;">$150M</strong></p>
+            <p style="margin-top: 25px; text-align: center; color: #999;">Year 5 realistic capture: <strong style="color: #00D084; font-size: 16px;">$150M</strong></p>
         `
     },
     {
         title: "Our Solution",
         subtitle: "QAMill Platform",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 30px;">AI-Powered Test Generation + Mutation Testing</h2>
-            <div style="text-align: left; font-size: 18px; line-height: 2; margin: 30px 0;">
+            <h2 style="color: #00D084; margin-bottom: 20px; font-size: 22px;">AI-Powered Test Generation + Mutation Testing</h2>
+            <div style="text-align: left; font-size: 14px; line-height: 1.5; margin: 20px 0;">
                 <p>⚡ <strong>Ultra-Fast:</strong> 30-60 second test generation</p>
                 <p>🌐 <strong>Multi-Language:</strong> Python, JS, TS, React natively</p>
                 <p>🧪 <strong>Mutation Testing:</strong> Detect weak tests automatically</p>
