@@ -1333,3 +1333,42 @@ code {
         font-size: 14px;
     }
 }
+
+/* ========================================
+   iframe Mode (Clean - No Headers/Footers)
+   ======================================== */
+
+body.iframe-mode {
+    background: #FFFFFF;
+}
+
+body.iframe-mode .navbar {
+    display: none !important;
+}
+
+body.iframe-mode .announcement-banner {
+    display: none !important;
+}
+
+body.iframe-mode .series-banner {
+    display: none !important;
+}
+
+body.iframe-mode .footer {
+    display: none !important;
+}
+
+body.iframe-mode .hero {
+    padding-top: 40px;
+    padding-bottom: 40px;
+}
+
+body.iframe-mode .hero-banner {
+    max-height: 500px;
+}
+
+/* Clean scroll behavior in iframe */
+body.iframe-mode {
+    margin: 0;
+    padding: 0;
+}
