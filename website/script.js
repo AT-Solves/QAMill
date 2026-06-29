@@ -222,7 +222,7 @@ const investorPitchDeck = [
         content: `
             <div style="text-align: left; font-size: 13px; line-height: 1.5; overflow-y: auto; height: 100%; padding-right: 8px;">
                 <h2 style="color: #00D084; margin-bottom: 12px; font-size: 20px;">QAMill</h2>
-                <p style="margin-bottom: 20px;"><strong>Enterprise-Grade AI Mutation Testing Platform</strong></p>
+                <p style="margin-bottom: 12px;"><strong>Enterprise-Grade AI Mutation Testing Platform</strong></p>
 
                 <p style="margin-bottom: 15px;"><strong>Problem:</strong> Development teams waste 40% of time writing tests manually, resulting in weak test suites and expensive production bugs averaging $2.4M each.</p>
 
@@ -232,9 +232,9 @@ const investorPitchDeck = [
 
                 <p style="margin-bottom: 15px;"><strong>Differentiation:</strong> Only platform with true multi-language support (Python, JavaScript, TypeScript, React) + mutation testing + 6+ LLM providers. 10x faster than competitors. Right-click IDE integration with real-time streaming results.</p>
 
-                <p style="margin-bottom: 20px;"><strong>Traction:</strong> 2,500+ GitHub stars, 8,000+ VS Code extension installs, 3,200+ daily active users, 92% customer retention, 25% month-over-month growth.</p>
+                <p style="margin-bottom: 12px;"><strong>Traction:</strong> 2,500+ GitHub stars, 8,000+ VS Code extension installs, 3,200+ daily active users, 92% customer retention, 25% month-over-month growth.</p>
 
-                <div style="background: #f9f9f9; border-left: 3px solid #00D084; padding: 15px; margin-top: 20px;">
+                <div style="background: #f9f9f9; border-left: 3px solid #00D084; padding: 15px; margin-top: 10px;">
                     <p style="color: #00D084; font-weight: bold; margin-bottom: 12px;">12-Month Roadmap</p>
                     <p style="margin: 8px 0; font-size: 14px;"><strong>Now (Q3 2026):</strong> v1.2.2 production-ready, multi-language, 6+ LLM providers, mutation testing</p>
                     <p style="margin: 8px 0; font-size: 14px;"><strong>Q4 2026:</strong> Pro SaaS tier launch ($10-50/mo), cloud hosting, 5K users target</p>
@@ -242,7 +242,7 @@ const investorPitchDeck = [
                     <p style="margin: 8px 0; font-size: 14px;"><strong>Q2-Q4 2027:</strong> 4 new languages (Go, Rust, Java, C#), AI-powered test refactoring, Series B funding</p>
                 </div>
 
-                <p style="margin-top: 20px;"><strong>Business Model:</strong> 3-tier revenue: Free open-source (millions of users), Pro SaaS ($1.2-6M Y1 ARR), Enterprise ($1.2-12M Y3 ARR). Projected $20M+ ARR by Year 5.</p>
+                <p style="margin-top: 10px;"><strong>Business Model:</strong> 3-tier revenue: Free open-source (millions of users), Pro SaaS ($1.2-6M Y1 ARR), Enterprise ($1.2-12M Y3 ARR). Projected $20M+ ARR by Year 5.</p>
 
                 <p style="margin-top: 15px; color: #00D084; font-weight: bold;">Ask: Series A funding to scale sales, expand language support, and capture market leadership.</p>
             </div>
@@ -252,10 +252,10 @@ const investorPitchDeck = [
         title: "Market Problem",
         subtitle: "The Opportunity",
         content: `
-            <div style="text-align: left; font-size: 15px; line-height: 1.8;">
-                <h2 style="color: #00D084; margin-bottom: 25px; font-size: 24px;">Testing Remains the Bottleneck</h2>
+            <div style="text-align: left; font-size: 13px; line-height: 1.5;">
+                <h2 style="color: #00D084; margin-bottom: 15px; font-size: 20px;">Testing Remains the Bottleneck</h2>
 
-                <div style="margin-bottom: 20px;">
+                <div style="margin-bottom: 12px;">
                     <p style="margin: 12px 0;"><strong>87% of teams</strong> spend 40% of development time writing tests manually</p>
                     <p style="margin: 12px 0;"><strong>72% report</strong> inadequate test coverage and missed edge cases</p>
                     <p style="margin: 12px 0;"><strong>91% struggle</strong> with test maintenance when code changes</p>
@@ -267,7 +267,7 @@ const investorPitchDeck = [
                     <p style="margin: 0;"><strong>Impact:</strong> Teams lose 2+ days of productivity per developer per week. Code quality lags. Bugs reach production. Development velocity stalls.</p>
                 </div>
 
-                <p style="margin-top: 20px; color: #666; font-size: 13px;">Data sources: StackOverflow Developer Survey 2024, GitHub State of Octoverse 2024, Gartner Report 2024, Forrester Research 2024, JetBrains Ecosystem Survey 2024</p>
+                <p style="margin-top: 10px; color: #666; font-size: 13px;">Data sources: StackOverflow Developer Survey 2024, GitHub State of Octoverse 2024, Gartner Report 2024, Forrester Research 2024, JetBrains Ecosystem Survey 2024</p>
             </div>
         `
     },
@@ -276,7 +276,7 @@ const investorPitchDeck = [
         subtitle: "$15 Billion Testing Automation Market",
         content: `
             <div style="text-align: center; font-size: 15px;">
-                <h2 style="color: #00D084; margin-bottom: 30px; font-size: 24px;">Massive Addressable Market</h2>
+                <h2 style="color: #00D084; margin-bottom: 30px; font-size: 20px;">Massive Addressable Market</h2>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 30px;">
                     <div style="text-align: left; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px;">
@@ -296,7 +296,7 @@ const investorPitchDeck = [
                     <p style="margin: 0; font-size: 16px;"><strong style="color: #00D084;">$150M</strong> - Conservative, realistic capture target</p>
                 </div>
 
-                <div style="text-align: left; margin-top: 20px; font-size: 14px;">
+                <div style="text-align: left; margin-top: 10px; font-size: 14px;">
                     <p style="color: #666;"><strong>Growth Drivers:</strong> 87% of teams want AI tools, 50% use 3+ languages, 15% annual increase in quality investment, shift-left testing adoption</p>
                 </div>
             </div>
@@ -307,9 +307,9 @@ const investorPitchDeck = [
         subtitle: "AI-Powered Test Generation with Mutation Testing",
         content: `
             <div style="text-align: left; font-size: 15px; line-height: 1.7;">
-                <h2 style="color: #00D084; margin-bottom: 20px; font-size: 24px;">How QAMill Works</h2>
+                <h2 style="color: #00D084; margin-bottom: 12px; font-size: 20px;">How QAMill Works</h2>
 
-                <div style="margin-bottom: 25px;">
+                <div style="margin-bottom: 15px;">
                     <p style="margin: 12px 0;"><strong>Ultra-Fast Generation:</strong> Generates comprehensive test suites in 30-60 seconds. Real-time streaming shows progress as tests are created.</p>
 
                     <p style="margin: 12px 0;"><strong>Multi-Language Support:</strong> Native support for Python, JavaScript, TypeScript, and React. Single platform for entire tech stack.</p>
@@ -323,7 +323,7 @@ const investorPitchDeck = [
                     <p style="margin: 12px 0;"><strong>Professional Reports:</strong> Elite HTML reports with mutation analysis, coverage metrics, and actionable insights.</p>
                 </div>
 
-                <div style="background: #f0f9f6; border-left: 4px solid #00D084; padding: 15px; margin-top: 20px;">
+                <div style="background: #f0f9f6; border-left: 4px solid #00D084; padding: 15px; margin-top: 10px;">
                     <p style="margin: 0;"><strong>Enterprise Grade:</strong> On-premises deployment, offline capability, 100% backward compatibility, 92% customer retention.</p>
                 </div>
             </div>
@@ -333,7 +333,7 @@ const investorPitchDeck = [
         title: "Competitive Landscape",
         subtitle: "Real World Competitors",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 25px;">How QAMill Dominates</h2>
+            <h2 style="color: #00D084; margin-bottom: 15px;">How QAMill Dominates</h2>
             <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin: 15px 0; line-height: 1.3;">
                 <thead>
                     <tr style="background: #f5f5f5;">
@@ -410,7 +410,7 @@ const investorPitchDeck = [
         title: "QAMill Differentiators",
         subtitle: "Why We're Different",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 25px;">Strategic Advantages</h2>
+            <h2 style="color: #00D084; margin-bottom: 15px;">Strategic Advantages</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 15px; line-height: 1.7;">
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
                     <p><strong style="color: #00D084;">🎯 Multi-Language DNA</strong></p>
@@ -451,7 +451,7 @@ const investorPitchDeck = [
         title: "Product Roadmap",
         subtitle: "Where We Are & Where We're Going",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 20px;">QAMill Timeline</h2>
+            <h2 style="color: #00D084; margin-bottom: 12px;">QAMill Timeline</h2>
             <div style="font-size: 14px; line-height: 1.8;">
                 <div style="margin-bottom: 18px; border-left: 4px solid #00D084; padding-left: 15px;">
                     <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">TODAY (Q3 2026) - PRODUCTION READY</p>
@@ -485,7 +485,7 @@ const investorPitchDeck = [
         subtitle: "Three-Tier Revenue Strategy",
         content: `
             <div style="text-align: left; font-size: 14px; line-height: 1.7;">
-                <h2 style="color: #00D084; margin-bottom: 20px; font-size: 24px;">Scalable Revenue Growth</h2>
+                <h2 style="color: #00D084; margin-bottom: 12px; font-size: 20px;">Scalable Revenue Growth</h2>
 
                 <div style="margin-bottom: 15px;">
                     <div style="border: 1px solid #e0e0e0; padding: 14px; margin-bottom: 12px; border-radius: 6px;">
@@ -518,9 +518,9 @@ const investorPitchDeck = [
         subtitle: "Proven Demand and Growth",
         content: `
             <div style="text-align: left; font-size: 14px; line-height: 1.7;">
-                <h2 style="color: #00D084; margin-bottom: 20px; font-size: 24px;">Strong Traction & Validation</h2>
+                <h2 style="color: #00D084; margin-bottom: 12px; font-size: 20px;">Strong Traction & Validation</h2>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 12px;">
                     <div style="border: 1px solid #e0e0e0; padding: 15px; border-radius: 6px;">
                         <p style="color: #666; font-size: 12px; text-transform: uppercase; margin-bottom: 12px; font-weight: bold;">Community Metrics</p>
                         <p style="margin: 8px 0;">2,500+ GitHub stars (organic growth)</p>
@@ -552,7 +552,7 @@ const investorPitchDeck = [
         subtitle: "Built by Developers, for Developers",
         content: `
             <div style="text-align: center; font-size: 14px; line-height: 1.8;">
-                <h2 style="color: #00D084; margin-bottom: 30px; font-size: 24px;">Growing Community of Developers</h2>
+                <h2 style="color: #00D084; margin-bottom: 30px; font-size: 20px;">Growing Community of Developers</h2>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 30px;">
                     <div style="border: 1px solid #e0e0e0; padding: 16px; border-radius: 8px;">
@@ -569,12 +569,12 @@ const investorPitchDeck = [
                     </div>
                 </div>
 
-                <div style="background: #f0f9f6; border-left: 4px solid #00D084; padding: 20px; margin-bottom: 25px; text-align: left;">
+                <div style="background: #f0f9f6; border-left: 4px solid #00D084; padding: 20px; margin-bottom: 15px; text-align: left;">
                     <p style="color: #00D084; font-weight: bold; margin-bottom: 12px; font-size: 15px;">Start Using QAMill Today</p>
                     <p style="margin: 0; color: #666; font-size: 13px;">Right-click any file in VS Code. Select "Generate Tests with QAMill." Watch tests appear in real-time. No setup required.</p>
                 </div>
 
-                <div style="margin-bottom: 20px;">
+                <div style="margin-bottom: 12px;">
                     <p style="color: #666; font-size: 13px; margin-bottom: 12px; font-weight: bold;">Available On:</p>
                     <p style="margin: 8px 0; font-size: 13px;">
                         <strong>VS Code Marketplace</strong> - Full extension with all features
@@ -592,7 +592,7 @@ const investorPitchDeck = [
                     <p style="margin: 0; color: #666; font-size: 13px;">NPS 72 | 92% Retention | 94% Accuracy</p>
                 </div>
 
-                <p style="margin-top: 20px; color: #00D084; font-weight: bold; font-size: 14px;">Ready to transform your testing workflow?</p>
+                <p style="margin-top: 10px; color: #00D084; font-weight: bold; font-size: 14px;">Ready to transform your testing workflow?</p>
             </div>
         `
     }
@@ -618,7 +618,7 @@ function showFullscreenSlide(n) {
             <button class="fullscreen-close-btn" onclick="closeFullscreenSlideshow()">✕</button>
             <div class="fullscreen-slideshow-content">
                 <div class="fullscreen-slide">
-                    <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="text-align: center; margin-bottom: 12px;">
                         <p style="color: #999; font-size: 14px; margin: 0;">SLIDE ${fullscreenSlideIndex}</p>
                         <h1 style="color: #1A1A1A; font-size: 44px; margin: 10px 0;">${slide.title}</h1>
                         <p style="color: #00D084; font-size: 18px; font-weight: 600;">${slide.subtitle}</p>
