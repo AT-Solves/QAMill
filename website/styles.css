@@ -646,24 +646,9 @@ table .partial {
 }
 
 /* Zoom Controls */
-.start-slideshow-btn {
-    display: inline-block;
-    padding: 14px 40px;
-    background: linear-gradient(135deg, var(--primary-color) 0%, #00B86A 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
+.slideshow-section {
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 5px 15px rgba(0, 212, 132, 0.3);
-    margin-bottom: 30px;
-}
-
-.start-slideshow-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 212, 132, 0.4);
+    user-select: none;
 }
 
 .fullscreen-slideshow {
