@@ -444,12 +444,12 @@ const investorPitchDeck = [
                     <p style="font-size: 13px; margin-top: 8px;">Offline with Ollama. On-prem. Air-gapped. Zero breaking changes. 92% retention.</p>
                 </div>
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p><strong style="color: #00D084;">⚡ Right-Click Action</strong></p>
-                    <p style="font-size: 13px; margin-top: 8px;">VS Code extension - right-click file, generate tests instantly. No tabs, no friction.</p>
+                    <p><strong style="color: #00D084;">Right-Click Extension</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">VS Code integration with right-click action on files. Generate tests instantly without leaving your editor or using a web interface.</p>
                 </div>
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p><strong style="color: #00D084;">🎬 Live Streaming Results</strong></p>
-                    <p style="font-size: 13px; margin-top: 8px;">Watch tests appear real-time as generated. Not batch. Not waiting. Live progress streaming.</p>
+                    <p><strong style="color: #00D084;">Real-Time Streaming Results</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">Watch tests appear as they're generated in real-time. Live progress streaming with instant feedback, not batch processing.</p>
                 </div>
             </div>
         `
@@ -460,29 +460,29 @@ const investorPitchDeck = [
         content: `
             <h2 style="color: #00D084; margin-bottom: 20px;">QAMill Timeline</h2>
             <div style="font-size: 14px; line-height: 1.8;">
-                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">✅ TODAY (Q3 2026) - PRODUCTION READY</p>
-                    <p style="margin: 0; font-size: 13px;">✓ v1.2.2 production live | ✓ Multi-language (Python, JS, TS, React) | ✓ 6+ LLM providers | ✓ Mutation testing engine | ✓ Elite HTML reports | ✓ VS Code extension published | ✓ 2,500+ GitHub ⭐ | ✓ 3,200+ DAU</p>
+                <div style="margin-bottom: 18px; border-left: 4px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">TODAY (Q3 2026) - PRODUCTION READY</p>
+                    <p style="margin: 0; font-size: 13px; color: #666;">v1.2.2 production live, multi-language support (Python, JavaScript, TypeScript, React), 6+ LLM providers, mutation testing engine, elite HTML reports, VS Code extension published, 2,500+ GitHub stars, 3,200+ daily active users</p>
                 </div>
-                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">🚀 Q4 2026 - PRO SAAS LAUNCH</p>
-                    <p style="margin: 0; font-size: 13px;">Cloud hosting | Priority support | Advanced analytics | Target: 5K paid users | \$500K ARR</p>
+                <div style="margin-bottom: 18px; border-left: 4px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">Q4 2026 - PRO SAAS LAUNCH</p>
+                    <p style="margin: 0; font-size: 13px; color: #666;">Cloud hosting, priority support, advanced analytics, user dashboard. Target: 5,000 paid users. Revenue target: $500K ARR</p>
                 </div>
-                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">🏢 Q1 2027 - ENTERPRISE DEPLOYMENT</p>
-                    <p style="margin: 0; font-size: 13px;">On-premises option | Dedicated support | SSO integration | Target: 25 enterprise customers</p>
+                <div style="margin-bottom: 18px; border-left: 4px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">Q1 2027 - ENTERPRISE DEPLOYMENT</p>
+                    <p style="margin: 0; font-size: 13px; color: #666;">On-premises deployment option, dedicated enterprise support, SSO integration, compliance tooling. Target: 25 enterprise customers</p>
                 </div>
-                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">🌐 Q2 2027 - LANGUAGE EXPANSION</p>
-                    <p style="margin: 0; font-size: 13px;">Add: Go, Rust, Java, C# support | Reach 6+ programming languages | Target: 10K paid users</p>
+                <div style="margin-bottom: 18px; border-left: 4px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">Q2 2027 - LANGUAGE EXPANSION</p>
+                    <p style="margin: 0; font-size: 13px; color: #666;">Add Go, Rust, Java, and C# support. Expand to 6+ programming languages. Target: 10K paid users across all tiers</p>
                 </div>
-                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">🤖 Q3 2027 - AI-POWERED REFACTORING</p>
-                    <p style="margin: 0; font-size: 13px;">Auto-fix failing tests | Smart test optimization | Code quality improvement suggestions</p>
+                <div style="margin-bottom: 18px; border-left: 4px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">Q3 2027 - AI-POWERED REFACTORING</p>
+                    <p style="margin: 0; font-size: 13px; color: #666;">Auto-fix failing tests, smart test optimization, code quality improvement suggestions, advanced mutation analysis</p>
                 </div>
-                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
-                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">💰 Q4 2027 - SERIES B & SCALE</p>
-                    <p style="margin: 0; font-size: 13px;">50 enterprise customers | 10K+ paid users | \$5M+ ARR | Target: Series B funding</p>
+                <div style="border-left: 4px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">Q4 2027 - SERIES B & MARKET SCALE</p>
+                    <p style="margin: 0; font-size: 13px; color: #666;">50+ enterprise customers, 10,000+ paid users, $5M+ annual recurring revenue, launch Series B funding round, expand sales and engineering teams</p>
                 </div>
             </div>
         `
@@ -556,16 +556,43 @@ const investorPitchDeck = [
     },
     {
         title: "Investment Ask",
-        subtitle: "Series A 2026",
+        subtitle: "Series A Funding Round 2026",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 40px; font-size: 42px;">Let's Scale Together</h2>
-            <div style="text-align: center; font-size: 18px; line-height: 2; margin: 40px 0;">
-                <p style="margin: 30px 0;"><strong>$15B Market</strong></p>
-                <p style="margin: 30px 0;"><strong>Multi-language, mutation-tested solution</strong></p>
-                <p style="margin: 30px 0;"><strong>Proven PMF, 25% MoM growth</strong></p>
-                <p style="margin: 30px 0;"><strong>18x unit economics</strong></p>
+            <div style="text-align: left; font-size: 14px; line-height: 1.7;">
+                <h2 style="color: #00D084; margin-bottom: 25px; font-size: 24px; text-align: center;">Series A Investment Opportunity</h2>
+
+                <div style="background: #f0f9f6; border: 2px solid #00D084; padding: 18px; border-radius: 8px; margin-bottom: 20px;">
+                    <p style="text-align: center; color: #00D084; font-weight: bold; font-size: 18px; margin: 0;"><strong>$5 Million Series A</strong></p>
+                </div>
+
+                <div style="margin-bottom: 18px;">
+                    <p style="color: #666; margin-bottom: 12px; font-weight: bold;">Capital Allocation:</p>
+                    <div style="margin-left: 20px; font-size: 13px;">
+                        <p style="margin: 6px 0;">Sales & Marketing (40%) - Enterprise sales team, channel partners, demand generation</p>
+                        <p style="margin: 6px 0;">Product Development (35%) - New language support, AI refactoring, platform features</p>
+                        <p style="margin: 6px 0;">Operations & Infrastructure (15%) - Scaling, compliance, enterprise support</p>
+                        <p style="margin: 6px 0;">Working Capital (10%) - Runway buffer, strategic hiring</p>
+                    </div>
+                </div>
+
+                <div style="background: #fff9f0; border-left: 4px solid #00D084; padding: 14px; margin-bottom: 18px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 8px; font-size: 13px;">Why Series A Now?</p>
+                    <p style="margin: 0; font-size: 13px; color: #666;">Proven product-market fit with 25% MoM growth. Market demand accelerating. Competitive window closing. Perfect timing to establish market leadership before Series B.</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
+                    <div style="border: 1px solid #e0e0e0; padding: 12px; border-radius: 6px; text-align: center;">
+                        <p style="color: #666; font-size: 11px; text-transform: uppercase; margin-bottom: 6px;">Runway</p>
+                        <p style="color: #00D084; font-weight: bold; font-size: 16px; margin: 0;">18 Months</p>
+                    </div>
+                    <div style="border: 1px solid #e0e0e0; padding: 12px; border-radius: 6px; text-align: center;">
+                        <p style="color: #666; font-size: 11px; text-transform: uppercase; margin-bottom: 6px;">Series B Target</p>
+                        <p style="color: #00D084; font-weight: bold; font-size: 16px; margin: 0;">Q4 2027</p>
+                    </div>
+                </div>
+
+                <p style="margin-top: 20px; text-align: center; color: #00D084; font-weight: bold; font-size: 15px;">Establish global market leadership in AI-powered test generation</p>
             </div>
-            <p style="margin-top: 50px; text-align: center; color: #00D084; font-size: 20px; font-weight: bold;">Ready to revolutionize test generation?</p>
         `
     }
 ];
