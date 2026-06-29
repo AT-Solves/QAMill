@@ -145,8 +145,9 @@
     <!-- Slideshow Section -->
     <section id="slideshow" class="slideshow-section">
         <div class="container">
-            <h2>Presentations & Investor Pitch</h2>
-            <p class="section-subtitle">Interactive slides with zoom capability</p>
+            <h2>Investor Pitch Deck</h2>
+            <p class="section-subtitle">Professional presentation - Click "Start Slideshow" to begin</p>
+            <button class="start-slideshow-btn" onclick="startFullscreenSlideshow()">▶ Start Slideshow</button>
 
             <div class="slideshow-container">
                 <!-- Slide 1: Elevator Pitch -->
@@ -469,12 +470,6 @@
                     <button class="slide-button" onclick="changeSlide(1)">Next ❯</button>
                 </div>
 
-                <!-- Zoom Controls -->
-                <div class="zoom-controls">
-                    <button onclick="zoomOut()" class="zoom-btn">−</button>
-                    <span class="zoom-level" id="zoomLevel">100%</span>
-                    <button onclick="zoomIn()" class="zoom-btn">+</button>
-                </div>
             </div>
         </div>
     </section>
