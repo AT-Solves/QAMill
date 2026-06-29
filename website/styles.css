@@ -1431,16 +1431,16 @@ body.iframe-mode {
     justify-content: center;
 }
 
-.qa-circle-svg {
+.qa-diagram-container {
     width: 100%;
-    height: auto;
-    max-width: 100%;
-    margin-bottom: 20px;
-    aspect-ratio: 800/600;
+    max-width: 600px;
+    margin: 0 auto 20px;
 }
 
-.center-text {
-    font-family: inherit;
+.qa-diagram {
+    width: 100%;
+    height: auto;
+    display: block;
 }
 
 .governance-footer {

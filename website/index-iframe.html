@@ -44,95 +44,90 @@
                 </div>
             </div>
             <div class="governance-right">
-                <svg class="qa-circle-svg" viewBox="0 0 1000 650" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <filter id="centerGlow">
-                            <feGaussianBlur stdDeviation="4"/>
-                            <feOffset result="coloredBlur"/>
-                            <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-                        <style>
-                            .activity-box { stroke: #00D084; stroke-width: 1.2; fill: none; rx: 8; }
-                            .activity-icon { font-size: 20px; }
-                            .activity-label { fill: #00D084; font-weight: 600; font-size: 11px; font-family: Arial, sans-serif; }
-                            .connection-line { stroke: #00D084; stroke-width: 1.5; opacity: 0.6; fill: none; }
-                            .circle-ring { stroke: #00D084; fill: none; }
-                        </style>
-                    </defs>
+                <div class="qa-diagram-container">
+                    <svg class="qa-diagram" viewBox="0 0 800 700" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <filter id="glow2">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
 
-                    <!-- Background circles for depth -->
-                    <circle cx="500" cy="325" r="220" class="circle-ring" stroke-width="1.5" opacity="0.25"/>
-                    <circle cx="500" cy="325" r="155" class="circle-ring" stroke-width="1.5" opacity="0.35"/>
-                    <circle cx="500" cy="325" r="100" class="circle-ring" stroke-width="1" opacity="0.45"/>
+                        <!-- Concentric circles -->
+                        <circle cx="400" cy="350" r="200" fill="none" stroke="#00D084" stroke-width="1.5" opacity="0.3"/>
+                        <circle cx="400" cy="350" r="140" fill="none" stroke="#00D084" stroke-width="2" opacity="0.5"/>
+                        <circle cx="400" cy="350" r="85" fill="none" stroke="#00D084" stroke-width="1.5" opacity="0.6"/>
 
-                    <!-- Center circle -->
-                    <circle cx="500" cy="325" r="85" fill="#00D084" filter="url(#centerGlow)"/>
-                    <text x="500" y="312" text-anchor="middle" font-size="32" font-weight="bold" fill="#0F1419">QA</text>
-                    <text x="500" y="348" text-anchor="middle" font-size="32" font-weight="bold" fill="#0F1419">MILL</text>
+                        <!-- Center Green Circle -->
+                        <circle cx="400" cy="350" r="70" fill="#00D084" filter="url(#glow2)"/>
+                        <text x="400" y="335" text-anchor="middle" font-size="28" font-weight="bold" fill="#0F1419">QA</text>
+                        <text x="400" y="368" text-anchor="middle" font-size="28" font-weight="bold" fill="#0F1419">MILL</text>
 
-                    <!-- TOP LEFT: Requirements Management -->
-                    <path class="connection-line" d="M 415 260 Q 340 180 240 120"/>
-                    <rect class="activity-box" x="140" y="60" width="180" height="75"/>
-                    <text x="230" y="90" text-anchor="middle" class="activity-icon">📋</text>
-                    <text x="230" y="118" text-anchor="middle" class="activity-label"><tspan x="230">REQUIREMENTS</tspan><tspan x="230" dy="14">MANAGEMENT</tspan></text>
+                        <!-- TOP LEFT: Requirements Management -->
+                        <path d="M 340 300 Q 250 200 150 100" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <circle cx="150" cy="100" r="2" fill="#00D084"/>
+                        <rect x="100" y="50" width="160" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="180" y="75" text-anchor="middle" font-size="16">📋</text>
+                        <text x="180" y="100" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10"><tspan x="180">REQUIREMENTS</tspan><tspan x="180" dy="12">MANAGEMENT</tspan></text>
 
-                    <!-- MIDDLE LEFT: Test Planning -->
-                    <path class="connection-line" d="M 415 325 L 210 325"/>
-                    <rect class="activity-box" x="70" y="287" width="150" height="75"/>
-                    <text x="145" y="317" text-anchor="middle" class="activity-icon">📅</text>
-                    <text x="145" y="341" text-anchor="middle" class="activity-label">TEST PLANNING</text>
+                        <!-- LEFT CENTER: Test Planning -->
+                        <path d="M 330 350 L 150 350" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <rect x="50" y="315" width="130" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="115" y="340" text-anchor="middle" font-size="16">📅</text>
+                        <text x="115" y="363" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10">TEST PLANNING</text>
 
-                    <!-- BOTTOM LEFT: Test Design -->
-                    <path class="connection-line" d="M 415 390 Q 340 470 240 530"/>
-                    <rect class="activity-box" x="140" y="515" width="150" height="75"/>
-                    <text x="215" y="545" text-anchor="middle" class="activity-icon">💻</text>
-                    <text x="215" y="569" text-anchor="middle" class="activity-label">TEST DESIGN</text>
+                        <!-- BOTTOM LEFT: Test Design -->
+                        <path d="M 340 400 Q 250 500 150 600" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <rect x="100" y="580" width="130" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="165" y="605" text-anchor="middle" font-size="16">💻</text>
+                        <text x="165" y="628" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10">TEST DESIGN</text>
 
-                    <!-- BOTTOM CENTER LEFT: Test Execution -->
-                    <path class="connection-line" d="M 450 410 L 450 500"/>
-                    <rect class="activity-box" x="385" y="520" width="130" height="75"/>
-                    <text x="450" y="550" text-anchor="middle" class="activity-icon">⚙️</text>
-                    <text x="450" y="574" text-anchor="middle" class="activity-label">TEST EXECUTION</text>
+                        <!-- BOTTOM CENTER-LEFT: Test Execution -->
+                        <path d="M 370 420 L 370 520" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <rect x="310" y="540" width="120" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="370" y="565" text-anchor="middle" font-size="16">⚙️</text>
+                        <text x="370" y="588" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10">TEST EXECUTION</text>
 
-                    <!-- BOTTOM CENTER RIGHT: Defect Management -->
-                    <path class="connection-line" d="M 550 410 L 550 500"/>
-                    <rect class="activity-box" x="485" y="520" width="150" height="75"/>
-                    <text x="560" y="550" text-anchor="middle" class="activity-icon">🐛</text>
-                    <text x="560" y="574" text-anchor="middle" class="activity-label"><tspan x="560">DEFECT</tspan><tspan x="560" dy="14">MANAGEMENT</tspan></text>
+                        <!-- BOTTOM CENTER-RIGHT: Defect Management -->
+                        <path d="M 430 420 L 430 520" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <rect x="390" y="540" width="140" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="460" y="565" text-anchor="middle" font-size="16">🐛</text>
+                        <text x="460" y="588" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10"><tspan x="460">DEFECT</tspan><tspan x="460" dy="12">MANAGEMENT</tspan></text>
 
-                    <!-- TOP RIGHT: Requirements Traceability -->
-                    <path class="connection-line" d="M 585 260 Q 660 180 760 120"/>
-                    <rect class="activity-box" x="680" y="60" width="180" height="75"/>
-                    <text x="770" y="90" text-anchor="middle" class="activity-icon">✓</text>
-                    <text x="770" y="118" text-anchor="middle" class="activity-label"><tspan x="770">REQUIREMENTS</tspan><tspan x="770" dy="14">TRACEABILITY</tspan></text>
+                        <!-- TOP RIGHT: Requirements Traceability -->
+                        <path d="M 460 300 Q 550 200 650 100" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <rect x="540" y="50" width="160" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="620" y="75" text-anchor="middle" font-size="16">✓</text>
+                        <text x="620" y="100" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10"><tspan x="620">REQUIREMENTS</tspan><tspan x="620" dy="12">TRACEABILITY</tspan></text>
 
-                    <!-- TOP RIGHT (middle): Reports & Metrics -->
-                    <path class="connection-line" d="M 575 285 Q 660 220 760 160"/>
-                    <rect class="activity-box" x="710" y="120" width="140" height="75"/>
-                    <text x="780" y="150" text-anchor="middle" class="activity-icon">📊</text>
-                    <text x="780" y="174" text-anchor="middle" class="activity-label"><tspan x="780">REPORTS &</tspan><tspan x="780" dy="14">METRICS</tspan></text>
+                        <!-- TOP RIGHT-CENTER: Reports & Metrics -->
+                        <path d="M 460 310 Q 550 240 650 160" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <rect x="600" y="120" width="130" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="665" y="145" text-anchor="middle" font-size="16">📊</text>
+                        <text x="665" y="168" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10"><tspan x="665">REPORTS &</tspan><tspan x="665" dy="12">METRICS</tspan></text>
 
-                    <!-- MIDDLE RIGHT: Reviews & Approvals -->
-                    <path class="connection-line" d="M 585 325 L 790 325"/>
-                    <rect class="activity-box" x="820" y="287" width="150" height="75"/>
-                    <text x="895" y="317" text-anchor="middle" class="activity-icon">👥</text>
-                    <text x="895" y="341" text-anchor="middle" class="activity-label"><tspan x="895">REVIEWS &</tspan><tspan x="895" dy="14">APPROVALS</tspan></text>
+                        <!-- RIGHT CENTER: Reviews & Approvals -->
+                        <path d="M 470 350 L 650 350" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <rect x="720" y="315" width="140" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="790" y="340" text-anchor="middle" font-size="16">👥</text>
+                        <text x="790" y="363" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10"><tspan x="790">REVIEWS &</tspan><tspan x="790" dy="12">APPROVALS</tspan></text>
 
-                    <!-- BOTTOM RIGHT (middle): Risks & Issues -->
-                    <path class="connection-line" d="M 575 365 Q 660 430 760 490"/>
-                    <rect class="activity-box" x="710" y="490" width="140" height="75"/>
-                    <text x="780" y="520" text-anchor="middle" class="activity-icon">⚠️</text>
-                    <text x="780" y="544" text-anchor="middle" class="activity-label"><tspan x="780">RISKS &</tspan><tspan x="780" dy="14">ISSUES</tspan></text>
+                        <!-- BOTTOM RIGHT-CENTER: Risks & Issues -->
+                        <path d="M 460 390 Q 550 460 650 540" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <rect x="600" y="520" width="120" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="660" y="545" text-anchor="middle" font-size="16">⚠️</text>
+                        <text x="660" y="568" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10"><tspan x="660">RISKS &</tspan><tspan x="660" dy="12">ISSUES</tspan></text>
 
-                    <!-- BOTTOM RIGHT: Automation Management -->
-                    <path class="connection-line" d="M 560 390 Q 620 460 700 530"/>
-                    <rect class="activity-box" x="655" y="520" width="165" height="75"/>
-                    <text x="737" y="550" text-anchor="middle" class="activity-icon">⚙️</text>
-                    <text x="737" y="574" text-anchor="middle" class="activity-label"><tspan x="737">AUTOMATION</tspan><tspan x="737" dy="14">MANAGEMENT</tspan></text>
-                </svg>
+                        <!-- BOTTOM RIGHT: Automation Management -->
+                        <path d="M 430 400 Q 500 460 570 600" stroke="#00D084" stroke-width="2" fill="none" opacity="0.7"/>
+                        <rect x="530" y="580" width="150" height="70" rx="8" fill="none" stroke="#00D084" stroke-width="1.5"/>
+                        <text x="605" y="605" text-anchor="middle" font-size="16">⚙️</text>
+                        <text x="605" y="628" text-anchor="middle" fill="#00D084" font-weight="600" font-size="10"><tspan x="605">AUTOMATION</tspan><tspan x="605" dy="12">MANAGEMENT</tspan></text>
+                    </svg>
+                </div>
                 <p class="governance-footer">CENTRALIZED • STANDARDIZED • COLLABORATIVE • GOVERNED</p>
             </div>
         </div>
