@@ -6,6 +6,10 @@ name: Build & Deploy VSIX v2
 on:
   push:
     branches: [main]
+    paths:
+      - 'backend/**'
+      - 'vscode-extension/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
