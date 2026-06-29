@@ -44,66 +44,76 @@
                 </div>
             </div>
             <div class="governance-right">
-                <div class="qa-circle">
-                    <div class="circle-center">QA<br>MILL</div>
-                    <div class="circle-item item-top-left">
-                        <span class="item-icon">📋</span>
-                        <span class="item-text">REQUIREMENTS<br>MANAGEMENT</span>
-                    </div>
-                    <div class="circle-item item-top-center">
-                        <span class="item-icon">📅</span>
-                        <span class="item-text">TEST<br>PLANNING</span>
-                    </div>
-                    <div class="circle-item item-top-right">
-                        <span class="item-icon">✓</span>
-                        <span class="item-text">REQUIREMENTS<br>TRACEABILITY</span>
-                    </div>
-                    <div class="circle-item item-right-top">
-                        <span class="item-icon">📊</span>
-                        <span class="item-text">REPORTS &<br>METRICS</span>
-                    </div>
-                    <div class="circle-item item-right-bottom">
-                        <span class="item-icon">👥</span>
-                        <span class="item-text">REVIEWS &<br>APPROVALS</span>
-                    </div>
-                    <div class="circle-item item-bottom-right">
-                        <span class="item-icon">⚠️</span>
-                        <span class="item-text">RISKS &<br>ISSUES</span>
-                    </div>
-                    <div class="circle-item item-bottom-center">
-                        <span class="item-icon">⚙️</span>
-                        <span class="item-text">AUTOMATION<br>MANAGEMENT</span>
-                    </div>
-                    <div class="circle-item item-bottom-left">
-                        <span class="item-icon">🐛</span>
-                        <span class="item-text">DEFECT<br>MANAGEMENT</span>
-                    </div>
-                    <div class="circle-item item-left-bottom">
-                        <span class="item-icon"></span>
-                        <span class="item-text">TEST<br>EXECUTION</span>
-                    </div>
-                    <div class="circle-item item-left-top">
-                        <span class="item-icon">💻</span>
-                        <span class="item-text">TEST<br>DESIGN</span>
-                    </div>
-                </div>
-                <p class="governance-footer">CENTRALIZED • STANDARDIZED • COLLABORATIVE • GOVERNED</p>
-            </div>
-        </div>
-    </section>
+                <svg class="qa-circle-svg" viewBox="0 0 500 500">
+                    <!-- Outer circle -->
+                    <circle cx="250" cy="250" r="240" fill="none" stroke="#00D084" stroke-width="2"/>
 
-    <!-- Hero Banner Section -->
-    <section id="home" class="hero">
-        <div class="hero-banner">
-            <img src="hero-banner.png" alt="QAMill - AI Mutation Testing" class="banner-image">
-            <div class="hero-overlay">
-                <h1 class="hero-title">QAMill</h1>
-                <p class="hero-subtitle">Enterprise-Grade AI-Powered Mutation Testing</p>
-                <p class="hero-description">Automate test generation for Python, JavaScript, TypeScript & React</p>
-                <div class="hero-cta">
-                    <button class="btn btn-primary" onclick="document.querySelector('#slideshow').scrollIntoView({behavior: 'smooth'})">View Presentations</button>
-                    <button class="btn btn-secondary" onclick="document.querySelector('#deployment').scrollIntoView({behavior: 'smooth'})">Deploy Now</button>
-                </div>
+                    <!-- Center circle -->
+                    <circle cx="250" cy="250" r="80" fill="#00D084"/>
+                    <text x="250" y="250" text-anchor="middle" dominant-baseline="middle" font-size="28" font-weight="bold" fill="#0F1419">QA<tspan x="250" dy="32">MILL</tspan></text>
+
+                    <!-- Connection lines and items -->
+                    <!-- Top Left -->
+                    <line x1="180" y1="180" x2="80" y2="80" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="40" y="40" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="80" y="65" text-anchor="middle" font-size="18">📋</text>
+                    <text x="80" y="105" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="80" dy="0">REQUIREMENTS</tspan><tspan x="80" dy="12">MANAGEMENT</tspan></text>
+
+                    <!-- Top Center -->
+                    <line x1="250" y1="170" x2="250" y2="60" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="210" y="20" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="250" y="45" text-anchor="middle" font-size="18">📅</text>
+                    <text x="250" y="85" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="250" dy="0">TEST</tspan><tspan x="250" dy="12">PLANNING</tspan></text>
+
+                    <!-- Top Right -->
+                    <line x1="320" y1="180" x2="420" y2="80" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="380" y="40" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="420" y="65" text-anchor="middle" font-size="18">✓</text>
+                    <text x="420" y="105" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="420" dy="0">REQUIREMENTS</tspan><tspan x="420" dy="12">TRACEABILITY</tspan></text>
+
+                    <!-- Right Top -->
+                    <line x1="330" y1="220" x2="420" y2="140" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="380" y="100" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="420" y="125" text-anchor="middle" font-size="18">📊</text>
+                    <text x="420" y="165" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="420" dy="0">REPORTS &</tspan><tspan x="420" dy="12">METRICS</tspan></text>
+
+                    <!-- Right Bottom -->
+                    <line x1="330" y1="280" x2="420" y2="360" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="380" y="320" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="420" y="345" text-anchor="middle" font-size="18">👥</text>
+                    <text x="420" y="385" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="420" dy="0">REVIEWS &</tspan><tspan x="420" dy="12">APPROVALS</tspan></text>
+
+                    <!-- Bottom Right -->
+                    <line x1="320" y1="320" x2="420" y2="420" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="380" y="380" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="420" y="405" text-anchor="middle" font-size="18">⚠️</text>
+                    <text x="420" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="420" dy="0">RISKS &</tspan><tspan x="420" dy="12">ISSUES</tspan></text>
+
+                    <!-- Bottom Center -->
+                    <line x1="250" y1="330" x2="250" y2="440" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="210" y="400" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="250" y="425" text-anchor="middle" font-size="18">⚙️</text>
+                    <text x="250" y="465" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="250" dy="0">AUTOMATION</tspan><tspan x="250" dy="12">MANAGEMENT</tspan></text>
+
+                    <!-- Bottom Left -->
+                    <line x1="180" y1="320" x2="80" y2="420" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="40" y="380" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="80" y="405" text-anchor="middle" font-size="18">🐛</text>
+                    <text x="80" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="80" dy="0">DEFECT</tspan><tspan x="80" dy="12">MANAGEMENT</tspan></text>
+
+                    <!-- Left Bottom -->
+                    <line x1="170" y1="280" x2="80" y2="360" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="40" y="320" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="80" y="345" text-anchor="middle" font-size="18">⚙️</text>
+                    <text x="80" y="385" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="80" dy="0">TEST</tspan><tspan x="80" dy="12">EXECUTION</tspan></text>
+
+                    <!-- Left Top -->
+                    <line x1="170" y1="220" x2="80" y2="140" stroke="#00D084" stroke-width="1" opacity="0.5"/>
+                    <rect x="40" y="100" width="80" height="80" rx="8" fill="none" stroke="#00D084" stroke-width="1" opacity="0.7"/>
+                    <text x="80" y="125" text-anchor="middle" font-size="18">💻</text>
+                    <text x="80" y="165" text-anchor="middle" font-size="11" font-weight="600" fill="#00D084"><tspan x="80" dy="0">TEST</tspan><tspan x="80" dy="12">DESIGN</tspan></text>
+                </svg>
+                <p class="governance-footer">CENTRALIZED • STANDARDIZED • COLLABORATIVE • GOVERNED</p>
             </div>
         </div>
     </section>
