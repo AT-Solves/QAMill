@@ -1431,16 +1431,19 @@ body.iframe-mode {
     justify-content: center;
 }
 
-.qa-diagram-container {
+.qa-governance-banner-image {
     width: 100%;
-    max-width: 600px;
-    margin: 0 auto 20px;
+    background: linear-gradient(135deg, #0F1419 0%, #1A3A2E 50%, #0F1419 100%);
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
 }
 
-.qa-diagram {
+.qa-banner-image {
     width: 100%;
     height: auto;
     display: block;
+    max-width: 100%;
 }
 
 .governance-footer {
