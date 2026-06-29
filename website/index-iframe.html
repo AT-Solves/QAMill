@@ -414,62 +414,52 @@
                     <div class="slide-content">
                         <div class="slide-header">QA Governance in Action</div>
                         <div class="slide-body">
-                            <h3>Case Study: Enterprise QA Team</h3>
+                            <h3>Real-World Implementation</h3>
                             <div class="case-study">
                                 <div class="case-study-section">
-                                    <h4>The QA Governance Crisis</h4>
+                                    <h4>The Scenario</h4>
+                                    <p><strong>Company:</strong> Mid-size SaaS, 50 developers across 4 teams (Python backend, React frontend, mobile, infrastructure)<br>
+                                    <strong>QA Team:</strong> 5 people trying to manage quality for all teams<br>
+                                    <strong>Challenge:</strong> Ratio is 1 QA per 10 developers—typical but unsustainable</p>
 
-                                    <p><strong>The Scenario:</strong><br>
-                                    Enterprise company: 5 product teams, 80+ developers. QA team of 8 trying to manage quality across the entire organization.</p>
-
-                                    <p><strong>The QA Governance Problem:</strong><br>
-                                    • NO visibility into test coverage across teams - each team tests differently<br>
-                                    • NO assurance that tests actually catch bugs - weak tests pass, bugs escape to production<br>
-                                    • MANUAL test creation = massive bottleneck - QA team can't scale with dev velocity<br>
-                                    • COMPLIANCE risk - can't prove adequate testing for audits/regulations<br>
-                                    • NO unified quality metrics or reporting to leadership</p>
-
-                                    <p><strong>Why It Costs the Business:</strong><br>
-                                    • QA team overwhelmed - can't keep up with 80 developers = quality gates fail<br>
-                                    • Production incidents spike - weak/missing tests = bugs reach customers<br>
-                                    • Regulatory fines - can't prove testing compliance = financial/legal risk<br>
-                                    • Release delays - QA bottleneck slows deployments = lost revenue opportunities<br>
-                                    • Team burnout - QA overworked, manual testing is exhausting</p>
-
-                                    <p><strong>Why Current Tools Fail QA Governance:</strong><br>
-                                    pytest/Jest are developer frameworks. They don't help QA teams manage quality governance across the organization. No test generation. No mutation testing. No compliance reporting. QA teams have no way to scale testing coverage or enforce quality standards across multiple teams.</p>
+                                    <p style="margin-top: 15px;"><strong>Problems Before QAMill:</strong><br>
+                                    • Each team tests differently = no unified quality baseline<br>
+                                    • QA spends 60% of time writing/maintaining tests = no time for strategy<br>
+                                    • Weak tests miss bugs = 2-3 production incidents per month<br>
+                                    • No proof of test quality = compliance audits are stressful<br>
+                                    • Can't scale = next 25 developers = disaster</p>
                                 </div>
 
                                 <div class="case-study-section">
-                                    <h4>QAMill Implementation</h4>
+                                    <h4>Implementation (Month 1)</h4>
                                     <ul>
-                                        <li>Week 1: Setup for Python backend</li>
-                                        <li>Week 2: Added JavaScript frontend support</li>
-                                        <li>Week 3: Integrated TypeScript microservices</li>
-                                        <li>Week 4: Team trained and fully operational</li>
+                                        <li><strong>Week 1:</strong> QAMill dashboard + central test repo setup</li>
+                                        <li><strong>Week 2:</strong> Team 1 & 2 pilot (Python + React)</li>
+                                        <li><strong>Week 3:</strong> Team 3 & 4 rollout + mutation testing enabled</li>
+                                        <li><strong>Week 4:</strong> Compliance reporting configured + team training</li>
                                     </ul>
                                 </div>
 
                                 <div class="case-study-results">
                                     <div class="result">
-                                        <span class="result-metric">8 hrs → 3 hrs</span>
-                                        <p>Code change test updates (per refactor)</p>
+                                        <span class="result-metric">Visible Quality</span>
+                                        <p>Dashboard shows all teams' coverage in real-time</p>
                                     </div>
                                     <div class="result">
-                                        <span class="result-metric">60% → 75%</span>
-                                        <p>Test coverage improvement (realistic)</p>
+                                        <span class="result-metric">Weak Tests Caught</span>
+                                        <p>Mutation testing finds tests that don't catch bugs</p>
                                     </div>
                                     <div class="result">
-                                        <span class="result-metric">Fewer escapes</span>
-                                        <p>Weak tests caught by mutation testing</p>
+                                        <span class="result-metric">Time Reclaimed</span>
+                                        <p>QA shifts from writing tests to strategy/governance</p>
                                     </div>
                                     <div class="result">
-                                        <span class="result-metric">Developer joy</span>
-                                        <p>Focus on features, not test maintenance</p>
+                                        <span class="result-metric">Compliance Proof</span>
+                                        <p>Automated reports for audits and regulations</p>
                                     </div>
                                 </div>
 
-                                <p class="case-study-conclusion" style="margin-top: 30px;"><strong>ROI:</strong> Paid for itself in 2 weeks. Team shipped 30% faster. Code quality dramatically improved.</p>
+                                <p class="case-study-conclusion" style="margin-top: 30px;"><strong>Outcome:</strong> QA team can now manage 50+ developers sustainably. Production incidents reduced. Quality standards enforced. Team focused on governance, not test maintenance.</p>
                             </div>
                         </div>
                     </div>
