@@ -1433,9 +1433,14 @@ body.iframe-mode {
 
 .qa-circle-svg {
     width: 100%;
-    max-width: 500px;
     height: auto;
+    max-width: 100%;
     margin-bottom: 20px;
+    aspect-ratio: 800/600;
+}
+
+.center-text {
+    font-family: inherit;
 }
 
 .governance-footer {
