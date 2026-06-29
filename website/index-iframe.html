@@ -44,90 +44,95 @@
                 </div>
             </div>
             <div class="governance-right">
-                <svg class="qa-circle-svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+                <svg class="qa-circle-svg" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
                     <defs>
                         <filter id="glow">
-                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
                             <feMerge>
                                 <feMergeNode in="coloredBlur"/>
                                 <feMergeNode in="SourceGraphic"/>
                             </feMerge>
                         </filter>
+                        <style>
+                            .activity-box { stroke: #00D084; stroke-width: 1.5; fill: none; }
+                            .activity-text { fill: #00D084; font-weight: 600; font-size: 11px; }
+                            .connection { stroke: #00D084; stroke-width: 2; opacity: 0.7; fill: none; }
+                        </style>
                     </defs>
 
-                    <!-- Multiple circles for depth -->
-                    <circle cx="400" cy="300" r="180" fill="none" stroke="#00D084" stroke-width="1" opacity="0.3"/>
-                    <circle cx="400" cy="300" r="120" fill="none" stroke="#00D084" stroke-width="1" opacity="0.4"/>
-                    <circle cx="400" cy="300" r="80" fill="#00D084" opacity="0.1"/>
+                    <!-- Outer circles for depth effect -->
+                    <circle cx="450" cy="350" r="200" fill="none" stroke="#00D084" stroke-width="2" opacity="0.3"/>
+                    <circle cx="450" cy="350" r="140" fill="none" stroke="#00D084" stroke-width="2" opacity="0.4"/>
+                    <circle cx="450" cy="350" r="90" fill="none" stroke="#00D084" stroke-width="1.5" opacity="0.5"/>
 
                     <!-- Center circle with glow -->
-                    <circle cx="400" cy="300" r="70" fill="#00D084" filter="url(#glow)"/>
-                    <text x="400" y="295" text-anchor="middle" font-size="24" font-weight="bold" fill="#0F1419" class="center-text">QA</text>
-                    <text x="400" y="320" text-anchor="middle" font-size="24" font-weight="bold" fill="#0F1419" class="center-text">MILL</text>
+                    <circle cx="450" cy="350" r="75" fill="#00D084" filter="url(#glow)"/>
+                    <text x="450" y="340" text-anchor="middle" font-size="28" font-weight="bold" fill="#0F1419">QA</text>
+                    <text x="450" y="368" text-anchor="middle" font-size="28" font-weight="bold" fill="#0F1419">MILL</text>
 
-                    <!-- LEFT SIDE ACTIVITIES -->
+                    <!-- LEFT SIDE - Curved connections and activities -->
 
                     <!-- Requirements Management (top-left) -->
-                    <line x1="330" y1="235" x2="180" y2="130" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="80" y="50" width="160" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="160" y="72" text-anchor="middle" font-size="16">📋</text>
-                    <text x="160" y="95" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084"><tspan x="160">REQUIREMENTS</tspan><tspan x="160" dy="14">MANAGEMENT</tspan></text>
+                    <path class="connection" d="M 380 290 Q 280 220 200 150"/>
+                    <rect class="activity-box" x="100" y="110" width="170" height="70" rx="6"/>
+                    <text x="185" y="135" text-anchor="middle" font-size="18">📋</text>
+                    <text class="activity-text" x="185" y="160" text-anchor="middle"><tspan x="185">REQUIREMENTS</tspan><tspan x="185" dy="13">MANAGEMENT</tspan></text>
 
                     <!-- Test Planning (middle-left) -->
-                    <line x1="320" y1="300" x2="100" y2="300" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="20" y="270" width="140" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="90" y="292" text-anchor="middle" font-size="16">📅</text>
-                    <text x="90" y="315" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084">TEST PLANNING</text>
+                    <path class="connection" d="M 375 350 L 200 350"/>
+                    <rect class="activity-box" x="40" y="315" width="130" height="70" rx="6"/>
+                    <text x="105" y="340" text-anchor="middle" font-size="18">📅</text>
+                    <text class="activity-text" x="105" y="363" text-anchor="middle">TEST PLANNING</text>
 
                     <!-- Test Design (bottom-left) -->
-                    <line x1="330" y1="365" x2="180" y2="470" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="80" y="490" width="140" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="150" y="512" text-anchor="middle" font-size="16">💻</text>
-                    <text x="150" y="535" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084">TEST DESIGN</text>
+                    <path class="connection" d="M 380 410 Q 280 480 200 550"/>
+                    <rect class="activity-box" x="100" y="520" width="130" height="70" rx="6"/>
+                    <text x="165" y="545" text-anchor="middle" font-size="18">💻</text>
+                    <text class="activity-text" x="165" y="568" text-anchor="middle">TEST DESIGN</text>
 
                     <!-- Test Execution (bottom) -->
-                    <line x1="360" y1="370" x2="400" y2="500" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="340" y="520" width="120" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="400" y="542" text-anchor="middle" font-size="16">⚙️</text>
-                    <text x="400" y="565" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084">TEST EXECUTION</text>
+                    <path class="connection" d="M 410 425 L 410 500"/>
+                    <rect class="activity-box" x="350" y="520" width="120" height="70" rx="6"/>
+                    <text x="410" y="545" text-anchor="middle" font-size="18">⚙️</text>
+                    <text class="activity-text" x="410" y="568" text-anchor="middle">TEST EXECUTION</text>
 
-                    <!-- Defect Management (bottom-right of center) -->
-                    <line x1="440" y1="370" x2="480" y2="480" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="420" y="500" width="140" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="490" y="522" text-anchor="middle" font-size="16">🐛</text>
-                    <text x="490" y="545" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084"><tspan x="490">DEFECT</tspan><tspan x="490" dy="14">MANAGEMENT</tspan></text>
+                    <!-- Defect Management (bottom-left-center) -->
+                    <path class="connection" d="M 440 425 L 470 500"/>
+                    <rect class="activity-box" x="420" y="520" width="140" height="70" rx="6"/>
+                    <text x="490" y="545" text-anchor="middle" font-size="18">🐛</text>
+                    <text class="activity-text" x="490" y="568" text-anchor="middle"><tspan x="490">DEFECT</tspan><tspan x="490" dy="13">MANAGEMENT</tspan></text>
 
-                    <!-- RIGHT SIDE ACTIVITIES -->
+                    <!-- RIGHT SIDE - Curved connections and activities -->
 
                     <!-- Requirements Traceability (top-right) -->
-                    <line x1="470" y1="235" x2="620" y2="130" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="560" y="50" width="160" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="640" y="72" text-anchor="middle" font-size="16">✓</text>
-                    <text x="640" y="95" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084"><tspan x="640">REQUIREMENTS</tspan><tspan x="640" dy="14">TRACEABILITY</tspan></text>
+                    <path class="connection" d="M 520 290 Q 620 220 700 150"/>
+                    <rect class="activity-box" x="630" y="110" width="170" height="70" rx="6"/>
+                    <text x="715" y="135" text-anchor="middle" font-size="18">✓</text>
+                    <text class="activity-text" x="715" y="160" text-anchor="middle"><tspan x="715">REQUIREMENTS</tspan><tspan x="715" dy="13">TRACEABILITY</tspan></text>
 
                     <!-- Reports & Metrics (top-middle-right) -->
-                    <line x1="470" y1="260" x2="650" y2="200" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="610" y="140" width="120" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="670" y="162" text-anchor="middle" font-size="16">📊</text>
-                    <text x="670" y="185" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084"><tspan x="670">REPORTS &</tspan><tspan x="670" dy="14">METRICS</tspan></text>
+                    <path class="connection" d="M 530 315 Q 630 260 720 200"/>
+                    <rect class="activity-box" x="660" y="140" width="130" height="70" rx="6"/>
+                    <text x="725" y="165" text-anchor="middle" font-size="18">📊</text>
+                    <text class="activity-text" x="725" y="188" text-anchor="middle"><tspan x="725">REPORTS &</tspan><tspan x="725" dy="13">METRICS</tspan></text>
 
                     <!-- Reviews & Approvals (middle-right) -->
-                    <line x1="480" y1="300" x2="700" y2="300" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="640" y="270" width="140" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="710" y="292" text-anchor="middle" font-size="16">👥</text>
-                    <text x="710" y="315" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084"><tspan x="710">REVIEWS &</tspan><tspan x="710" dy="14">APPROVALS</tspan></text>
+                    <path class="connection" d="M 525 350 L 700 350"/>
+                    <rect class="activity-box" x="730" y="315" width="140" height="70" rx="6"/>
+                    <text x="800" y="340" text-anchor="middle" font-size="18">👥</text>
+                    <text class="activity-text" x="800" y="363" text-anchor="middle"><tspan x="800">REVIEWS &</tspan><tspan x="800" dy="13">APPROVALS</tspan></text>
 
                     <!-- Risks & Issues (bottom-middle-right) -->
-                    <line x1="470" y1="340" x2="650" y2="400" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="610" y="400" width="120" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="670" y="422" text-anchor="middle" font-size="16">⚠️</text>
-                    <text x="670" y="445" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084"><tspan x="670">RISKS &</tspan><tspan x="670" dy="14">ISSUES</tspan></text>
+                    <path class="connection" d="M 520 385 Q 620 440 700 500"/>
+                    <rect class="activity-box" x="660" y="490" width="120" height="70" rx="6"/>
+                    <text x="720" y="515" text-anchor="middle" font-size="18">⚠️</text>
+                    <text class="activity-text" x="720" y="538" text-anchor="middle"><tspan x="720">RISKS &</tspan><tspan x="720" dy="13">ISSUES</tspan></text>
 
                     <!-- Automation Management (bottom-right) -->
-                    <line x1="450" y1="365" x2="520" y2="470" stroke="#00D084" stroke-width="2" opacity="0.6"/>
-                    <rect x="480" y="490" width="150" height="60" rx="8" fill="none" stroke="#00D084" stroke-width="1"/>
-                    <text x="555" y="512" text-anchor="middle" font-size="16">⚙️</text>
-                    <text x="555" y="535" text-anchor="middle" font-size="12" font-weight="600" fill="#00D084"><tspan x="555">AUTOMATION</tspan><tspan x="555" dy="14">MANAGEMENT</tspan></text>
+                    <path class="connection" d="M 500 425 Q 550 480 620 550"/>
+                    <rect class="activity-box" x="580" y="520" width="150" height="70" rx="6"/>
+                    <text x="655" y="545" text-anchor="middle" font-size="18">⚙️</text>
+                    <text class="activity-text" x="655" y="568" text-anchor="middle"><tspan x="655">AUTOMATION</tspan><tspan x="655" dy="13">MANAGEMENT</tspan></text>
                 </svg>
                 <p class="governance-footer">CENTRALIZED • STANDARDIZED • COLLABORATIVE • GOVERNED</p>
             </div>
