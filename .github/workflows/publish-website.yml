@@ -24,6 +24,9 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    strategy:
+      matrix:
+        node-version: [24.x]
 
     steps:
       - name: Checkout code
