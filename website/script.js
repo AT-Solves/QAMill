@@ -277,17 +277,131 @@ const investorPitchDeck = [
         `
     },
     {
-        title: "Competitive Advantage",
-        subtitle: "Why QAMill Wins",
+        title: "Competitive Landscape",
+        subtitle: "Real World Competitors",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 30px;">Unmatched Combination</h2>
-            <div style="text-align: left; font-size: 17px; line-height: 2; margin: 30px 0;">
-                <p>✓ <strong>True multi-language</strong> from day one (not retrofitted)</p>
-                <p>✓ <strong>10x faster</strong> than competitors (30-60s vs 5-15 min)</p>
-                <p>✓ <strong>Mutation testing built-in</strong> (only one in market)</p>
-                <p>✓ <strong>6+ LLM providers</strong> (no vendor lock-in)</p>
-                <p>✓ <strong>Freemium model</strong> (0 barrier to entry)</p>
-                <p>✓ <strong>Offline support</strong> with Ollama</p>
+            <h2 style="color: #00D084; margin-bottom: 25px;">How QAMill Dominates</h2>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin: 20px 0;">
+                <thead>
+                    <tr style="background: #f5f5f5;">
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;"><strong>Feature</strong></th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;"><strong>QAMill</strong></th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;"><strong>Pynguin</strong></th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;"><strong>EvoSuite</strong></th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;"><strong>Testim</strong></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Python</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">✅</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                    </tr>
+                    <tr style="background: #fafafa;">
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>JavaScript/TypeScript</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">✅</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Mutation Testing</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅ Built-in</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">✅</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                    </tr>
+                    <tr style="background: #fafafa;">
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Speed</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">30-60s</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">3-5 min</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">5-15 min</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">2-10 min</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Multi-LLM</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">6+</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">Single</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">Single</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">Single</td>
+                    </tr>
+                    <tr style="background: #fafafa;">
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Offline Mode</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="margin-top: 15px; font-size: 13px; color: #999;"><strong>Note:</strong> Pynguin (Python), EvoSuite (Java), Testim (Web automation)</p>
+        `
+    },
+    {
+        title: "QAMill Differentiators",
+        subtitle: "Why We're Different",
+        content: `
+            <h2 style="color: #00D084; margin-bottom: 25px;">Strategic Advantages</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 15px; line-height: 1.7;">
+                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p><strong style="color: #00D084;">🎯 Multi-Language DNA</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">Built from ground-up for Python + JS + TS + React. Not retrofitted. Unified architecture.</p>
+                </div>
+                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p><strong style="color: #00D084;">⚡ 10x Speed Advantage</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">30-60 seconds vs 5-15 mins. In developer workflow = difference between loved & tolerated.</p>
+                </div>
+                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p><strong style="color: #00D084;">🧪 AI + Science Combined</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">Only platform: AI test generation + mutation testing. Verification not just generation.</p>
+                </div>
+                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p><strong style="color: #00D084;">🔓 No Vendor Lock-in</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">6+ LLM providers (Claude, GPT, Ollama, Grok, Gemini, DeepSeek). Choice is yours.</p>
+                </div>
+                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p><strong style="color: #00D084;">💰 Freemium Economics</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">Free to millions. \$50 CAC. \$900 LTV. 18x unit economics = venture-scale growth.</p>
+                </div>
+                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p><strong style="color: #00D084;">🖥️ Enterprise Ready</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">Offline with Ollama. On-prem. Air-gapped. Zero breaking changes. 92% retention.</p>
+                </div>
+            </div>
+        `
+    },
+    {
+        title: "Product Roadmap",
+        subtitle: "Where We Are & Where We're Going",
+        content: `
+            <h2 style="color: #00D084; margin-bottom: 20px;">QAMill Timeline</h2>
+            <div style="font-size: 14px; line-height: 1.8;">
+                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">✅ TODAY (Q3 2026) - PRODUCTION READY</p>
+                    <p style="margin: 0; font-size: 13px;">✓ v1.2.2 production live | ✓ Multi-language (Python, JS, TS, React) | ✓ 6+ LLM providers | ✓ Mutation testing engine | ✓ Elite HTML reports | ✓ VS Code extension published | ✓ 2,500+ GitHub ⭐ | ✓ 3,200+ DAU</p>
+                </div>
+                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">🚀 Q4 2026 - PRO SAAS LAUNCH</p>
+                    <p style="margin: 0; font-size: 13px;">Cloud hosting | Priority support | Advanced analytics | Target: 5K paid users | \$500K ARR</p>
+                </div>
+                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">🏢 Q1 2027 - ENTERPRISE DEPLOYMENT</p>
+                    <p style="margin: 0; font-size: 13px;">On-premises option | Dedicated support | SSO integration | Target: 25 enterprise customers</p>
+                </div>
+                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">🌐 Q2 2027 - LANGUAGE EXPANSION</p>
+                    <p style="margin: 0; font-size: 13px;">Add: Go, Rust, Java, C# support | Reach 6+ programming languages | Target: 10K paid users</p>
+                </div>
+                <div style="margin-bottom: 18px; border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">🤖 Q3 2027 - AI-POWERED REFACTORING</p>
+                    <p style="margin: 0; font-size: 13px;">Auto-fix failing tests | Smart test optimization | Code quality improvement suggestions</p>
+                </div>
+                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 5px;">💰 Q4 2027 - SERIES B & SCALE</p>
+                    <p style="margin: 0; font-size: 13px;">50 enterprise customers | 10K+ paid users | \$5M+ ARR | Target: Series B funding</p>
+                </div>
             </div>
         `
     },
