@@ -416,23 +416,23 @@
                         <div class="slide-body">
                             <h3>Case Study: SaaS Company</h3>
                             <div class="case-study">
-                                <div class="case-study-section" style="background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 4px solid #ff6b6b;">
-                                    <h4 style="color: #d32f2f; margin-top: 0;">The Real-World Problem</h4>
-                                    <p><strong>The Scenario:</strong> Growing SaaS with Python backend (FastAPI) and React frontend. At 2-year stage, they went from 5 engineers to 20 engineers.</p>
+                                <div class="case-study-section">
+                                    <h4>The Real-World Problem</h4>
 
-                                    <p><strong>The Unmet Need:</strong> Developers manually write pytest for backend and Jest for frontend. Tests are written inconsistently. When code changes, developers spend 6-8 hours rewriting test cases instead of building features. No one knows if tests actually catch bugs.</p>
+                                    <p><strong>The Scenario:</strong><br>
+                                    Growing SaaS: 20 engineers, Python backend + React frontend</p>
 
-                                    <p><strong>Why This Happens:</strong> Writing tests is manual, slow, boring. Developers hate it. Only 40% of the codebase has tests. New developers take weeks to understand the testing patterns. Senior devs become bottlenecks for test review.</p>
+                                    <p><strong>The Problem:</strong><br>
+                                    Developers manually write pytest + Jest. When code changes? 6-8 hours rewriting tests instead of building features. Weak tests miss bugs that reach production.</p>
 
-                                    <p><strong>The Real Business Cost:</strong></p>
-                                    <ul style="margin: 10px 0; padding-left: 20px;">
-                                        <li><strong>Lost Velocity:</strong> 20 engineers, but only 12 writing features (8 on test maintenance/bugs) = 40% productivity loss = $1M+ annually</li>
-                                        <li><strong>Production Bugs:</strong> Weak tests miss 70% of bugs. 3-4 production incidents per month = customer churn, reputation damage</li>
-                                        <li><strong>Slow Releases:</strong> Full test suite takes 45 minutes to run. Teams deploy once per week instead of multiple times per day</li>
-                                        <li><strong>Tech Debt Growing:</strong> Untested code accumulates. Refactoring becomes impossible. System stability gets worse</li>
-                                    </ul>
+                                    <p><strong>Why It Costs Money:</strong><br>
+                                    • 20 engineers, but only 12 writing features (8 stuck on test maintenance) = 40% productivity loss<br>
+                                    • Weak tests miss bugs = 3-4 production incidents/month = customer churn<br>
+                                    • Test suite takes 45min to run = 1 deploy/week instead of daily<br>
+                                    • Tech debt grows = refactoring impossible = system stability worse</p>
 
-                                    <p><strong>Existing Tools Fall Short:</strong> pytest + Jest exist, but writing test cases is still 100% manual. They're testing frameworks, not test generators. No mutation testing. Developers are the bottleneck, not the tools.</p>
+                                    <p><strong>Why Existing Tools Don't Work:</strong><br>
+                                    pytest + Jest are frameworks. They don't GENERATE tests. Developers still write every test manually. No mutation testing. The bottleneck is the developer, not the tool.</p>
                                 </div>
 
                                 <div class="case-study-section">
