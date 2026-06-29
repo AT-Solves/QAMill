@@ -683,25 +683,14 @@ table .partial {
     height: calc(100vh - 160px);
     background: white;
     border-radius: 12px;
-    padding: 25px 30px;
+    padding: 20px 30px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     animation: slideIn 0.5s ease-out;
-    font-size: 13px;
-    scrollbar-width: none;
-}
-
-.fullscreen-slide::-webkit-scrollbar {
-    display: none;
-}
-
-.fullscreen-slide div {
-    margin-top: 0;
-    margin-bottom: 0;
+    font-size: 12px;
 }
 
 @keyframes slideIn {
