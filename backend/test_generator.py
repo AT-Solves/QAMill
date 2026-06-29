@@ -204,17 +204,46 @@ class TestGenerator:
                      f"Generated, but {failed} test(s) did not pass against the original — review before committing."),
         )
 
+    def _get_test_file_ext(self, file_path: str) -> str:
+        """Determine test file extension based on source file type."""
+        if file_path.endswith((".js", ".jsx")):
+            return ".test.js"
+        elif file_path.endswith((".ts", ".tsx")):
+            return ".test.ts"
+        else:
+            return "_generated.py"  # Python default
+
+    def _get_test_runner(self, file_path: str) -> tuple[str, list[str]]:
+        """Get test runner command based on file type."""
+        if file_path.endswith((".js", ".jsx", ".ts", ".tsx")):
+            # Jest for JavaScript/TypeScript
+            return "npx", ["jest", "--no-coverage", "--silent"]
+        else:
+            # pytest for Python
+            return "pytest", ["-q", "--tb=no"]
+
     async def _verify_against_original(self, path: Path, source: str,
                                        test_code: str) -> tuple[int, int, bool]:
         """Run the generated suite against the ORIGINAL source; tests should pass."""
         with tempfile.TemporaryDirectory(prefix="amil_unit_") as tmpdir:
             tmp = Path(tmpdir)
             (tmp / path.name).write_text(source, encoding="utf-8")
-            test_file = tmp / f"test_{path.stem}_generated.py"
+
+            # Determine test file naming based on language
+            test_ext = self._get_test_file_ext(str(path))
+            if test_ext == "_generated.py":
+                test_file = tmp / f"test_{path.stem}_generated.py"
+            else:
+                test_file = tmp / f"{path.stem}{test_ext}"
+
             test_file.write_text(test_code, encoding="utf-8")
+
             try:
+                runner_cmd, args = self._get_test_runner(str(path))
+                cmd = [runner_cmd] + args + [str(test_file)]
+
                 proc = await asyncio.create_subprocess_exec(
-                    "pytest", str(test_file), "-q", "--tb=no",
+                    *cmd,
                     cwd=str(tmp),
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
                 )

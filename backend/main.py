@@ -750,6 +750,16 @@ async def ask_assistant(req: AskRequest):
 
 # ── Test generation: unit tests + manual test suite ────────────────────────
 
+def _generate_test_filename(file_path: str, module_name: str) -> str:
+    """Generate appropriate test filename based on source file type."""
+    if file_path.endswith((".js", ".jsx")):
+        return f"{module_name}.test.js"
+    elif file_path.endswith((".ts", ".tsx")):
+        return f"{module_name}.test.ts"
+    else:
+        # Python default
+        return f"test_{module_name}.py"
+
 def _make_test_generator(req: GenerateTestsRequest) -> TestGenerator:
     import sys
     print(f"[BACKEND] _make_test_generator called", file=sys.stderr, flush=True)
@@ -802,7 +812,7 @@ async def generate_unit_tests(req: GenerateTestsRequest):
         "failed":      result.failed,
         "message":     result.message,
         "module":      result.module_name,
-        "filename":    f"test_{result.module_name}.py",
+        "filename":    _generate_test_filename(req.file_path, result.module_name),
     }
 
 
