@@ -334,6 +334,27 @@ const investorPitchDeck = [
                         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
                         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
                     </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>IDE Integration</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅ Built-in</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                    </tr>
+                    <tr style="background: #fafafa;">
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Right-Click Action</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅ Yes</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Real-Time Results</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅ Live Stream</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">⚠️ Batch</td>
+                    </tr>
                 </tbody>
             </table>
             <p style="margin-top: 15px; font-size: 13px; color: #999;"><strong>Note:</strong> Pynguin (Python), EvoSuite (Java), Testim (Web automation)</p>
@@ -368,6 +389,14 @@ const investorPitchDeck = [
                 <div style="border-left: 3px solid #00D084; padding-left: 15px;">
                     <p><strong style="color: #00D084;">🖥️ Enterprise Ready</strong></p>
                     <p style="font-size: 13px; margin-top: 8px;">Offline with Ollama. On-prem. Air-gapped. Zero breaking changes. 92% retention.</p>
+                </div>
+                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p><strong style="color: #00D084;">⚡ Right-Click Action</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">VS Code extension - right-click file, generate tests instantly. No tabs, no friction.</p>
+                </div>
+                <div style="border-left: 3px solid #00D084; padding-left: 15px;">
+                    <p><strong style="color: #00D084;">🎬 Live Streaming Results</strong></p>
+                    <p style="font-size: 13px; margin-top: 8px;">Watch tests appear real-time as generated. Not batch. Not waiting. Live progress streaming.</p>
                 </div>
             </div>
         `
