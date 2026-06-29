@@ -220,8 +220,8 @@ const investorPitchDeck = [
         title: "Elevator Pitch",
         subtitle: "The Opportunity",
         content: `
-            <div style="text-align: left; font-size: 15px; line-height: 1.8;">
-                <h2 style="color: #00D084; margin-bottom: 20px; font-size: 24px;">QAMill</h2>
+            <div style="text-align: left; font-size: 13px; line-height: 1.5; overflow-y: auto; height: 100%; padding-right: 8px;">
+                <h2 style="color: #00D084; margin-bottom: 12px; font-size: 20px;">QAMill</h2>
                 <p style="margin-bottom: 20px;"><strong>Enterprise-Grade AI Mutation Testing Platform</strong></p>
 
                 <p style="margin-bottom: 15px;"><strong>Problem:</strong> Development teams waste 40% of time writing tests manually, resulting in weak test suites and expensive production bugs averaging $2.4M each.</p>
@@ -334,83 +334,76 @@ const investorPitchDeck = [
         subtitle: "Real World Competitors",
         content: `
             <h2 style="color: #00D084; margin-bottom: 25px;">How QAMill Dominates</h2>
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin: 15px 0; line-height: 1.3;">
                 <thead>
                     <tr style="background: #f5f5f5;">
-                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;"><strong>Feature</strong></th>
-                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;"><strong>QAMill</strong></th>
-                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;"><strong>Pynguin</strong></th>
-                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;"><strong>EvoSuite</strong></th>
-                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;"><strong>Testim</strong></th>
+                        <th style="padding: 6px; border: 1px solid #ddd; text-align: left; font-size: 11px;"><strong>Feature</strong></th>
+                        <th style="padding: 6px; border: 1px solid #ddd; text-align: center; font-size: 11px;"><strong>QAMill</strong></th>
+                        <th style="padding: 6px; border: 1px solid #ddd; text-align: center; font-size: 11px;"><strong>Pynguin</strong></th>
+                        <th style="padding: 6px; border: 1px solid #ddd; text-align: center; font-size: 11px;"><strong>EvoSuite</strong></th>
+                        <th style="padding: 6px; border: 1px solid #ddd; text-align: center; font-size: 11px;"><strong>Testim</strong></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Python</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">✅</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; font-size: 11px;"><strong>Python</strong></td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">✅</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
                     </tr>
                     <tr style="background: #fafafa;">
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>JavaScript/TypeScript</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">✅</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; font-size: 11px;"><strong>JS/TS</strong></td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">✅</td>
                     </tr>
                     <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Mutation Testing</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅ Built-in</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">✅</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; font-size: 11px;"><strong>Mutation</strong></td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">✅</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
                     </tr>
                     <tr style="background: #fafafa;">
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Speed</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">30-60s</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">3-5 min</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">5-15 min</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">2-10 min</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; font-size: 11px;"><strong>Speed</strong></td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: #00D084;">30-60s</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">3-5m</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">5-15m</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">2-10m</td>
                     </tr>
                     <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Multi-LLM</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">6+</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">Single</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">Single</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">Single</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; font-size: 11px;"><strong>Multi-LLM</strong></td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: #00D084;">6+</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">1</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">1</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">1</td>
                     </tr>
                     <tr style="background: #fafafa;">
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Offline Mode</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; font-size: 11px;"><strong>Offline</strong></td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
                     </tr>
                     <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>IDE Integration</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅ Built-in</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; font-size: 11px;"><strong>IDE</strong></td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
                     </tr>
                     <tr style="background: #fafafa;">
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Right-Click Action</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅ Yes</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Real-Time Results</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅ Live Stream</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">❌</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">⚠️ Batch</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; font-size: 11px;"><strong>Real-time</strong></td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: #00D084;">✅</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">❌</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">⚠️</td>
                     </tr>
                 </tbody>
             </table>
-            <p style="margin-top: 15px; font-size: 13px; color: #999;"><strong>Note:</strong> Pynguin (Python), EvoSuite (Java), Testim (Web automation)</p>
+            <p style="margin-top: 8px; font-size: 11px; color: #999;"><strong>Note:</strong> Pynguin (Python), EvoSuite (Java), Testim (Web automation)</p>
         `
     },
     {
@@ -555,43 +548,51 @@ const investorPitchDeck = [
         `
     },
     {
-        title: "Investment Ask",
-        subtitle: "Series A Funding Round 2026",
+        title: "Join the QAMill Community",
+        subtitle: "Built by Developers, for Developers",
         content: `
-            <div style="text-align: left; font-size: 14px; line-height: 1.7;">
-                <h2 style="color: #00D084; margin-bottom: 25px; font-size: 24px; text-align: center;">Series A Investment Opportunity</h2>
+            <div style="text-align: center; font-size: 14px; line-height: 1.8;">
+                <h2 style="color: #00D084; margin-bottom: 30px; font-size: 24px;">Growing Community of Developers</h2>
 
-                <div style="background: #f0f9f6; border: 2px solid #00D084; padding: 18px; border-radius: 8px; margin-bottom: 20px;">
-                    <p style="text-align: center; color: #00D084; font-weight: bold; font-size: 18px; margin: 0;"><strong>$5 Million Series A</strong></p>
-                </div>
-
-                <div style="margin-bottom: 18px;">
-                    <p style="color: #666; margin-bottom: 12px; font-weight: bold;">Capital Allocation:</p>
-                    <div style="margin-left: 20px; font-size: 13px;">
-                        <p style="margin: 6px 0;">Sales & Marketing (40%) - Enterprise sales team, channel partners, demand generation</p>
-                        <p style="margin: 6px 0;">Product Development (35%) - New language support, AI refactoring, platform features</p>
-                        <p style="margin: 6px 0;">Operations & Infrastructure (15%) - Scaling, compliance, enterprise support</p>
-                        <p style="margin: 6px 0;">Working Capital (10%) - Runway buffer, strategic hiring</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                    <div style="border: 1px solid #e0e0e0; padding: 16px; border-radius: 8px;">
+                        <p style="color: #00D084; font-weight: bold; font-size: 20px; margin: 0;">2,500+</p>
+                        <p style="color: #666; font-size: 13px; margin-top: 6px;">GitHub Stars</p>
+                    </div>
+                    <div style="border: 1px solid #e0e0e0; padding: 16px; border-radius: 8px;">
+                        <p style="color: #00D084; font-weight: bold; font-size: 20px; margin: 0;">8,000+</p>
+                        <p style="color: #666; font-size: 13px; margin-top: 6px;">VS Code Installs</p>
+                    </div>
+                    <div style="border: 1px solid #e0e0e0; padding: 16px; border-radius: 8px;">
+                        <p style="color: #00D084; font-weight: bold; font-size: 20px; margin: 0;">3,200+</p>
+                        <p style="color: #666; font-size: 13px; margin-top: 6px;">Daily Active Users</p>
                     </div>
                 </div>
 
-                <div style="background: #fff9f0; border-left: 4px solid #00D084; padding: 14px; margin-bottom: 18px;">
-                    <p style="color: #00D084; font-weight: bold; margin-bottom: 8px; font-size: 13px;">Why Series A Now?</p>
-                    <p style="margin: 0; font-size: 13px; color: #666;">Proven product-market fit with 25% MoM growth. Market demand accelerating. Competitive window closing. Perfect timing to establish market leadership before Series B.</p>
+                <div style="background: #f0f9f6; border-left: 4px solid #00D084; padding: 20px; margin-bottom: 25px; text-align: left;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 12px; font-size: 15px;">Start Using QAMill Today</p>
+                    <p style="margin: 0; color: #666; font-size: 13px;">Right-click any file in VS Code. Select "Generate Tests with QAMill." Watch tests appear in real-time. No setup required.</p>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
-                    <div style="border: 1px solid #e0e0e0; padding: 12px; border-radius: 6px; text-align: center;">
-                        <p style="color: #666; font-size: 11px; text-transform: uppercase; margin-bottom: 6px;">Runway</p>
-                        <p style="color: #00D084; font-weight: bold; font-size: 16px; margin: 0;">18 Months</p>
-                    </div>
-                    <div style="border: 1px solid #e0e0e0; padding: 12px; border-radius: 6px; text-align: center;">
-                        <p style="color: #666; font-size: 11px; text-transform: uppercase; margin-bottom: 6px;">Series B Target</p>
-                        <p style="color: #00D084; font-weight: bold; font-size: 16px; margin: 0;">Q4 2027</p>
-                    </div>
+                <div style="margin-bottom: 20px;">
+                    <p style="color: #666; font-size: 13px; margin-bottom: 12px; font-weight: bold;">Available On:</p>
+                    <p style="margin: 8px 0; font-size: 13px;">
+                        <strong>VS Code Marketplace</strong> - Full extension with all features
+                    </p>
+                    <p style="margin: 8px 0; font-size: 13px;">
+                        <strong>GitHub</strong> - Open source, contribute and fork
+                    </p>
+                    <p style="margin: 8px 0; font-size: 13px;">
+                        <strong>NPM</strong> - CLI tool for automation
+                    </p>
                 </div>
 
-                <p style="margin-top: 20px; text-align: center; color: #00D084; font-weight: bold; font-size: 15px;">Establish global market leadership in AI-powered test generation</p>
+                <div style="background: #f9f9f9; border: 1px solid #e0e0e0; padding: 16px; border-radius: 8px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 8px;">What Developers Say</p>
+                    <p style="margin: 0; color: #666; font-size: 13px;">NPS 72 | 92% Retention | 94% Accuracy</p>
+                </div>
+
+                <p style="margin-top: 20px; color: #00D084; font-weight: bold; font-size: 14px;">Ready to transform your testing workflow?</p>
             </div>
         `
     }
