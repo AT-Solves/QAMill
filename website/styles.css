@@ -1324,11 +1324,11 @@ body.iframe-mode .navbar {
 }
 
 body.iframe-mode .announcement-banner {
-    display: none !important;
+    display: block !important;
 }
 
 body.iframe-mode .series-banner {
-    display: none !important;
+    display: block !important;
 }
 
 body.iframe-mode .footer {
