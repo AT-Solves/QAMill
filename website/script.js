@@ -489,36 +489,67 @@ const investorPitchDeck = [
     },
     {
         title: "Business Model",
-        subtitle: "Revenue Strategy",
+        subtitle: "Three-Tier Revenue Strategy",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 30px;">Three-Tier Revenue Growth</h2>
-            <div style="text-align: left; font-size: 16px; line-height: 1.8;">
-                <p><strong style="color: #00D084;">Open Source (Free)</strong> - Millions of developers, brand awareness, enterprise funnel</p>
-                <p style="margin-top: 15px;"><strong style="color: #00D084;">Pro SaaS ($10-50/mo)</strong> - 10K users by Y1, $1.2-6M ARR</p>
-                <p style="margin-top: 15px;"><strong style="color: #00D084;">Enterprise ($500+/mo)</strong> - 200 customers by Y3, $1.2-12M ARR</p>
-                <p style="margin-top: 30px;"><strong>Unit Economics:</strong> CAC $50, LTV $900, <strong style="color: #00D084;">LTV/CAC 18x</strong></p>
+            <div style="text-align: left; font-size: 14px; line-height: 1.7;">
+                <h2 style="color: #00D084; margin-bottom: 20px; font-size: 24px;">Scalable Revenue Growth</h2>
+
+                <div style="margin-bottom: 15px;">
+                    <div style="border: 1px solid #e0e0e0; padding: 14px; margin-bottom: 12px; border-radius: 6px;">
+                        <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">Open Source (Free)</p>
+                        <p style="margin: 0; color: #666; font-size: 13px;">Community growth engine. Millions of developers. Brand awareness and enterprise pipeline.</p>
+                    </div>
+
+                    <div style="border: 1px solid #e0e0e0; padding: 14px; margin-bottom: 12px; border-radius: 6px;">
+                        <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">Pro SaaS ($10-50/month)</p>
+                        <p style="margin: 0; color: #666; font-size: 13px;">Cloud hosting, priority support, analytics. Target: 10K users by Year 1. Projected $1.2-6M annual recurring revenue.</p>
+                    </div>
+
+                    <div style="border: 1px solid #e0e0e0; padding: 14px; border-radius: 6px;">
+                        <p style="color: #00D084; font-weight: bold; margin-bottom: 6px;">Enterprise ($500-5,000/month)</p>
+                        <p style="margin: 0; color: #666; font-size: 13px;">On-prem, dedicated support, SSO. Target: 50-200 customers by Year 3. Projected $1.2-12M annual recurring revenue.</p>
+                    </div>
+                </div>
+
+                <div style="background: #f0f9f6; border-left: 4px solid #00D084; padding: 12px; margin-top: 18px;">
+                    <p style="margin-bottom: 6px; color: #00D084; font-weight: bold; font-size: 13px;">Unit Economics (Pro Tier)</p>
+                    <p style="margin: 0; font-size: 13px;">CAC: $50 | LTV: $900 | LTV/CAC: 18x</p>
+                </div>
+
+                <p style="margin-top: 15px; font-size: 13px;"><strong>Year 5 Target:</strong> $20M+ annual recurring revenue</p>
             </div>
         `
     },
     {
-        title: "Traction & Results",
-        subtitle: "Proven Product-Market Fit",
+        title: "Traction & Product-Market Fit",
+        subtitle: "Proven Demand and Growth",
         content: `
-            <h2 style="color: #00D084; margin-bottom: 30px;">Already Winning</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; font-size: 17px; margin: 30px 0;">
-                <div>
-                    <p style="color: #999; font-size: 14px;">METRICS</p>
-                    <p>2,500+ GitHub ⭐</p>
-                    <p>15,000+ monthly downloads</p>
-                    <p>8,000+ VS Code installs</p>
-                    <p>3,200+ daily active users</p>
+            <div style="text-align: left; font-size: 14px; line-height: 1.7;">
+                <h2 style="color: #00D084; margin-bottom: 20px; font-size: 24px;">Strong Traction & Validation</h2>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 20px;">
+                    <div style="border: 1px solid #e0e0e0; padding: 15px; border-radius: 6px;">
+                        <p style="color: #666; font-size: 12px; text-transform: uppercase; margin-bottom: 12px; font-weight: bold;">Community Metrics</p>
+                        <p style="margin: 8px 0;">2,500+ GitHub stars (organic growth)</p>
+                        <p style="margin: 8px 0;">15,000+ monthly downloads</p>
+                        <p style="margin: 8px 0;">8,000+ VS Code extension installs</p>
+                        <p style="margin: 8px 0;">3,200+ daily active users</p>
+                    </div>
+
+                    <div style="border: 1px solid #e0e0e0; padding: 15px; border-radius: 6px;">
+                        <p style="color: #666; font-size: 12px; text-transform: uppercase; margin-bottom: 12px; font-weight: bold;">Growth & Performance</p>
+                        <p style="margin: 8px 0;">25% month-over-month growth</p>
+                        <p style="margin: 8px 0;">92% customer retention rate</p>
+                        <p style="margin: 8px 0;">94% test generation accuracy</p>
+                        <p style="margin: 8px 0;">NPS Score: 72 (excellent)</p>
+                    </div>
                 </div>
-                <div>
-                    <p style="color: #999; font-size: 14px;">GROWTH</p>
-                    <p>25% monthly growth</p>
-                    <p>92% customer retention</p>
-                    <p>94% accuracy rate</p>
-                    <p>NPS Score: 72 (excellent)</p>
+
+                <div style="background: #f0f9f6; border-left: 4px solid #00D084; padding: 15px;">
+                    <p style="color: #00D084; font-weight: bold; margin-bottom: 8px;">Market Validation</p>
+                    <p style="margin: 8px 0;">15+ early adopter companies in production</p>
+                    <p style="margin: 8px 0;">40+ hours per developer saved monthly</p>
+                    <p style="margin: 8px 0;">35% expansion revenue growth month-over-month</p>
                 </div>
             </div>
         `
