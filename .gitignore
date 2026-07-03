@@ -1,1 +1,48 @@
 .claude/worktrees/
+
+# Build Artifacts
+*.vsix
+*.whl
+*.tar.gz
+build/
+dist/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+.eggs/
+
+# Debug & Logs
+*.log
+server_debug.log
+debug.log
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Backup/Temp
+*.bak
+*.backup
+*.tmp
+backup/
