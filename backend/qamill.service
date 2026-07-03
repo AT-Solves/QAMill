@@ -1,0 +1,40 @@
+[Unit]
+Description=QAMill Backend Service
+After=network.target
+Documentation=https://github.com/AT-Solves/QAMill
+
+[Service]
+Type=simple
+User=qamill
+WorkingDirectory=/opt/qamill/backend
+Environment="PATH=/opt/qamill/venv/bin"
+EnvironmentFile=/opt/qamill/backend/.env.production
+
+# Main process
+ExecStart=/opt/qamill/venv/bin/python main.py
+
+# Restart policy - automatically restart on failure
+Restart=always
+RestartSec=10
+
+# Graceful shutdown
+KillMode=process
+TimeoutStopSec=30
+
+# Resource limits
+MemoryLimit=1G
+CPUQuota=80%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qamill
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
