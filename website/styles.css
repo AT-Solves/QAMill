@@ -1640,3 +1640,96 @@ body.iframe-mode {
     margin: 0;
     padding: 0;
 }
+
+/* ========================================
+   Refactored Component Classes
+   ======================================== */
+
+/* Value Props Grid */
+.value-props {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 25px;
+}
+
+/* Card Component */
+.card {
+    text-align: center;
+    padding: 20px;
+    background: var(--light-bg);
+    border-radius: 8px;
+}
+
+.card-centered {
+    text-align: center;
+}
+
+/* SVG Icon Container */
+.icon-container {
+    margin: 0 auto 15px;
+    display: block;
+}
+
+/* Text Utilities */
+.text-center {
+    text-align: center;
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+}
+
+/* Spacing Utilities */
+.margin-top-sm {
+    margin-top: 8px;
+}
+
+.margin-top-md {
+    margin-top: 15px;
+}
+
+.margin-top-lg {
+    margin-top: 20px;
+}
+
+.margin-bottom-md {
+    margin-bottom: 15px;
+}
+
+.margin-bottom-lg {
+    margin-bottom: 20px;
+}
+
+.padding-md {
+    padding: 20px;
+}
+
+.padding-lg {
+    padding: 20px;
+}
+
+/* Typography Utilities */
+.text-sm {
+    font-size: 13px;
+}
+
+.text-md {
+    font-size: 14px;
+}
+
+.text-bold {
+    font-weight: bold;
+}
+
+/* Responsive Grid for Value Props */
+@media (max-width: 1024px) {
+    .value-props {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .value-props {
+        grid-template-columns: 1fr;
+    }
+}

@@ -2,8 +2,10 @@
 // QAMill Website - Interactive JavaScript
 // ========================================
 
+import CONFIG from './config.js';
+
 let currentSlide = 1;
-let currentZoom = 100;
+let currentZoom = CONFIG.UI.ZOOM.INITIAL;
 
 // ========================================
 // Slideshow Functions
@@ -45,15 +47,15 @@ window.currentSlide = setCurrentSlide;
 // ========================================
 
 function zoomIn() {
-    if (currentZoom < 200) {
-        currentZoom += 10;
+    if (currentZoom < CONFIG.UI.ZOOM.MAX) {
+        currentZoom += CONFIG.UI.ZOOM.INCREMENT;
         applyZoom();
     }
 }
 
 function zoomOut() {
-    if (currentZoom > 50) {
-        currentZoom -= 10;
+    if (currentZoom > CONFIG.UI.ZOOM.MIN) {
+        currentZoom -= CONFIG.UI.ZOOM.INCREMENT;
         applyZoom();
     }
 }
@@ -64,14 +66,23 @@ function applyZoom() {
     slideContent.style.transformOrigin = 'top center';
     document.getElementById('zoomLevel').textContent = currentZoom + '%';
 
-    // Adjust container height based on zoom
-    const baseHeight = 600;
+    const baseHeight = CONFIG.UI.SLIDE.BASE_HEIGHT;
     slideContent.style.height = (baseHeight * (currentZoom / 100)) + 'px';
 }
 
 // Expose zoom functions globally
 window.zoomIn = zoomIn;
 window.zoomOut = zoomOut;
+
+// ========================================
+// Navigation Functions
+// ========================================
+
+function openMarketplace() {
+    window.open(CONFIG.LINKS.MARKETPLACE, '_blank');
+}
+
+window.openMarketplace = openMarketplace;
 
 // ========================================
 // Keyboard Navigation
@@ -111,7 +122,7 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 
 window.addEventListener('scroll', () => {
     const navbar = document.querySelector('.navbar');
-    if (window.scrollY > 50) {
+    if (window.scrollY > CONFIG.UI.SCROLL.NAVBAR_SHADOW_THRESHOLD) {
         navbar.style.boxShadow = '0 5px 20px rgba(0, 0, 0, 0.1)';
     } else {
         navbar.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.05)';
@@ -123,8 +134,8 @@ window.addEventListener('scroll', () => {
 // ========================================
 
 const observerOptions = {
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
+    threshold: CONFIG.UI.OBSERVER.THRESHOLD,
+    rootMargin: CONFIG.UI.OBSERVER.ROOT_MARGIN
 };
 
 const observer = new IntersectionObserver((entries) => {
@@ -199,12 +210,10 @@ if (slideShowContainer) {
 }
 
 function handleSwipe() {
-    if (touchStartX - touchEndX > 50) {
-        // Swiped left - next slide
+    if (touchStartX - touchEndX > CONFIG.UI.TOUCH.SWIPE_THRESHOLD) {
         changeSlide(1);
     }
-    if (touchEndX - touchStartX > 50) {
-        // Swiped right - previous slide
+    if (touchEndX - touchStartX > CONFIG.UI.TOUCH.SWIPE_THRESHOLD) {
         changeSlide(-1);
     }
 }
