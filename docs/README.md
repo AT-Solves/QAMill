@@ -10,9 +10,8 @@ Step-by-step guides for setup, deployment, and usage.
 - **[DEPLOYMENT_GUIDE.md](./guides/DEPLOYMENT_GUIDE.md)** - Deployment instructions
 - **[OAUTH_SETUP.md](./guides/OAUTH_SETUP.md)** - OAuth provider configuration
 - **[TEAM_ORG_SIGNUP_GUIDE.md](./guides/TEAM_ORG_SIGNUP_GUIDE.md)** - Team and organization setup
-- **[MARKETPLACE_PUBLISH.md](./guides/MARKETPLACE_PUBLISH.md)** - Publishing to VS Code marketplace
-- **[MARKETPLACE_MANUAL_UPLOAD.md](./guides/MARKETPLACE_MANUAL_UPLOAD.md)** - Manual marketplace upload
-- **[QUICK_VSIX_UPLOAD.md](./guides/QUICK_VSIX_UPLOAD.md)** - Quick VSIX upload guide
+- **[MARKETPLACE_PUBLISH.md](./guides/MARKETPLACE_PUBLISH.md)** - Publishing to VS Code marketplace (comprehensive guide)
+- **[QUICK_VSIX_UPLOAD.md](./guides/QUICK_VSIX_UPLOAD.md)** - Quick VSIX upload guide (3-step quick reference)
 - **[AZURE_DEPLOYMENT.md](./guides/AZURE_DEPLOYMENT.md)** - Azure deployment guide
 
 ### [📊 Reports](./reports/)
