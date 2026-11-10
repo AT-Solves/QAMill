@@ -236,7 +236,7 @@ def test_gemini_without_key_fails_explicitly_and_never_logs_key(monkeypatch, cap
     from llm_adapter import GeminiAdapter
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     adapter = GeminiAdapter(api_key=None)
-    with pytest.raises(ValueError, match="Gemini API key not configured"):
+    with pytest.raises(ValueError, match="Gemini API key is not configured"):
         asyncio.run(adapter.call_async("hello"))
 
 

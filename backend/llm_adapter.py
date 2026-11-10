@@ -8,6 +8,64 @@ import httpx
 from abc import ABC, abstractmethod
 
 
+class LLMProviderError(ValueError):  # ValueError keeps existing handlers working
+    """A provider failure with a stable code the UI can act on.
+
+    codes: quota_exhausted | rate_limited | missing_key
+    """
+
+    def __init__(self, provider: str, code: str, message: str):
+        super().__init__(message)
+        self.provider = provider
+        self.code = code
+
+
+GEMINI_MESSAGES = {
+    "quota_exhausted": "Gemini quota exhausted. Check your Google AI Studio usage and billing, or choose another configured provider.",
+    "rate_limited": "Gemini rate limit reached. Please wait before retrying.",
+    "missing_key": "Gemini API key is not configured.",
+}
+
+
+def classify_gemini_429(body: str, headers) -> str:
+    """Quota exhaustion vs temporary rate limiting for an HTTP 429 from Gemini.
+
+    Order matters. Google sends RetryInfo even for billing quota errors, so a retry
+    hint alone does not make an error temporary. A per-minute limit is temporary.
+    A quota or billing message means the quota is exhausted.
+    """
+    text = (body or "").lower()
+    header_names = {str(k).lower() for k in (headers or {}).keys()}
+    # Billing/quota wording first: quota details can carry ids such as "...PerMinute"
+    # even for an exhausted quota, so the per-minute check must not run first.
+    if "exceeded your current quota" in text or "billing" in text:
+        return "quota_exhausted"
+    if any(p in text for p in ("per minute", "perminute", "per-minute", "requests per")):
+        return "rate_limited"
+    if "quotafailure" in text:
+        return "quota_exhausted"
+    if "retrydelay" in text or "retryinfo" in text or "retry-after" in header_names:
+        return "rate_limited"
+    if "quota" in text:
+        return "quota_exhausted"
+    return "rate_limited"
+
+
+def ollama_status(host: str = "http://localhost:11434", timeout: float = 3.0) -> dict:
+    """Whether Ollama is running and the configured model is installed. Never raises."""
+    try:
+        r = httpx.get(f"{host}/api/tags", timeout=timeout)
+        r.raise_for_status()
+        names = [m.get("name", "") for m in r.json().get("models", [])]
+    except Exception:
+        return {"available": False, "reason": "Ollama is not running"}
+    model = create_adapter("ollama").model
+    wanted = {model} if ":" in model else {model, model + ":latest"}
+    if any(n in wanted for n in names):
+        return {"available": True, "model": model}
+    return {"available": False, "reason": f"model '{model}' is not installed"}
+
+
 class BaseLLMAdapter(ABC):
     @abstractmethod
     async def call_async(self, prompt: str, max_tokens: int = 500) -> str:
@@ -288,7 +346,7 @@ class GeminiAdapter(BaseLLMAdapter):
     async def call_async(self, prompt: str, max_tokens: int = 500) -> str:
         import sys
         if not self.api_key:
-            raise ValueError("Gemini API key not configured. Set amil.geminiApiKey in VS Code settings, or GEMINI_API_KEY in backend/.env.")
+            raise LLMProviderError("gemini", "missing_key", GEMINI_MESSAGES["missing_key"])
 
         async with httpx.AsyncClient(timeout=30) as client:
             # Try v1beta endpoint first, then v1 if that fails
@@ -307,6 +365,11 @@ class GeminiAdapter(BaseLLMAdapter):
                             "generationConfig": {"maxOutputTokens": max_tokens},
                         },
                     )
+                    if r.status_code == 429:
+                        # Not retried: retrying a quota error only wastes requests.
+                        code = classify_gemini_429(r.text, r.headers)
+                        print(f"[GeminiAdapter.call_async] HTTP 429 classified as {code}", file=sys.stderr, flush=True)
+                        raise LLMProviderError("gemini", code, GEMINI_MESSAGES[code])
                     if r.status_code == 404 and api_version == "v1beta":
                         print(f"[GeminiAdapter.call_async] v1beta not available, trying v1", file=sys.stderr, flush=True)
                         continue
@@ -328,6 +391,8 @@ class GeminiAdapter(BaseLLMAdapter):
                             return text
 
                     raise Exception(f"Invalid response format: {list(response.keys())}")
+                except LLMProviderError:
+                    raise
                 except Exception as e:
                     error_msg = str(e)
                     try:

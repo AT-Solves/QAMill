@@ -25,6 +25,9 @@ from typing import Optional
 
 def _llm_err_msg(e: Exception, provider: str) -> str:
     """Turn an opaque LLM/httpx error into actionable guidance."""
+    from llm_adapter import LLMProviderError
+    if isinstance(e, LLMProviderError):
+        return str(e)  # already the user-facing text, e.g. quota vs rate limit
     txt = str(e).lower()
     if provider == "inhouse" and ("timeout" in txt or "timed out" in txt or txt.strip() == ""):
         return ("Local Ollama timed out generating the suite — large test suites are slow on CPU. "
@@ -310,7 +313,7 @@ class TestGenerator:
                 from usage_tracker import tracker
                 tracker.track_usage(self.user_email, self.llm.name, tokens_used=len(prompt.split()), task="manual_tests")
         except Exception as e:
-            return {"success": False, "cases": [], "message": _llm_err_msg(e, self.llm.name)}
+            return self._llm_failure(e)
 
         cases = self._extract_json_cases(raw)
         if not cases:
@@ -330,6 +333,21 @@ class TestGenerator:
         return {"success": True, "cases": cases, "module": module_name,
                 "content": content, "format": "test_case",
                 "message": f"{len(cases)} manual test cases generated."}
+
+    def _llm_failure(self, e: Exception) -> dict:
+        """
+        Failure result for a provider error. Never switches providers: it only
+        reports the error code and whether a local Ollama alternative is ready,
+        so the user can decide.
+        """
+        from llm_adapter import LLMProviderError, ollama_status
+        result = {"success": False, "cases": [], "message": _llm_err_msg(e, self.llm.name),
+                  "provider": self.llm.name, "error_code": None, "offer_ollama": False}
+        if isinstance(e, LLMProviderError):
+            result["error_code"] = e.code
+            if self.llm.name != "inhouse":  # Ollama is already the alternative
+                result["offer_ollama"] = bool(ollama_status().get("available"))
+        return result
 
     async def generate_gap_tests(self, file_path: str) -> dict:
         """
@@ -373,7 +391,7 @@ class TestGenerator:
                 from usage_tracker import tracker
                 tracker.track_usage(self.user_email, self.llm.name, tokens_used=len(prompt.split()), task="gap_tests")
         except Exception as e:
-            return {"success": False, "cases": [], "message": _llm_err_msg(e, self.llm.name)}
+            return self._llm_failure(e)
 
         candidates = self._extract_json_cases(raw)
         existing = existing_test_names(str(self.project_root))
@@ -490,7 +508,8 @@ class TestGenerator:
         # test_case OR table — both come from structured manual cases
         r = await self.generate_manual_tests(file_path, gap_driven=gap_driven)
         if not r["success"]:
-            return {**base, "success": False, "content": "", "message": r["message"]}
+            details = {k: r[k] for k in ("provider", "error_code", "offer_ollama") if k in r}
+            return {**base, "success": False, "content": "", "message": r["message"], **details}
         if fmt == "table":
             content = manual_cases_to_table(r["cases"], r.get("module", ""))
         else:

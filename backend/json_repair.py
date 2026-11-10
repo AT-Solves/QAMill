@@ -132,6 +132,38 @@ class JSONRepair:
         return text
 
     @staticmethod
+    def detect_truncation(text: str) -> Tuple[bool, Optional[str]]:
+        """
+        Detect if JSON response appears to be truncated.
+
+        Returns:
+            Tuple of (is_truncated, reason)
+        """
+        text = text.strip()
+
+        # Check if ends with incomplete string
+        if text.endswith('"') is False and '"' in text:
+            # Count unclosed quotes
+            quote_count = 0
+            for char in text:
+                if char == '"':
+                    quote_count += 1
+
+            if quote_count % 2 == 1:
+                # Odd number = unclosed string
+                return True, "JSON ends with unclosed string (likely truncated response)"
+
+        # Check if ends abruptly in middle of value
+        if text.endswith('"') is False and text.endswith('}') is False and text.endswith(']') is False:
+            return True, "JSON ends unexpectedly (likely truncated response)"
+
+        # Check if response is suspiciously short
+        if len(text) < 100:
+            return True, "Response too short (likely truncated or incomplete)"
+
+        return False, None
+
+    @staticmethod
     def validate_test_cases(data: Any) -> Tuple[bool, Optional[str]]:
         """
         Validate test case format.

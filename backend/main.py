@@ -1026,7 +1026,14 @@ async def generate_test_suite(req: GenerateTestsRequest, get_content: bool = Fal
             try:
                 result = await gen.generate_manual_tests(req.file_path, gap_driven=req.gap_driven)
                 if not result.get("success"):
-                    yield f'data: {{"type":"error","message":"{result.get("message","Generation failed")}"}}\n\n'
+                    # JSON-encoded so quotes in a message cannot break the stream.
+                    yield "data: " + json.dumps({
+                        "type": "error",
+                        "message": result.get("message", "Generation failed"),
+                        "error_code": result.get("error_code"),
+                        "offer_ollama": result.get("offer_ollama", False),
+                        "provider": result.get("provider"),
+                    }) + "\n\n"
                     return
 
                 # Stream each test case one-by-one
@@ -1036,7 +1043,7 @@ async def generate_test_suite(req: GenerateTestsRequest, get_content: bool = Fal
 
                 yield f'data: {{"type":"complete","count":{len(result.get("cases",[]))},"module":"{result.get("module","")}", "message":"{result.get("message","")}"}}\n\n'
             except Exception as e:
-                yield f'data: {{"type":"error","message":"{str(e)}"}}\n\n'
+                yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
 
         return StreamingResponse(stream_tests(), media_type="text/event-stream")
     else:

@@ -887,6 +887,26 @@ function buildStudioInit() {
         preset: studioTarget?.presetFormat || "test_case",
     };
 }
+// A generation failure is always shown in the Studio. If the backend reports that a
+// local Ollama alternative is ready, the user is asked first. Nothing switches
+// automatically, and the saved provider setting is never changed: a "yes" applies to
+// this one request only.
+async function handleStudioFailure(context, msg, resp) {
+    const message = resp?.message || "Test generation failed.";
+    studioPanel?.webview.postMessage({ type: "studio_error", message });
+    const alreadyLocal = msg.provider === "ollama" || msg.provider === "inhouse";
+    if (!resp?.offer_ollama || alreadyLocal) {
+        return;
+    }
+    const configured = String(resp.provider || msg.provider || "").toUpperCase();
+    const choice = await vscode.window.showWarningMessage(`${message}\n\nConfigured provider: ${configured}.\n\nGenerate using local Ollama instead? Local generation may take longer.`, { modal: true }, "Generate with Ollama");
+    if (choice !== "Generate with Ollama") {
+        return;
+    }
+    studioPanel?.webview.postMessage({ type: "studio_progress",
+        message: "Generating with local Ollama for this request only (your saved provider is unchanged)…" });
+    await runStudioGeneration(context, { ...msg, provider: "ollama" });
+}
 async function runStudioGeneration(context, msg) {
     const cfg = vscode.workspace.getConfiguration("amil");
     const port = cfg.get("backendPort", 8765);
@@ -975,7 +995,7 @@ async function runStudioGeneration(context, msg) {
                                 prog(`Done: ${evt.count || testCount} test(s) generated.`);
                             }
                             else if (evt.type === "error") {
-                                studioPanel?.webview.postMessage({ type: "studio_error", message: evt.message });
+                                await handleStudioFailure(context, msg, evt);
                                 return;
                             }
                         }
@@ -1001,8 +1021,7 @@ async function runStudioGeneration(context, msg) {
                 }
                 else {
                     // Failures must be visible in the Studio, not only in the progress log.
-                    studioPanel?.webview.postMessage({ type: "studio_error",
-                        message: finalResp?.message || "Test generation failed." });
+                    await handleStudioFailure(context, msg, finalResp);
                 }
             }
             catch (err) {
