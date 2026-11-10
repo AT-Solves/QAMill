@@ -17,6 +17,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 from typing import List, Optional
+from dotenv import load_dotenv
+
+# Load backend/.env into the environment (existing variables take precedence),
+# so server-side provider keys resolve without being hardcoded or logged.
+load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +32,7 @@ from pydantic import BaseModel
 from mutation_engine import MutationEngine, OPERATOR_METADATA
 from equivalent_detector import EquivalentDetector
 from test_runner import TestRunner, mutation_hint, mutation_priority, MAX_WORKERS
+from mutation_workspace import isolated_copy
 from llm_adapter import create_adapter, NoLLMAdapter
 from test_generator import TestGenerator, manual_cases_to_markdown
 from cross_method_mutator import CrossMethodMutator
@@ -103,6 +109,8 @@ class GenerateTestsRequest(BaseModel):
     verify:       bool = True   # unit tests only: run against the original code
     format:       str = "test_case"   # unit | test_case | table | gherkin | traceability
     fast_mode:    bool = False  # fast_mode=True: reduced tokens, skip verification, instant feedback
+    gap_driven:   bool = False  # test_case only: target surviving mutations from the last analysis
+    allow_local_fallback: bool = False  # opt in to switching to local Ollama if the provider fails
 
 
 class EmailRequest(BaseModel):
@@ -155,13 +163,37 @@ async def _broadcast(job_id: str, event: dict) -> None:
 
 # ── Core analysis pipeline ─────────────────────────────────────────────────
 
+def _export_gap_file(project_root: str, file_path: str, job_id: str,
+                     mutants: list, total: int, killed: int) -> dict:
+    """Write surviving mutants as gap records for gap-driven test generation."""
+    from mutation_gaps import build_gap_records, write_gap_file
+    survived = [m for m in mutants if m.status == "survived"]
+    try:
+        source = Path(file_path).read_text(encoding="utf-8")
+        records = build_gap_records(survived, source)
+        path = write_gap_file(project_root, file_path, job_id, total, killed, records)
+        return {"gap_file": str(path), "gap_count": len(records)}
+    except Exception as e:
+        print(f"[ERROR] Could not write mutation gap file: {e}", file=sys.stderr, flush=True)
+        return {"gap_file": None, "gap_file_error": str(e)}
+
+
 async def _run_javascript_analysis(
     job_id: str, req: AnalyzeRequest, framework: str
 ):
     """Analyze JavaScript/TypeScript file using JS-specific adapter"""
+    # Mutants are generated and executed inside a disposable copy of the
+    # project, so the original source is never modified.
+    isolated = None
     try:
-        # Initialize JavaScript adapter
-        adapter = JavaScriptAdapter(req.project_root, framework)
+        isolated = isolated_copy(req.project_root)
+        target_file = isolated.file_in_copy(req.file_path)
+
+        # Initialize JavaScript adapter on the copy
+        adapter = JavaScriptAdapter(str(isolated.root), framework)
+        node_path = isolated.node_path()
+        if node_path and hasattr(adapter.test_runner, "extra_env"):
+            adapter.test_runner.extra_env = {"NODE_PATH": node_path}
 
         await _broadcast(
             job_id,
@@ -175,7 +207,7 @@ async def _run_javascript_analysis(
         await _broadcast(
             job_id, {"type": "status", "message": "Generating mutations (5 operators)..."}
         )
-        mutants = adapter.generate_mutants(req.file_path)
+        mutants = adapter.generate_mutants(str(target_file))
         total = len(mutants)
 
         await _broadcast(
@@ -210,6 +242,7 @@ async def _run_javascript_analysis(
             elif result["status"] == "survived":
                 survived += 1
                 status = "survived"
+                mutant.status = "survived"
             else:
                 status = "error"
 
@@ -229,6 +262,8 @@ async def _run_javascript_analysis(
             )
 
         score = round((killed / total) * 100, 1) if total > 0 else 0
+        gap_info = _export_gap_file(req.project_root, req.file_path, job_id,
+                                    mutants, total, killed)
 
         await _broadcast(
             job_id,
@@ -239,6 +274,7 @@ async def _run_javascript_analysis(
                 "total": total,
                 "score": score,
                 "language": "JavaScript",
+                **gap_info,
             },
         )
 
@@ -250,6 +286,9 @@ async def _run_javascript_analysis(
                 "message": f"JavaScript analysis failed: {str(e)}",
             },
         )
+    finally:
+        if isolated is not None:
+            isolated.cleanup()
 
 
 async def _run_analysis(job_id: str, req: AnalyzeRequest):
@@ -448,7 +487,10 @@ async def _run_analysis(job_id: str, req: AnalyzeRequest):
         except Exception as rep_err:
             report_path = f"error: {rep_err}"
 
+        gap_info = _export_gap_file(req.project_root, req.file_path, job_id,
+                                    mutants, total, killed)
         summary = {
+            **gap_info,
             "type": "complete",
             "total": total,
             "killed": killed,
@@ -764,8 +806,7 @@ def _make_test_generator(req: GenerateTestsRequest) -> TestGenerator:
     import sys
     print(f"[BACKEND] _make_test_generator called", file=sys.stderr, flush=True)
     print(f"[BACKEND] Provider: {req.llm_provider}", file=sys.stderr, flush=True)
-    print(f"[BACKEND] API Key received: {req.llm_api_key if req.llm_api_key else 'NONE/EMPTY'}", file=sys.stderr, flush=True)
-    print(f"[BACKEND] API Key length: {len(req.llm_api_key or '')}", file=sys.stderr, flush=True)
+    print(f"[BACKEND] API key in request: {'present' if req.llm_api_key else 'absent'}", file=sys.stderr, flush=True)
 
     kwargs = {}
     if req.llm_api_key:
@@ -787,7 +828,10 @@ def _make_test_generator(req: GenerateTestsRequest) -> TestGenerator:
     print(f"[BACKEND] Adapter created: {llm.__class__.__name__}", file=sys.stderr, flush=True)
 
     # Ollama as fallback provider (always available locally)
-    fallback_llm = create_adapter("ollama") if req.llm_provider != "ollama" else None
+    # Local Ollama fallback is opt-in: when the chosen provider fails, the
+    # request fails and says so, instead of silently producing output elsewhere.
+    fallback_llm = (create_adapter("ollama")
+                    if req.allow_local_fallback and req.llm_provider != "ollama" else None)
 
     root = req.project_root or str(Path(req.file_path).parent)
     user_email = auth.get_current_user().get("email", "") if auth.get_current_user() else ""
@@ -960,11 +1004,13 @@ async def generate_formats():
 
 
 @app.post("/generate/test-suite")
-async def generate_test_suite(req: GenerateTestsRequest):
+async def generate_test_suite(req: GenerateTestsRequest, get_content: bool = False):
     """
     Unified generator: pick the output format (unit | test_case | table |
     gherkin | traceability). Returns normalised {content, lang, ...} for the UI.
     Streams results one-by-one for manual test formats (test_case, table).
+
+    Query param: get_content=true to skip streaming and return formatted result.
     """
     if not Path(req.file_path).exists():
         raise HTTPException(400, f"File not found: {req.file_path}")
@@ -974,11 +1020,11 @@ async def generate_test_suite(req: GenerateTestsRequest):
         raise HTTPException(400, str(e))
 
     # For manual test formats, stream results one-by-one; else return complete result
-    if req.format in ("test_case", "table"):
+    if req.format in ("test_case", "table") and not get_content:
         async def stream_tests():
             yield 'data: {"type":"start","format":"' + req.format + '"}\n\n'
             try:
-                result = await gen.generate_manual_tests(req.file_path)
+                result = await gen.generate_manual_tests(req.file_path, gap_driven=req.gap_driven)
                 if not result.get("success"):
                     yield f'data: {{"type":"error","message":"{result.get("message","Generation failed")}"}}\n\n'
                     return
@@ -994,7 +1040,8 @@ async def generate_test_suite(req: GenerateTestsRequest):
 
         return StreamingResponse(stream_tests(), media_type="text/event-stream")
     else:
-        return await gen.generate_suite(req.file_path, req.format, verify=req.verify)
+        return await gen.generate_suite(req.file_path, req.format, verify=req.verify,
+                                        gap_driven=req.gap_driven)
 
 
 def _validate_and_sanitise(answer: str, context: str) -> str:
@@ -1851,10 +1898,8 @@ async def auth_llm_get_models(provider: str):
             {"name": "gpt-3.5-turbo", "label": "GPT-3.5 Turbo (fast)"},
         ],
         "gemini": [
-            {"name": "gemini-2.0-flash", "label": "Gemini 2.0 Flash (recommended - stable)"},
-            {"name": "gemini-2.5-flash", "label": "Gemini 2.5 Flash (fast)"},
+            {"name": "gemini-3.5-flash", "label": "Gemini 3.5 Flash (recommended - verified)"},
             {"name": "gemini-2.5-pro", "label": "Gemini 2.5 Pro (high quality)"},
-            {"name": "gemini-3.5-flash", "label": "Gemini 3.5 Flash (latest - may be busy)"},
             {"name": "gemini-flash-latest", "label": "Gemini Flash (always latest)"},
             {"name": "gemini-pro-latest", "label": "Gemini Pro (always latest)"},
         ],

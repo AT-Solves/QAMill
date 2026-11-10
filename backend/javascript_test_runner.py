@@ -1,8 +1,10 @@
 """
 JavaScript Test Runner - Execute Jest tests and track mutation kill/survive status
 """
+import asyncio
 import subprocess
 import json
+import os
 import tempfile
 import shutil
 from pathlib import Path
@@ -16,6 +18,30 @@ class JestTestRunner:
     def __init__(self, project_path: str):
         self.project_path = Path(project_path)
         self.temp_dir = None
+        # Extra environment for test processes (e.g. NODE_PATH pointing at the
+        # original node_modules when running in an isolated copy).
+        self.extra_env: Optional[Dict[str, str]] = None
+
+    @staticmethod
+    def _jest_command() -> List[str]:
+        """
+        Build the command that launches Jest.
+
+        Running the npm shim (jest.CMD on Windows) goes through cmd.exe and then
+        node. A timeout kill only stops cmd.exe, so grandchildren keep the output
+        pipes open and subprocess.run blocks forever. Running Jest's entry script
+        directly under node lets the timeout kill the real process.
+        """
+        jest_path = shutil.which("jest")
+        node_path = shutil.which("node")
+        if jest_path and node_path:
+            candidate = Path(jest_path).parent / "node_modules" / "jest" / "bin" / "jest.js"
+            if not candidate.exists():
+                real = Path(os.path.realpath(jest_path))
+                candidate = real if real.suffix == ".js" else None
+            if candidate is not None and candidate.exists():
+                return [node_path, str(candidate)]
+        return [jest_path or "jest"]
 
     def run_tests(
         self, test_files: List[str] = None, coverage: bool = False
@@ -32,7 +58,7 @@ class JestTestRunner:
         }
         """
         try:
-            cmd = ["jest", "--json"]
+            cmd = self._jest_command() + ["--json", "--runInBand"]
 
             if coverage:
                 cmd.append("--coverage")
@@ -40,17 +66,24 @@ class JestTestRunner:
             if test_files:
                 cmd.extend(test_files)
 
-            result = subprocess.run(
-                cmd,
-                cwd=str(self.project_path),
-                capture_output=True,
-                timeout=60,
-                text=True,
-            )
+            # Output goes to a temp file, not a pipe. If the timeout kills Jest
+            # while a child still holds a pipe open, subprocess.run would block
+            # forever and freeze the whole backend event loop.
+            with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as out_file:
+                result = subprocess.run(
+                    cmd,
+                    cwd=str(self.project_path),
+                    stdout=out_file,
+                    stderr=subprocess.DEVNULL,
+                    env={**os.environ, **self.extra_env} if self.extra_env else None,
+                    timeout=60,
+                )
+                out_file.seek(0)
+                stdout_text = out_file.read()
 
             # Parse Jest JSON output
             try:
-                data = json.loads(result.stdout)
+                data = json.loads(stdout_text)
                 return {
                     "status": "success" if result.returncode == 0 else "failed",
                     "passed": data.get("numPassedTests", 0),
@@ -68,7 +101,7 @@ class JestTestRunner:
                     "passed": 0,
                     "failed": 0,
                     "total": 0,
-                    "error": f"Jest output parsing failed: {result.stdout[:200]}",
+                    "error": f"Jest output parsing failed: {stdout_text[:200]}",
                 }
 
         except subprocess.TimeoutExpired:
@@ -134,10 +167,21 @@ class JestTestRunner:
                 }
 
             # Run tests against mutant
-            result = self.run_tests(test_files)
+            # Run Jest in a worker thread: the blocking subprocess call would
+            # otherwise freeze the server's event loop for the whole job.
+            result = await asyncio.to_thread(self.run_tests, test_files)
 
             # Restore original
             backup_path.write_text(backup_content)
+
+            # A runner failure (Jest missing, timeout, unparseable output) is an
+            # execution error, not evidence that the tests missed the mutant.
+            if result.get("status") == "error":
+                return {
+                    "status": "error",
+                    "test_result": result,
+                    "error": result.get("error"),
+                }
 
             # Determine if mutant was killed
             mutant_status = "survived" if result.get("failed", 0) == 0 else "killed"

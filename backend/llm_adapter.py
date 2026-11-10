@@ -272,12 +272,13 @@ class GeminiAdapter(BaseLLMAdapter):
 
     def __init__(self, api_key: str = None, model: str = None):
         import sys
-        print(f"[GeminiAdapter.__init__] Called with api_key={api_key if api_key else 'NONE'}", file=sys.stderr, flush=True)
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY", "")
-        print(f"[GeminiAdapter.__init__] Final api_key set to: {self.api_key if self.api_key else 'NONE'}", file=sys.stderr, flush=True)
-        # Use stable model: gemini-2.0-flash (reliable, less overloaded than newest)
+        # Key resolution: explicit argument (VS Code setting) first, then the
+        # environment (populated from backend/.env at startup). Never logged.
+        self.api_key = (api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
+        print(f"[GeminiAdapter.__init__] API key {'present' if self.api_key else 'MISSING'}", file=sys.stderr, flush=True)
+        # Default: gemini-3.5-flash (verified available to current keys; 2.0/2.5 flash are retired)
         # Users can select gemini-3.5-flash if available, but defaults to stable model
-        self.model = model or "gemini-2.0-flash"
+        self.model = model or "gemini-3.5-flash"
         print(f"[GeminiAdapter.__init__] Model: {self.model}", file=sys.stderr, flush=True)
 
     @property
@@ -286,9 +287,8 @@ class GeminiAdapter(BaseLLMAdapter):
 
     async def call_async(self, prompt: str, max_tokens: int = 500) -> str:
         import sys
-        print(f"[GeminiAdapter.call_async] Checking api_key: {self.api_key if self.api_key else 'NONE'}", file=sys.stderr, flush=True)
         if not self.api_key:
-            raise ValueError("Gemini API key not configured. Set GEMINI_API_KEY environment variable.")
+            raise ValueError("Gemini API key not configured. Set amil.geminiApiKey in VS Code settings, or GEMINI_API_KEY in backend/.env.")
 
         async with httpx.AsyncClient(timeout=30) as client:
             # Try v1beta endpoint first, then v1 if that fails
@@ -297,9 +297,11 @@ class GeminiAdapter(BaseLLMAdapter):
                 print(f"[GeminiAdapter.call_async] Trying {api_version} endpoint: {endpoint}", file=sys.stderr, flush=True)
 
                 try:
+                    # Key goes in a header, never in the URL: URLs end up in
+                    # exception text, logs and the UI.
                     r = await client.post(
                         endpoint,
-                        params={"key": self.api_key},
+                        headers={"x-goog-api-key": self.api_key},
                         json={
                             "contents": [{"parts": [{"text": prompt}]}],
                             "generationConfig": {"maxOutputTokens": max_tokens},

@@ -41,14 +41,33 @@ def _llm_err_msg(e: Exception, provider: str) -> str:
 def _public_functions(source: str) -> list[str]:
     """Return top-level + class method names worth testing (skip private/dunder)."""
     names: list[str] = []
+
+    # Try Python parsing first
     try:
         tree = ast.parse(source)
-    except SyntaxError:
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if not node.name.startswith("_"):
+                    names.append(node.name)
         return names
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if not node.name.startswith("_"):
-                names.append(node.name)
+    except SyntaxError:
+        pass
+
+    # If Python parsing failed, try JavaScript regex patterns
+    # Match: function name(...) { or const/let name = (...) =>
+    patterns = [
+        r'function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(',  # function name()
+        r'(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(',  # const name = ()
+        r'(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?function',  # const name = function
+    ]
+
+    for pattern in patterns:
+        for match in re.finditer(pattern, source):
+            name = match.group(1)
+            if not name.startswith("_"):
+                if name not in names:
+                    names.append(name)
+
     return names
 
 
@@ -105,6 +124,14 @@ class TestGenerator:
         self.fallback_llm = fallback_llm  # Ollama as fallback if primary fails
         self.project_root = Path(project_root)
         self.user_email = user_email
+        # Provider actually used for the last call; set when a fallback runs,
+        # so a switch away from the chosen provider is always reported.
+        self.provider_used = llm_adapter.name
+        self.fallback_reason: Optional[str] = None
+
+    def _record_fallback(self, reason: str) -> None:
+        self.provider_used = f"{self.fallback_llm.name} (fallback)"
+        self.fallback_reason = f"{self.llm.name} failed: {reason}"
 
     async def _call_llm_with_fallback(self, prompt: str, max_tokens: int = 500) -> str:
         """Try primary LLM, fall back to Ollama if it fails or returns garbage."""
@@ -136,6 +163,7 @@ class TestGenerator:
             # Invalid response - try fallback
             if self.fallback_llm and self.fallback_llm.name != self.llm.name:
                 print(f"[DEBUG] Response invalid! Falling back to Ollama...", file=sys.stderr, flush=True)
+                self._record_fallback("returned an unusable response")
                 fallback_result = await self.fallback_llm.call_async(prompt, max_tokens=max_tokens)
                 print(f"[DEBUG] Ollama returned {len(fallback_result)} chars", file=sys.stderr, flush=True)
                 return fallback_result
@@ -146,6 +174,7 @@ class TestGenerator:
             print(f"[DEBUG] {self.llm.name} exception: {type(e).__name__}: {str(e)[:100]}", file=sys.stderr, flush=True)
             if self.fallback_llm and self.fallback_llm.name != self.llm.name:
                 print(f"[DEBUG] Trying fallback Ollama...", file=sys.stderr, flush=True)
+                self._record_fallback(str(e)[:200])
                 try:
                     fallback_result = await self.fallback_llm.call_async(prompt, max_tokens=max_tokens)
                     print(f"[DEBUG] Ollama fallback returned {len(fallback_result)} chars", file=sys.stderr, flush=True)
@@ -261,7 +290,9 @@ class TestGenerator:
         return int(m.group(1)) if m else 0
 
     # ── Manual test suite ────────────────────────────────────────────────
-    async def generate_manual_tests(self, file_path: str) -> dict:
+    async def generate_manual_tests(self, file_path: str, gap_driven: bool = False) -> dict:
+        if gap_driven:
+            return await self.generate_gap_tests(file_path)
         path = Path(file_path)
         source = path.read_text(encoding="utf-8")
         module_name = path.stem
@@ -272,7 +303,9 @@ class TestGenerator:
 
         prompt = MANUAL_PROMPT.format(module_name=module_name, source=source)
         try:
-            raw = await self._call_llm_with_fallback(prompt)
+            # A full manual suite is JSON of 1-2k tokens; the 500-token default
+            # cut every response off mid-array.
+            raw = await self._call_llm_with_fallback(prompt, max_tokens=MANUAL_TESTS_MAX_TOKENS)
             if self.user_email:
                 from usage_tracker import tracker
                 tracker.track_usage(self.user_email, self.llm.name, tokens_used=len(prompt.split()), task="manual_tests")
@@ -290,8 +323,98 @@ class TestGenerator:
             c.setdefault("preconditions", "")
             c.setdefault("steps", [])
             c.setdefault("expected", "")
+
+        # Format content for display in webview
+        content = json.dumps(cases, indent=2)
+
         return {"success": True, "cases": cases, "module": module_name,
+                "content": content, "format": "test_case",
                 "message": f"{len(cases)} manual test cases generated."}
+
+    async def generate_gap_tests(self, file_path: str) -> dict:
+        """
+        Gap-driven generation: write tests that would kill the surviving mutants
+        recorded by the last mutation analysis of this file.
+        Nothing is invented: no gap record means no generation.
+        """
+        from mutation_gaps import (load_gap_file, existing_test_context,
+                                   existing_test_names, normalise_title)
+        path = Path(file_path)
+        source = path.read_text(encoding="utf-8")
+        module_name = path.stem
+
+        if self.llm.name == "none":
+            return {"success": False, "cases": [],
+                    "message": "Select an LLM provider to generate gap-driven tests."}
+
+        gap_doc = load_gap_file(str(self.project_root), file_path)
+        if gap_doc is None:
+            return {"success": False, "cases": [],
+                    "message": "No mutation analysis results for this file. Run mutation analysis first, then generate gap-driven tests."}
+        gaps = gap_doc.get("gaps", [])
+        if not gaps:
+            return {"success": False, "cases": [],
+                    "message": "Mutation analysis found no surviving mutants for this file, so there are no gaps to target."}
+
+        rank = {"high": 0, "medium": 1, "low": 2}
+        ordered = sorted(gaps, key=lambda g: rank.get(g.get("priority"), 1))
+        batch = ordered[:GAP_BATCH_SIZE]
+        valid_ids = {g["mutant_id"] for g in batch}
+
+        prompt = GAP_PROMPT.format(
+            module_name=module_name,
+            source=source,
+            existing_tests=existing_test_context(str(self.project_root)) or "(no existing tests found)",
+            gaps=json.dumps(batch, indent=2),
+        )
+        try:
+            raw = await self._call_llm_with_fallback(prompt, max_tokens=MANUAL_TESTS_MAX_TOKENS)
+            if self.user_email:
+                from usage_tracker import tracker
+                tracker.track_usage(self.user_email, self.llm.name, tokens_used=len(prompt.split()), task="gap_tests")
+        except Exception as e:
+            return {"success": False, "cases": [], "message": _llm_err_msg(e, self.llm.name)}
+
+        candidates = self._extract_json_cases(raw)
+        existing = existing_test_names(str(self.project_root))
+        seen, kept, duplicates, unlinked = set(), [], 0, 0
+        for c in candidates:
+            if not isinstance(c, dict):
+                continue
+            linked = [i for i in (c.get("mutation_ids") or []) if i in valid_ids]
+            if not linked:
+                unlinked += 1          # not tied to a real surviving mutant
+                continue
+            key = normalise_title(c.get("title", ""))
+            if not key or key in existing or key in seen:
+                duplicates += 1        # duplicates an existing or generated test
+                continue
+            seen.add(key)
+            c["mutation_ids"] = linked
+            c.setdefault("priority", "Medium")
+            c.setdefault("preconditions", "")
+            c.setdefault("steps", [])
+            c.setdefault("expected", "")
+            c.setdefault("objective", "")
+            c.setdefault("coverage_gap", "")
+            kept.append(c)
+
+        if not kept:
+            return {"success": False, "cases": [],
+                    "message": f"No usable gap-driven test cases (duplicates: {duplicates}, not linked to a surviving mutation: {unlinked}). Try again."}
+
+        for i, c in enumerate(kept, 1):
+            c["id"] = f"TC-{i:03d}"
+        return {
+            "success": True, "cases": kept, "module": module_name,
+            "content": json.dumps(kept, indent=2), "format": "test_case",
+            "gap_driven": True,
+            "gaps_targeted": len(batch), "gaps_total": len(gaps),
+            "provider_used": self.provider_used, "fallback_reason": self.fallback_reason,
+            "duplicates_removed": duplicates, "unlinked_removed": unlinked,
+            "message": (f"{len(kept)} gap-driven test cases for {len(batch)} of {len(gaps)} surviving mutations"
+                        f" (removed: {duplicates} duplicate, {unlinked} not linked to a mutation)."),
+        }
 
     # ── Gherkin (BDD) ────────────────────────────────────────────────────
     async def generate_gherkin(self, file_path: str) -> dict:
@@ -335,7 +458,8 @@ class TestGenerator:
                 "message": f"{len(rows)} traceability rows generated."}
 
     # ── Unified dispatch by format ───────────────────────────────────────
-    async def generate_suite(self, file_path: str, fmt: str, verify: bool = True) -> dict:
+    async def generate_suite(self, file_path: str, fmt: str, verify: bool = True,
+                             gap_driven: bool = False) -> dict:
         """
         Returns a normalised dict the UI can render directly:
           {success, format, lang, content, module, verified?, passed?, failed?, message}
@@ -364,16 +488,18 @@ class TestGenerator:
                     "message": r["message"], "filename": f"traceability-{r.get('module','suite')}.md"}
 
         # test_case OR table — both come from structured manual cases
-        r = await self.generate_manual_tests(file_path)
+        r = await self.generate_manual_tests(file_path, gap_driven=gap_driven)
         if not r["success"]:
             return {**base, "success": False, "content": "", "message": r["message"]}
         if fmt == "table":
             content = manual_cases_to_table(r["cases"], r.get("module", ""))
         else:
             content = manual_cases_to_markdown(r["cases"], r.get("module", ""))
+        gap_meta = {k: r[k] for k in ("gap_driven", "gaps_targeted", "gaps_total", "duplicates_removed",
+                                       "unlinked_removed", "provider_used", "fallback_reason") if k in r}
         return {**base, "success": True, "content": content,
                 "module": r.get("module", ""), "cases": r["cases"], "message": r["message"],
-                "filename": f"test-suite-{r.get('module','suite')}.md"}
+                "filename": f"test-suite-{r.get('module','suite')}.md", **gap_meta}
 
     # ── Parsing helpers ──────────────────────────────────────────────────
     @staticmethod
@@ -424,62 +550,67 @@ class TestGenerator:
 
     @staticmethod
     def _repair_json(blob: str) -> str:
-        """Repair incomplete/malformed JSON from Ollama by fixing common issues."""
+        """
+        Repair incomplete/malformed JSON from Ollama using robust multi-strategy approach.
+        Uses the JSONRepair class for intelligent repair with multiple fallback strategies.
+        """
+        import sys
+        from json_repair import JSONRepair
+
+        print(f"[DEBUG] Starting robust JSON repair with multiple strategies...", file=sys.stderr, flush=True)
+
+        try:
+            # Use robust JSON repair with multiple strategies (up to 5 attempts)
+            data, was_repaired = JSONRepair.repair(blob, max_attempts=5)
+
+            if was_repaired:
+                print(f"[DEBUG] JSON repaired successfully after multiple attempts", file=sys.stderr, flush=True)
+                # Convert back to string for json.loads in calling function
+                return json.dumps(data)
+            else:
+                print(f"[DEBUG] JSON parsed on first try (no repair needed)", file=sys.stderr, flush=True)
+                return blob
+
+        except Exception as e:
+            print(f"[DEBUG] Robust repair failed with error: {e}", file=sys.stderr, flush=True)
+            print(f"[DEBUG] Falling back to simple emergency repair", file=sys.stderr, flush=True)
+
+            # Fallback to simple repair if robust repair fails
+            return TestGenerator._simple_repair_json(blob)
+
+    @staticmethod
+    def _simple_repair_json(blob: str) -> str:
+        """
+        Simple fallback repair for emergency cases.
+        Only tries basic bracket/brace closing.
+        """
         import sys
         blob = blob.strip()
 
-        # Step 1: Fix unterminated strings by finding unmatched quotes
-        # Count quotes, accounting for escaped quotes
-        quote_count = 0
-        i = 0
-        last_unclosed_quote_pos = -1
-        while i < len(blob):
-            if i > 0 and blob[i-1] == '\\':
-                # Skip escaped character
-                i += 1
-                continue
-            if blob[i] == '"':
-                quote_count += 1
-                if quote_count % 2 == 1:  # Odd quote = opening
-                    last_unclosed_quote_pos = i
-                else:  # Even quote = closing
-                    last_unclosed_quote_pos = -1
-            i += 1
-
-        # If there's an unclosed string, close it
-        if quote_count % 2 == 1:  # Odd number = unclosed string
-            blob += '"'
-            print(f"[DEBUG] Closed unterminated string at position {last_unclosed_quote_pos}", file=sys.stderr, flush=True)
-
-        # Step 2: Remove trailing commas before closing brackets
-        blob = re.sub(r',(\s*[}\]])', r'\1', blob)
-
-        # Step 3: Close any unclosed brackets
+        # Close unclosed brackets
         open_brackets = blob.count('[')
         close_brackets = blob.count(']')
         if open_brackets > close_brackets:
             blob += ']' * (open_brackets - close_brackets)
             print(f"[DEBUG] Added {open_brackets - close_brackets} closing bracket(s)", file=sys.stderr, flush=True)
 
-        # Step 4: Close any unclosed braces
+        # Close unclosed braces
         open_braces = blob.count('{')
         close_braces = blob.count('}')
         if open_braces > close_braces:
             blob += '}' * (open_braces - close_braces)
             print(f"[DEBUG] Added {open_braces - close_braces} closing brace(s)", file=sys.stderr, flush=True)
 
-        # Step 5: Ensure we end with ]
-        if not blob.rstrip().endswith(']'):
-            # Find the position after the last }
-            last_brace = blob.rfind('}')
-            if last_brace != -1:
-                blob = blob[:last_brace + 1] + ']'
+        # Remove trailing commas
+        blob = re.sub(r',(\s*[}\]])', r'\1', blob)
 
         return blob
 
     @staticmethod
     def _extract_json_cases(raw: str) -> list[dict]:
         import sys
+        from json_repair import JSONRepair
+
         # Prefer a fenced ```json block, else the first [...] array
         m = re.search(r"```json\s*(.*?)```", raw, re.DOTALL)
         blob = m.group(1).strip() if m else None
@@ -513,10 +644,70 @@ class TestGenerator:
             print(f"[DEBUG] Successfully parsed {len(result)} cases from repaired JSON", file=sys.stderr, flush=True)
             return result
         except json.JSONDecodeError as e:
+            # Never substitute invented cases: keep only objects the model
+            # actually completed. An unrecoverable response yields no cases, and
+            # the caller reports that to the user as a failure.
             print(f"[DEBUG] JSON parse error (after repair): {e}", file=sys.stderr, flush=True)
-            print(f"[DEBUG] Original: {blob[:300]}...", file=sys.stderr, flush=True)
-            print(f"[DEBUG] Repaired: {repaired[:300]}...", file=sys.stderr, flush=True)
+            salvaged = TestGenerator._salvage_complete_cases(blob)
+            if salvaged:
+                print(f"[WARNING] LLM response was truncated; recovered {len(salvaged)} complete test case(s).", file=sys.stderr, flush=True)
+                return salvaged
+            print(f"[ERROR] Could not parse test cases from LLM response: {e}", file=sys.stderr, flush=True)
             return []
+
+    @staticmethod
+    def _salvage_complete_cases(blob: str) -> list[dict]:
+        """
+        Recover the complete objects from a truncated JSON array.
+        Tries each closing brace from the end, closes the array there, and keeps
+        the first candidate that parses. Only objects the model finished are kept.
+        """
+        start = blob.find("[")
+        if start == -1:
+            return []
+        body = blob[start:]
+        for end in reversed([m.end() for m in re.finditer(r"\}", body)]):
+            candidate = body[:end].rstrip().rstrip(",") + "]"
+            try:
+                data = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(data, list):
+                return [c for c in data if isinstance(c, dict)]
+        return []
+
+
+# Output budget for a manual test suite (JSON array of test cases).
+MANUAL_TESTS_MAX_TOKENS = 2500
+# Surviving mutants sent per gap-driven request (highest priority first).
+GAP_BATCH_SIZE = 5
+
+GAP_PROMPT = """\
+You are a senior QA engineer. The module "{module_name}" is covered by an existing
+test suite, which was run against deliberately mutated copies of the code. Each
+mutation listed below SURVIVED: every existing test still passed on the mutated code.
+
+Write NEW test cases that would FAIL on each mutated behaviour and PASS on the
+original behaviour. For each gap:
+- Target exactly the behaviour that changed (boundary values, negative inputs,
+  swapped arguments, changed strings or operators, as the gap describes).
+- Do NOT repeat any test that already exists (see EXISTING TESTS).
+- Make each step concrete (inputs and the observable result).
+
+Return ONLY a JSON array. Each element has these keys:
+  "title", "objective", "priority" (High|Medium|Low), "preconditions",
+  "steps" (array of strings), "expected", "coverage_gap",
+  "mutation_ids" (array; use only IDs from the GAPS list).
+
+EXISTING TESTS:
+{existing_tests}
+
+MODULE SOURCE:
+{source}
+
+GAPS (surviving mutations):
+{gaps}
+"""
 
 
 MANUAL_PROMPT = """\
@@ -645,11 +836,19 @@ def manual_cases_to_markdown(cases: list[dict], module: str = "") -> str:
     for c in cases:
         lines.append(f"## {c.get('id','')} — {c.get('title','')}")
         lines.append(f"**Priority:** {c.get('priority','Medium')}")
+        if c.get("mutation_ids"):
+            lines.append(f"**Mutation(s):** {', '.join(c['mutation_ids'])}")
+        if c.get("objective"):
+            lines.append(f"**Objective:** {c['objective']}")
+        if c.get("coverage_gap"):
+            lines.append(f"**Coverage gap:** {c['coverage_gap']}")
         if c.get("preconditions"):
             lines.append(f"**Preconditions:** {c['preconditions']}")
         lines.append("**Steps:**")
         for i, s in enumerate(c.get("steps", []), 1):
-            lines.append(f"{i}. {s}")
+            # Models often number their own steps; avoid "1. 1. ..." in the output.
+            step_text = re.sub(r"^\s*\d+[.)]\s*", "", str(s))
+            lines.append(f"{i}. {step_text}")
         lines.append(f"**Expected:** {c.get('expected','')}")
         lines.append("")
     return "\n".join(lines)

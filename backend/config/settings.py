@@ -41,7 +41,7 @@ class LLMSettings(BaseSettings):
     models: Dict[str, str] = {
         "claude": "claude-sonnet-4-5",
         "gpt": "gpt-4o",
-        "gemini": "gemini-2.0-flash",
+        "gemini": "gemini-3.5-flash",
         "grok": "grok-3",
         "ollama": "llama3",
     }

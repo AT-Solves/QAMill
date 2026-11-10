@@ -201,7 +201,7 @@ LLM_PROVIDERS: dict[str, dict] = {
         "validate_body": None,
         "ok_codes":    {200, 403},
         "auth_header": lambda k: {"x-goog-api-key": k},
-        "key_env":     "GOOGLE_API_KEY",
+        "key_env":     "GEMINI_API_KEY",
         "key_placeholder": "AIza...",
     },
     "openrouter": {
@@ -783,7 +783,11 @@ class AuthManager:
         active = self.get_active_llm()
         result = []
 
-        for provider in enabled:
+        # Providers whose key is configured in the server environment (backend/.env)
+        # count as connected even when they were never enabled in the UI.
+        env_configured = [p for p, c in LLM_PROVIDERS.items()
+                          if c.get("key_env") and os.getenv(c["key_env"]) and p not in enabled]
+        for provider in list(enabled) + env_configured:
             cfg = LLM_PROVIDERS.get(provider, {})
             if not cfg:
                 continue
@@ -800,6 +804,18 @@ class AuthManager:
                     "key_snippet":  (key[:8] + "..." + key[-4:]) if len(key) > 12 else key[:4] + "...",
                     "validated_at": entry.get("validated_at", 0),
                     "from_env":     False,
+                    "color":        cfg.get("color", "#8b949e"),
+                    "bg":           cfg.get("bg", "#161b22"),
+                })
+            elif provider in env_configured:
+                result.append({
+                    "provider":     provider,
+                    "label":        cfg.get("label", provider),
+                    "sublabel":     cfg.get("sublabel", ""),
+                    "connected":    provider == active,
+                    "key_snippet":  "from server environment",
+                    "validated_at": 0,
+                    "from_env":     True,
                     "color":        cfg.get("color", "#8b949e"),
                     "bg":           cfg.get("bg", "#161b22"),
                 })

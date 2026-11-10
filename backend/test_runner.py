@@ -216,9 +216,14 @@ class TestRunner:
             stdout, _ = await asyncio.wait_for(
                 proc.communicate(), timeout=MUTANT_TIMEOUT + 5
             )
-            if proc.returncode != 0:
+            # pytest exit codes: 0 all passed (survived); 1 test failed and
+            # 2 collection error (mutant broke the module) are detections (killed);
+            # 3 internal error, 4 usage error, 5 no tests are execution errors.
+            if proc.returncode == 0:
+                return "survived", None
+            if proc.returncode in (1, 2):
                 return "killed", self._parse_killer(stdout.decode(errors="replace"))
-            return "survived", None
+            return "error", None
         except asyncio.TimeoutError:
             return "error", None
         except Exception:

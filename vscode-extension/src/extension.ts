@@ -959,16 +959,18 @@ async function runStudioGeneration(context: vscode.ExtensionContext, msg: any) {
     }
 
     prog(`[DEBUG-FRONTEND] Provider: ${provider}`);
-    prog(`[DEBUG-FRONTEND] API Key from backend vault: ${apiKey ? apiKey.substring(0, 10) + '***' : 'NOT_FOUND'}`);
+    prog(`API key for ${provider}: ${apiKey ? 'configured' : 'NOT configured'}`);
 
     if (isStreamFormat) {
       // Stream results for manual test formats
+      // Test cases are generated from the surviving mutations of the last analysis.
+      const gapDriven = fmt === "test_case";
       const requestBody = {
         file_path: filePath, project_root: folder,
         llm_provider: provider, llm_api_key: apiKey,
-        format: fmt, verify: true,
+        format: fmt, verify: true, gap_driven: gapDriven,
       };
-      prog(`[DEBUG-FRONTEND] Sending request with llm_api_key: ${apiKey ? 'YES' : 'NO'}`);
+      if (gapDriven) { prog("Targeting surviving mutations from the last analysis…"); }
 
       const resp = await fetch(`http://localhost:${port}/generate/test-suite`, {
         method: "POST",
@@ -1015,13 +1017,28 @@ async function runStudioGeneration(context: vscode.ExtensionContext, msg: any) {
         }
       }
 
-      // Fetch the final result (streaming doesn't include complete content)
-      const finalResp = await postJson(`http://localhost:${port}/generate/test-suite`, {
-        file_path: filePath, project_root: folder,
-        llm_provider: provider, llm_api_key: getApiKey(cfg, provider),
-        format: fmt, verify: true,
-      });
-      studioPanel?.webview.postMessage({ type: "studio_result", result: finalResp });
+      // For streaming formats, fetch the final formatted result (without streaming)
+      try {
+        const url = `http://localhost:${port}/generate/test-suite?get_content=true`;
+        prog(`[DEBUG] Fetching formatted content from: ${url}`);
+        const finalResp = await postJson(url, {
+          file_path: filePath, project_root: folder,
+          llm_provider: provider, llm_api_key: getApiKey(cfg, provider),
+          format: fmt, verify: true, gap_driven: fmt === "test_case",
+        });
+        prog(`[DEBUG] Response received: success=${finalResp?.success}, has_content=${!!finalResp?.content}`);
+        if (finalResp && finalResp.success !== false) {
+          prog(`[DEBUG] Sending studio_result to webview`);
+          studioPanel?.webview.postMessage({ type: "studio_result", result: finalResp });
+        } else {
+          // Failures must be visible in the Studio, not only in the progress log.
+          studioPanel?.webview.postMessage({ type: "studio_error",
+            message: finalResp?.message || "Test generation failed." });
+        }
+      } catch (err) {
+        studioPanel?.webview.postMessage({ type: "studio_error",
+          message: `Could not fetch the generated tests: ${err instanceof Error ? err.message : String(err)}` });
+      }
     } else {
       // Non-streaming formats (unit, gherkin, traceability)
       const resp = await postJson(`http://localhost:${port}/generate/test-suite`, {
@@ -2051,7 +2068,7 @@ async function initBadge() {
     const resp = await fetch('http://localhost:8765/auth/status');
     if (!resp.ok) return;
     const data = await resp.json();
-    const active = data.active_llm || 'ollama';
+    const active = data.active_llm || 'gemini';
     const providers = data.llm || [];
     const activeProvider = providers.find(p => p.provider === active);
 
@@ -2211,7 +2228,7 @@ function getTestStudioHtml(cspSource: string, logoUri: string): string {
         return;
       }
       const data = await resp.json();
-      const provider = data.active_llm || 'ollama';
+      const provider = data.active_llm || 'gemini';
       const format = document.getElementById('sel-fmt').value;
       const file = document.getElementById('target').textContent.replace('📄 ', '').trim();
 
@@ -3979,6 +3996,9 @@ setInterval(function() {
 }, 1000);
 
 
+${getSharedHeaderJS()}
+</script>
+
 <!-- Provider Management Modal -->
 <div id="sh-provider-modal" class="provider-modal" onclick="shCloseProviderModal()">
   <div class="provider-modal-content" onclick="event.stopPropagation()">
@@ -3994,8 +4014,6 @@ setInterval(function() {
   </div>
 </div>
 
-${getSharedHeaderJS()}
-</script>
 </div>
 </body>
 </html>`;

@@ -38,6 +38,16 @@ class JavaScriptMutationEngine:
         mutants.extend(self._apply_bcr(file_path, source))  # Boolean
         mutants.extend(self._apply_str(file_path, source))  # String
 
+        # Mutating comment text cannot change behaviour: it is a meaningless
+        # mutant that no test can kill, so drop it.
+        source_lines = source.splitlines()
+
+        def _in_comment(line_no: int) -> bool:
+            text = source_lines[line_no - 1].strip() if 0 < line_no <= len(source_lines) else ""
+            return text.startswith(("//", "/*", "*"))
+
+        mutants = [m for m in mutants if not _in_comment(m.line_no)]
+
         return mutants
 
     def _apply_aor(self, file_path: str, source: str) -> List[Mutant]:
@@ -53,7 +63,9 @@ class JavaScriptMutationEngine:
 
         for old_op, new_op in operators.items():
             # Find all arithmetic operations (simple regex, not perfect)
-            pattern = rf"(\w|\))\s*\{re.escape(old_op)}\s*(\w|\()"
+            # Built by concatenation: an f-string here turns "\{" into a stray
+            # backslash, so the pattern never matches real operators.
+            pattern = r"(\w|\))\s*" + re.escape(old_op) + r"\s*(\w|\()"
             for match in re.finditer(pattern, source):
                 start, end = match.span()
                 mutant_src = (
@@ -72,7 +84,7 @@ class JavaScriptMutationEngine:
                     operator="AOR",
                     description=f"{old_op} → {new_op}",
                     original_src=match.group(0),
-                    mutant_src=match.group(0).replace(old_op, new_op),
+                    mutant_src=mutant_src,
                 )
                 mutants.append(mutant)
                 self.mutant_id_counter += 1
@@ -94,7 +106,9 @@ class JavaScriptMutationEngine:
         }
 
         for old_op, new_op in operators.items():
-            pattern = re.escape(old_op)
+            # Anchor so "==" does not match inside "===" or "!==" (which would
+            # produce invalid operators such as "!!=") or inside "=>".
+            pattern = r"(?<![=!<>])" + re.escape(old_op) + r"(?![=<>])"
             for match in re.finditer(pattern, source):
                 start, end = match.span()
                 mutant_src = source[:start] + new_op + source[end:]
@@ -108,7 +122,7 @@ class JavaScriptMutationEngine:
                     operator="ROR",
                     description=f"{old_op} → {new_op}",
                     original_src=old_op,
-                    mutant_src=new_op,
+                    mutant_src=mutant_src,
                 )
                 mutants.append(mutant)
                 self.mutant_id_counter += 1
@@ -133,7 +147,7 @@ class JavaScriptMutationEngine:
                 operator="LCR",
                 description="&& → ||",
                 original_src="&&",
-                mutant_src="||",
+                mutant_src=mutant_src,
             )
             mutants.append(mutant)
             self.mutant_id_counter += 1
@@ -152,7 +166,7 @@ class JavaScriptMutationEngine:
                 operator="LCR",
                 description="|| → &&",
                 original_src="||",
-                mutant_src="&&",
+                mutant_src=mutant_src,
             )
             mutants.append(mutant)
             self.mutant_id_counter += 1
@@ -177,7 +191,7 @@ class JavaScriptMutationEngine:
                 operator="BCR",
                 description="true → false",
                 original_src="true",
-                mutant_src="false",
+                mutant_src=mutant_src,
             )
             mutants.append(mutant)
             self.mutant_id_counter += 1
@@ -196,7 +210,7 @@ class JavaScriptMutationEngine:
                 operator="BCR",
                 description="false → true",
                 original_src="false",
-                mutant_src="true",
+                mutant_src=mutant_src,
             )
             mutants.append(mutant)
             self.mutant_id_counter += 1
@@ -223,7 +237,7 @@ class JavaScriptMutationEngine:
                     operator="STR",
                     description=f'{original} → ""',
                     original_src=original,
-                    mutant_src='""',
+                    mutant_src=mutant_src,
                 )
                 mutants.append(mutant)
                 self.mutant_id_counter += 1
@@ -244,7 +258,7 @@ class JavaScriptMutationEngine:
                     operator="STR",
                     description=f"{original} → ''",
                     original_src=original,
-                    mutant_src="''",
+                    mutant_src=mutant_src,
                 )
                 mutants.append(mutant)
                 self.mutant_id_counter += 1
