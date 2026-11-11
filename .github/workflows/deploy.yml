@@ -31,18 +31,14 @@ jobs:
     - name: Build VSIX
       working-directory: vscode-extension
       run: |
-        echo "Installing dependencies..."
-        npm cache clean --force || true
-        npm install --no-audit --no-fund 2>&1 | grep -v "deprecation" | tail -20 || true
+        echo "Installing dependencies from package-lock.json..."
+        npm ci --no-audit --no-fund
 
         echo "Compiling TypeScript..."
         npm run compile
 
-        echo "Installing @vscode/vsce (Node 18 compatible)..."
-        npm install -D @vscode/vsce
-
-        echo "Packaging VSIX..."
-        npx @vscode/vsce package --allow-star-activation -o ../qamill-mutation-testing-1.2.2.vsix
+        echo "Packaging VSIX with project-local @vscode/vsce..."
+        npx --no-install @vscode/vsce package --allow-star-activation -o ../qamill-mutation-testing-1.2.2.vsix
 
     - name: Verify VSIX
       run: |
